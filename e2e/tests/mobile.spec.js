@@ -214,7 +214,7 @@ test.describe('mobile', () => {
         const plus = await page.getByTestId('tab-new').boundingBox();
         expect([Math.round(box.x), Math.round(plus.x + plus.width)]).toEqual([16, width - 16]);
         expect(Math.round(box.x + box.width)).toBeLessThan(Math.round(plus.x));
-        expect([Math.round(box.y + box.height), Math.round(plus.y + plus.height)]).toEqual([height - 16, height - 16]);
+        expect([Math.round(box.y + box.height), Math.round(plus.y + plus.height)]).toEqual([height - 8, height - 8]);
         expect([Math.round(plus.width), Math.round(plus.height)]).toEqual([Math.round(box.height), Math.round(box.height)]);
         await expect(page.getByTestId('tab-new')).toHaveAttribute('aria-label', 'New');
         await expect(bar).toHaveCSS('border-radius', `${box.height / 2}px`);
@@ -4121,9 +4121,17 @@ test.describe('mobile', () => {
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
         const copied = await page.evaluate(() => window.copied);
         const toast = await page.getByTestId('toast').boundingBox();
-        expect(Math.abs(toast.x + toast.width / 2 - page.viewportSize().width / 2)).toBeLessThan(2);
+        await expect.poll(async () => {
+            const pillBox = await page.getByTestId('toast-box').boundingBox();
+            return [pillBox.x, pillBox.x + pillBox.width, pillBox.height];
+        }).toEqual([16, page.viewportSize().width - 16, 48]);
+        await expect(page.getByTestId('toast-box')).toHaveCSS('background-color', rgb(lightTheme.palette.capsule));
+        await expect(page.getByTestId('toast-box')).toHaveCSS('border-radius', '24px');
         const bar = await page.getByTestId('tab-bar').boundingBox();
-        expect(toast.y + toast.height).toBeLessThan(bar.y);
+        await expect.poll(async () => {
+            const pill = await page.getByTestId('toast-box').boundingBox();
+            return Math.round(bar.y - (pill.y + pill.height));
+        }).toBe(8);
         expect(toast.y).toBeGreaterThan(page.viewportSize().height / 2);
         await expect(page.getByTestId('toast').locator('.mantine-Notification-closeButton')).toHaveCount(0);
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
@@ -4222,6 +4230,14 @@ test.describe('mobile', () => {
             const width = page.viewportSize().width;
             expect([box.x >= 0, box.x + box.width <= width, action.x >= box.x, action.x + action.width <= box.x + box.width])
                 .toEqual([true, true, true, true]);
+            const icon = await page.getByTestId('toast-box').locator('svg').first().boundingBox();
+            const word = await page.getByTestId('toast-action').evaluate((el) => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                return range.getBoundingClientRect().right;
+            });
+            expect(Math.round(box.x + box.width - word)).toBe(Math.round(icon.x - box.x));
+            await expect(page.getByTestId('toast-action')).toHaveCSS('color', rgb(lightTheme.palette.accent));
         });
 
         test('goes at a tap on it', async ({page}) => {

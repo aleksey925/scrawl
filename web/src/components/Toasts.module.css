@@ -9,8 +9,13 @@
 .root.phone[data-position='bottom-center'] {
   bottom: calc(
     100% - var(--scrawl-toast-view-top, 0px) - var(--scrawl-toast-view-height, 100%) +
-      max(var(--scrawl-tabbar-space), calc(env(safe-area-inset-bottom, 0px) + 16px))
+      var(--scrawl-capsule-top, var(--scrawl-capsule-bottom)) + 8px
   );
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  width: auto;
+  max-width: none;
+  transform: none;
 }
 
 .toast {
@@ -32,16 +37,55 @@
 }
 
 .pill {
-  max-width: calc(100vw - 2 * var(--mantine-spacing-lg));
-  padding: 10px 16px;
-  border-radius: 22px;
-  box-shadow: var(--scrawl-shadow-medium);
+  width: 100%;
+  max-width: none;
+  height: 48px;
+  min-height: 0;
+  padding: 0 16px;
+  border: 1px solid var(--scrawl-capsule-line, var(--scrawl-capsule-border));
+  border-radius: 24px;
+  background: var(--scrawl-capsule);
+  box-shadow: var(--scrawl-capsule-glow, var(--scrawl-shadow-capsule));
+  color: var(--scrawl-text);
   font-size: 15px;
   font-weight: 500;
   line-height: 1.35;
   touch-action: none;
   cursor: pointer;
   transition: transform 200ms ease-out;
+}
+
+.pill .body {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pill .message {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pill :is(.title, .message, :global([data-toast-text])) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pill :global([data-toast-row]) {
+  width: 100%;
+}
+
+.pill .title {
+  flex: none;
+  max-width: 50%;
+}
+
+.pill :global([data-testid='toast-action']) {
+  min-height: var(--scrawl-tap-target);
+  margin-block: 0;
+  color: var(--scrawl-accent);
 }
 
 .icon {
@@ -76,4 +120,10 @@
 .title + .message {
   font-weight: 400;
   opacity: 0.8;
+}
+
+@media (hover: none) {
+  .pill :global([data-testid='toast-action']):active {
+    background: var(--scrawl-pressed);
+  }
 }

@@ -65,8 +65,8 @@ export function showToast(kind: ToastKind, options: ToastOptions): void {
       action === undefined ? (
         options.message
       ) : (
-        <span className={classes.withAction}>
-          <span className={classes.text}>{options.message}</span>
+        <span data-toast-row className={classes.withAction}>
+          <span data-toast-text className={classes.text}>{options.message}</span>
           <ActionButton
             action={action}
             hold={(held) => notifications.update({ ...toast, autoClose: held ? false : actionToastMs })}

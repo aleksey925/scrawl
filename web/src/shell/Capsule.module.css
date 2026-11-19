@@ -1,9 +1,10 @@
 :global(:root):has(.capsule) {
-  --scrawl-tabbar-space: calc(var(--scrawl-capsule-height) + var(--scrawl-capsule-bottom) + 12px);
+  --scrawl-capsule-top: calc(var(--scrawl-capsule-height) + var(--scrawl-capsule-bottom));
+  --scrawl-tabbar-space: calc(var(--scrawl-capsule-top) + 12px);
 }
 
 :global(:root):has(.capsule[data-kind='actions']) {
-  --scrawl-tabbar-space: calc(var(--scrawl-action-bar-height) + var(--scrawl-capsule-bottom) + 12px);
+  --scrawl-capsule-top: calc(var(--scrawl-action-bar-height) + var(--scrawl-capsule-bottom));
 }
 
 .capsule {

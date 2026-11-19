@@ -11,7 +11,7 @@ import { cameFrom } from '../historyTrail';
 import { directoryUrl, documentUrl, editUrl } from '../paths';
 import { useAccount } from '../shell/NavContext';
 import { basenameOf, freeName, joinPath, noteNameOf } from '../shell/naming';
-import { modChord } from '../shell/shortcuts';
+import { composing, modChord } from '../shell/shortcuts';
 import { useMutationState } from '../shell/useMutationState';
 import { holdReload } from '../staleBundle';
 import { showToast } from '../toast';
@@ -414,6 +414,43 @@ export function useEditSession({
       openReader(res.savedTo);
     }
   }, [dirty, exists, openReader, save]);
+
+  useEffect(() => {
+    const inText = (event: KeyboardEvent): boolean => {
+      const { target } = event;
+      if (target === document.body) {
+        return true;
+      }
+      return target instanceof HTMLElement && target.tagName !== 'INPUT' && target.closest('.cm-editor') !== null;
+    };
+    const onChord = (event: KeyboardEvent): void => {
+      if (!modChord(event, 'enter') || !inText(event) || composing(event)) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      if (!savingRef.current && !leavingRef.current) {
+        void saveAndLeave();
+      }
+    };
+    const onEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || !inText(event) || composing(event)) {
+        return;
+      }
+      if (document.querySelector('.cm-tooltip-autocomplete') !== null) {
+        return;
+      }
+      if (!savingRef.current && !leavingRef.current) {
+        cancel();
+      }
+    };
+    document.addEventListener('keydown', onChord, true);
+    document.addEventListener('keydown', onEscape, true);
+    return () => {
+      document.removeEventListener('keydown', onChord, true);
+      document.removeEventListener('keydown', onEscape, true);
+    };
+  }, [cancel, saveAndLeave]);
 
   return { leaving, cancel, saveAndLeave };
 }

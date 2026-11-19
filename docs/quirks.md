@@ -218,6 +218,10 @@ words; the fact itself is written here.
 - `PopupMenu` uses `floatingStrategy="fixed"`: a menu placed in the page moved
   the page, because the focus it takes on opening scrolled to where it stood
   before it was placed.
+- codemirror marks every `Escape` in its text as handled, `defaultPrevented` on
+  the document, as it turns on its own mode where Tab moves the focus, and
+  binds `Mod-Enter` to a new line. A key of the app over the text listens in
+  the capture phase, before it. [editor](ui/editor.md)
 - react-codemirror sets the whole editor up again whenever `basicSetup`,
   `extensions`, `theme`, `onChange` or `onUpdate` is a new object, so each of
   them is made once, outside the render, or memoized.

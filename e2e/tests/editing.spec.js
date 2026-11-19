@@ -586,6 +586,54 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('Cmd+Enter in the text saves, opens the reader and adds no line', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-cmd-enter');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+
+        // act
+        await page.keyboard.press('ControlOrMeta+Enter');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect.poll(() => readFixture(docPath)).toBe('written\n');
+        removeFixture(docPath);
+    });
+
+    test('Esc in the text leaves the editor and keeps the changes as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('leave-esc');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'typed and left\n');
+
+        // act
+        await page.keyboard.press('Escape');
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+        expect(readFixture(docPath)).toBe('kept\n');
+        removeFixture(docPath);
+    });
+
+    test('Esc in the filter of the sidebar clears the filter and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-filter');
+        await editFromReader(page, docPath, 'kept\n');
+        const filter = page.getByTestId('sidebar-filter');
+        await filter.fill('kept');
+
+        // act
+        await filter.press('Escape');
+
+        // assert
+        await expect(filter).toHaveValue('');
+        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        removeFixture(docPath);
+    });
+
     test('Save stays in the editor when the text changed while the save ran', async ({page}) => {
         // arrange
         const docPath = scratch('save-typed-midway');

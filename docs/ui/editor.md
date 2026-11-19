@@ -84,37 +84,42 @@ The editor screen.
   stays there. Once the save is done and the reader is on its way, the text can
   no longer be changed: the guard on leaving is asked only as the move starts,
   and the reader may still be loading. A save midway that keeps the editor is
-  `Ctrl`/`Cmd` + `S`. Cancel, the back arrow and any other way out leave
-  without saving and ask nothing: the unsaved text is written to the draft on
-  the device as the editor goes, neither the text nor an offered draft can be
-  changed while the next page loads, a toast says "Changes kept as a draft on
-  this device", and the editor offers the draft back the next time
-  ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The toast has no button:
-  the way back is the note itself, and for a note not created yet the next New
-  note in its folder, which opens at the same address and offers the draft.
-  Text typed there instead of Restore leaves the offered draft as it is while
-  the editor stays open, and replaces it only when the editor is left, saved or
-  put in the background: a new note takes the focus on a phone, and its first
-  keys wiped a draft whose row was easy to miss. A save that keeps the editor,
-  one the server refuses too, the page put in the background with new text, or
-  a preview or Changes refused as the session ended, also takes the row away,
-  and the text typed after it is kept as a draft again: the save writes its
-  text over the offered draft before it is sent, and a row left after a refused
-  save held back the drafts after it, and its Discard dropped the newer text. A
-  save with no new text, as a note not created yet saved as it opened, keeps
-  the offered draft, as nothing has replaced it. A draft belongs to its space
-  and path, and follows the note when it or its folder is renamed or moved, an
-  Undo of the move included, the open note too: its text is written as the
-  editor goes and moved once the next page opens. A draft the browser refuses
-  under the new name stays under the old one. A leave while a save is on its
-  way shows no such toast, as the save's own follows. Only when the browser
-  refuses the draft, as a private window or a full storage does, or while a
-  picture is still uploading, whose link would never land, would the text be
-  lost, and then a dialog asks "Discard changes?" with Discard in red and Keep
-  editing. Discard drops any draft kept before and writes no new one, and the
-  text can no longer be changed either. Closing the tab asks the browser's own
-  question in those cases alone. A phone has no shortcut, so a save there
-  always leaves; the local draft keeps the text between saves.
+  `Ctrl`/`Cmd` + `S`. `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is Cancel, from
+  the text or with nothing focused; in a field, a menu, a dialog or the sidebar
+  `Esc` closes what it closed before, and the first `Esc` over an open list of
+  completions closes that list. Both are taken before the text
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
+  and any other way out leave without saving and ask nothing: the unsaved text
+  is written to the draft on the device as the editor goes, neither the text
+  nor an offered draft can be changed while the next page loads, a toast says
+  "Changes kept as a draft on this device", and the editor offers the draft
+  back the next time ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The
+  toast has no button: the way back is the note itself, and for a note not
+  created yet the next New note in its folder, which opens at the same address
+  and offers the draft. Text typed there instead of Restore leaves the offered
+  draft as it is while the editor stays open, and replaces it only when the
+  editor is left, saved or put in the background: a new note takes the focus on
+  a phone, and its first keys wiped a draft whose row was easy to miss. A save
+  that keeps the editor, one the server refuses too, the page put in the
+  background with new text, or a preview or Changes refused as the session
+  ended, also takes the row away, and the text typed after it is kept as a
+  draft again: the save writes its text over the offered draft before it is
+  sent, and a row left after a refused save held back the drafts after it, and
+  its Discard dropped the newer text. A save with no new text, as a note not
+  created yet saved as it opened, keeps the offered draft, as nothing has
+  replaced it. A draft belongs to its space and path, and follows the note when
+  it or its folder is renamed or moved, an Undo of the move included, the open
+  note too: its text is written as the editor goes and moved once the next page
+  opens. A draft the browser refuses under the new name stays under the old
+  one. A leave while a save is on its way shows no such toast, as the save's
+  own follows. Only when the browser refuses the draft, as a private window or
+  a full storage does, or while a picture is still uploading, whose link would
+  never land, would the text be lost, and then a dialog asks "Discard changes?"
+  with Discard in red and Keep editing. Discard drops any draft kept before and
+  writes no new one, and the text can no longer be changed either. Closing the
+  tab asks the browser's own question in those cases alone. A phone has no
+  shortcut, so a save there always leaves; the local draft keeps the text
+  between saves.
 - The draft is also written on `pagehide` and when the page turns hidden, as a
   phone that drops a tab put away fires no `beforeunload`
   ([quirks](../quirks.md)). Both events are kept. MDN and the Page Lifecycle

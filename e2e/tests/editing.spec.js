@@ -679,6 +679,26 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('a save the server refuses while a draft is offered ends the offer, and text typed after it is kept as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-save-fails');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await setSource(page, 'saved over it\n');
+        await failSave(page, 500);
+        await page.keyboard.press('ControlOrMeta+s');
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toBeVisible();
+
+        // act
+        await setSource(page, 'typed after the save\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the save\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(readFixture(docPath)).toBe('kept\n');
+        removeFixture(docPath);
+    });
+
     test('a page hidden while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-hidden');

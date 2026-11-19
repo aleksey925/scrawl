@@ -25,6 +25,7 @@ export interface DraftControl {
   dismiss: () => void;
   abandon: () => void;
   flush: () => boolean;
+  replace: () => boolean;
   clear: () => void;
 }
 
@@ -76,6 +77,14 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     return stored;
   }, []);
 
+  const replace = useCallback((): boolean => {
+    const wrote = latest.current.dirty && flush();
+    if (wrote) {
+      setOffered(undefined);
+    }
+    return wrote;
+  }, [flush]);
+
   const clear = useCallback((): void => {
     removeKey(localStore(), latest.current.key);
     setWritten(undefined);
@@ -105,23 +114,18 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   }, [content, dirty, offering, flush]);
 
   useEffect(() => {
-    const putAway = (): void => {
-      if (latest.current.dirty && flush()) {
-        setOffered(undefined);
-      }
-    };
     const onHidden = (): void => {
       if (document.hidden) {
-        putAway();
+        replace();
       }
     };
-    window.addEventListener('pagehide', putAway);
+    window.addEventListener('pagehide', replace);
     document.addEventListener('visibilitychange', onHidden);
     return () => {
-      window.removeEventListener('pagehide', putAway);
+      window.removeEventListener('pagehide', replace);
       document.removeEventListener('visibilitychange', onHidden);
     };
-  }, [flush]);
+  }, [replace]);
 
   const dismiss = useCallback((): void => setOffered(undefined), []);
   const abandon = useCallback((): void => {
@@ -132,5 +136,5 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, abandon, flush, clear };
+  return { offered, stale, stored, dismiss, abandon, flush, replace, clear };
 }

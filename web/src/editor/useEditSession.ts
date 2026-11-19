@@ -261,7 +261,7 @@ export function useEditSession({
             sent = bufferText();
           }
         }
-        draftRef.current.flush();
+        draftRef.current.replace();
         if (first) {
           const target = await draftTarget(sent);
           if (target === undefined) {

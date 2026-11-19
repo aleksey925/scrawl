@@ -85,12 +85,11 @@ Creating, naming, moving and deleting files and folders.
   phone it takes the place of the title in the bar on top. The field holds the
   whole name with its extension, nothing selected and the cursor before the
   last dot, or at the end of a folder's name, where a dot is part of the name.
-  A phone's list is the exception: there the name up to its extension is
-  picked, a tap outside cancels and a ✕ clears the field, as in the Files app
-  of iOS ([phone](phone.md)). Enter, or Done on a phone's keyboard, saves, and
-  so does a click or a tap outside the field, but not a switch to another
-  window or app: the field stays open with the name typed, and a slip saved a
-  half-typed name, whose links are not rewritten
+  A phone's list is the exception: there a tap outside cancels and a ✕ clears
+  the field, as in the Files app of iOS ([phone](phone.md)). Enter, or Done on
+  a phone's keyboard, saves, and so does a click or a tap outside the field,
+  but not a switch to another window or app: the field stays open with the name
+  typed, and a slip saved a half-typed name, whose links are not rewritten
   ([quirks](../quirks.md#browsers)). Escape drops it, and on a touch screen a ✕
   inside the field does. A failed save keeps the field with the name typed, and
   a save started with Enter gives the focus back to it, unless the focus was

@@ -2502,7 +2502,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('topbar-title').getByTestId('page-rename-input')).toBeFocused();
         }
 
-        test('Rename turns the name of the row into a field with the base name picked, Done saves, a tap outside cancels and ✕ clears', async ({page}) => {
+        test('Rename turns the name of the row into a field with the cursor before the extension, Done saves, a tap outside cancels and ✕ clears', async ({page}) => {
             // arrange
             const file = `${FOLDER}/rename-me.md`;
             const renamed = `${FOLDER}/renamed-here.md`;
@@ -2515,7 +2515,7 @@ test.describe('mobile', () => {
             await startRowRename(page, file);
             await expect(input).toHaveValue(nameOf(file));
             expect(await input.evaluate((field) => [field.selectionStart, field.selectionEnd]))
-                .toEqual([0, nameOf(file).length - '.md'.length]);
+                .toEqual([nameOf(file).length - '.md'.length, nameOf(file).length - '.md'.length]);
             expect(await input.evaluate((field) => ({
                 enterkeyhint: field.getAttribute('enterkeyhint'),
                 autocomplete: field.getAttribute('autocomplete'),

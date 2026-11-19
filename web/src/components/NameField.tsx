@@ -190,7 +190,7 @@ export function NameField({
         if (!placed.current) {
           placed.current = true;
           const at = caretOf(event.currentTarget.value, isDir);
-          event.currentTarget.setSelectionRange(listRow ? 0 : at, at);
+          event.currentTarget.setSelectionRange(at, at);
         }
       }}
       onChange={(event) => setName(event.currentTarget.value)}

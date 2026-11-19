@@ -202,19 +202,19 @@ How the app works on a phone.
 - In a list the rename is done in the row, as in the Files app of iOS. The row
   keeps its look: the ground of the group, its corners, its separators and its
   52px, so nothing moves. Its `⋯` is gone while the field is open, and the name
-  is a field of 36px with 8px corners on `groupedField` in 17px text, with the
-  name picked up to its extension, so typing replaces only the name. A gray
-  round ✕ of 17px at the end of the field clears it, as the clear button of iOS
-  does. Done on the keyboard saves, and a tap outside the field or Escape
-  cancels; the field losing the focus does nothing, so hiding the keyboard
-  keeps what was typed. A swipe back saves it. The field turns off
-  autocomplete, autocorrect, capitalizing and spell check, and has no name or
-  id, as Safari offered to fill it in from the contacts. The field takes the
-  focus without scrolling the page. When the keyboard comes up over the row,
-  the page scrolls just enough to keep the row 16px above it, and the bottom of
-  the page gets the keyboard's height as room, so a row at the end of the list
-  scrolls up too instead of Safari moving the whole screen and the bar on top
-  under the status bar.
+  is a field of 36px with 8px corners on `groupedField` in 17px text. As on a
+  desktop nothing in it is selected, and the cursor stands before the
+  extension, or at the end of a folder's name. A gray round ✕ of 17px at the
+  end of the field clears it, as the clear button of iOS does. Done on the
+  keyboard saves, and a tap outside the field or Escape cancels; the field
+  losing the focus does nothing, so hiding the keyboard keeps what was typed. A
+  swipe back saves it. The field turns off autocomplete, autocorrect,
+  capitalizing and spell check, and has no name or id, as Safari offered to
+  fill it in from the contacts. The field takes the focus without scrolling the
+  page. When the keyboard comes up over the row, the page scrolls just enough
+  to keep the row 16px above it, and the bottom of the page gets the keyboard's
+  height as room, so a row at the end of the list scrolls up too instead of
+  Safari moving the whole screen and the bar on top under the status bar.
 - A toast on a phone follows one rule on every screen, the lists, the profile,
   a note, a file and the editor: a pill 8px over the tab bar or the bar of a
   note, or over the edge of the screen where there is none, in the middle and

@@ -92,23 +92,24 @@ The editor screen.
   the editor stays open, and replaces it only when the editor is left, saved or
   put in the background: a new note takes the focus on a phone, and its first
   keys wiped a draft whose row was easy to miss. A save that keeps the editor,
-  one the server refuses too, or the page put in the background with new text,
-  also takes the row away, and the text typed after it is kept as a draft
-  again: the save writes its text over the offered draft before it is sent, and
-  a row left after a refused save held back the drafts after it, and its
-  Discard dropped the newer text. A draft belongs to its space and path, and
-  follows the note when it or its folder is renamed or moved, an Undo of the
-  move included, the open note too: its text is written as the editor goes and
-  moved once the next page opens. A draft the browser refuses under the new
-  name stays under the old one. A leave while a save is on its way shows no
-  such toast, as the save's own follows. Only when the browser refuses the
-  draft, as a private window or a full storage does, or while a picture is
-  still uploading, whose link would never land, would the text be lost, and
-  then a dialog asks "Discard changes?" with Discard in red and Keep editing.
-  Discard drops any draft kept before and writes no new one, and the text can
-  no longer be changed either. Closing the tab asks the browser's own question
-  in those cases alone. A phone has no shortcut, so a save there always leaves;
-  the local draft keeps the text between saves.
+  one the server refuses too, the page put in the background with new text, or
+  a preview or Changes refused as the session ended, also takes the row away,
+  and the text typed after it is kept as a draft again: the save writes its
+  text over the offered draft before it is sent, and a row left after a refused
+  save held back the drafts after it, and its Discard dropped the newer text. A
+  draft belongs to its space and path, and follows the note when it or its
+  folder is renamed or moved, an Undo of the move included, the open note too:
+  its text is written as the editor goes and moved once the next page opens. A
+  draft the browser refuses under the new name stays under the old one. A leave
+  while a save is on its way shows no such toast, as the save's own follows.
+  Only when the browser refuses the draft, as a private window or a full
+  storage does, or while a picture is still uploading, whose link would never
+  land, would the text be lost, and then a dialog asks "Discard changes?" with
+  Discard in red and Keep editing. Discard drops any draft kept before and
+  writes no new one, and the text can no longer be changed either. Closing the
+  tab asks the browser's own question in those cases alone. A phone has no
+  shortcut, so a save there always leaves; the local draft keeps the text
+  between saves.
 - The draft is also written on `pagehide` and when the page turns hidden, as a
   phone that drops a tab put away fires no `beforeunload`
   ([quirks](../quirks.md)). Both events are kept. MDN and the Page Lifecycle

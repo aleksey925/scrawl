@@ -699,6 +699,22 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('a preview refused for an ended session while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-preview-401');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        await page.route('**/api/preview', (route) => route.fulfill({status: 401, json: {error: 'refused'}}));
+
+        // act
+        await setSource(page, 'typed over it\n');
+
+        // assert
+        await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed over it\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        removeFixture(docPath);
+    });
+
     test('a page hidden while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-hidden');

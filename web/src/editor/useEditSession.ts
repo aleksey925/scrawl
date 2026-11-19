@@ -117,7 +117,7 @@ export function useEditSession({
     };
   }, []);
 
-  useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.flush()), [draftRef]);
+  useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.replace()), [draftRef]);
 
   const uploading = uploads.pending > 0;
 

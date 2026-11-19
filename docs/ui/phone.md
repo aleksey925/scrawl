@@ -190,42 +190,45 @@ How the app works on a phone.
   away from the finger, and cleared the drag's place when it ended, and a page
   taken to the finger's own shift jumped back a hundred pixels. The speed of
   such a drag is the finger's alone: counted from the page's place, a short
-  slow drag read as a flick and went back. A screen that slides in from the
-  left, as one gone back to, goes to the finger, since a drag moves a page only
-  to the right. A screen that comes in while the finger is down, such as a
-  folder whose answer came, has no move of its own and is handed to the drag at
-  the finger. A drag under which the history moves to another entry, such as a
-  page tapped before it whose code came late, is put back when let go: the way
-  back was the new page's, and the swipe left the page just opened. The way up
-  is the folder above in the address, and the bar on top names that folder too,
-  not the folder of the page before, as the bar still shows the page before
-  while the next one loads, and a quick second swipe went to the same folder
-  again. The way up goes back in the history when the page before is that
-  folder, the address of either compared as the names it spells: the server and
-  the app write some characters of a name, such as brackets, differently. As a
-  drag starts it asks for the folder above, so a folder not yet visited is
-  often there when the page has left; asked only after the leave, it slid in a
-  round trip later. The next screen of that folder takes the question as its
-  own and asks nothing again, unless the question went to the copy kept offline
-  and the app is online again, or a change or a newer drag came since, or the
-  drag was given up, or the swipe was let go more than three seconds before: a
-  folder that never came, as a tab was tapped while it loaded, left its
-  question for a later visit. The answer is not kept for later, so a folder
-  never comes back with a name already renamed or deleted, and a refused
-  question sends nobody to sign in. The swipe never starts under a dialog, a
-  sheet or a menu, nor in the editor, and for a reader who asked for less
-  motion it moves nothing on its own. A touch at the edge holds every move
-  until its direction is known, since a move let through starts the page's own
-  scroll, which shook the page up and down under the drag; one that goes up or
-  down is the scroll. The dragged page is a layer of its own, or WebKit paints
-  a long note again on every move. Let go, the page goes on at the finger's
-  speed, and a finger drawn back toward the edge as it lifts keeps the page.
-  The speed counts from where the finger came down, so a flick of one move is a
-  flick: from the moves alone it had no speed and was put back. The point where
-  it lifts is not counted: it is the last move's point a little later, and it
-  slowed every flick down. The swipe follows a touch on the element it started
-  on as well as on the document, as a touch whose element left the page, such
-  as a screen replaced by a folder that loaded, no longer reaches the document
+  slow drag read as a flick and went back. How far it went is counted from the
+  page's place, as the person sees it: a page let go while it still shows
+  mostly off the screen goes on out and does not slide in again. A screen that
+  slides in from the left, as one gone back to, goes to the finger, since a
+  drag moves a page only to the right. A screen that comes in while the finger
+  is down, such as a folder whose answer came, has no move of its own and is
+  handed to the drag at the finger. A drag under which the history moves to
+  another entry, such as a page tapped before it whose code came late, is put
+  back when let go: the way back was the new page's, and the swipe left the
+  page just opened. The way up is the folder above in the address, and the bar
+  on top names that folder too, not the folder of the page before, as the bar
+  still shows the page before while the next one loads, and a quick second
+  swipe went to the same folder again. The way up goes back in the history when
+  the page before is that folder, the address of either compared as the names
+  it spells: the server and the app write some characters of a name, such as
+  brackets, differently. As a drag starts it asks for the folder above, so a
+  folder not yet visited is often there when the page has left; asked only
+  after the leave, it slid in a round trip later. The next screen of that
+  folder takes the question as its own and asks nothing again, unless the
+  question went to the copy kept offline and the app is online again, or a
+  change or a newer drag came since, or the drag was given up, or the swipe was
+  let go more than three seconds before: a folder that never came, as a tab was
+  tapped while it loaded, left its question for a later visit. The answer is
+  not kept for later, so a folder never comes back with a name already renamed
+  or deleted, and a refused question sends nobody to sign in. The swipe never
+  starts under a dialog, a sheet or a menu, nor in the editor, and for a reader
+  who asked for less motion it moves nothing on its own. A touch at the edge
+  holds every move until its direction is known, since a move let through
+  starts the page's own scroll, which shook the page up and down under the
+  drag; one that goes up or down is the scroll. The dragged page is a layer of
+  its own, or WebKit paints a long note again on every move. Let go, the page
+  goes on at the finger's speed, and a finger drawn back toward the edge as it
+  lifts keeps the page. The speed counts from where the finger came down, so a
+  flick of one move is a flick: from the moves alone it had no speed and was
+  put back. The point where it lifts is not counted: it is the last move's
+  point a little later, and it slowed every flick down. The swipe follows a
+  touch on the element it started on as well as on the document, as a touch
+  whose element left the page, such as a screen replaced by a folder that
+  loaded, no longer reaches the document
   ([quirks](../quirks.md#phones-and-touch-screens)): the page stayed at the
   finger and held the diagrams until the next touch. The swipe saves a rename
   field before it goes back, since it blurs nothing, and the field would have

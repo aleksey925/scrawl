@@ -32,11 +32,14 @@ export interface Palette {
   scrim: string;
   codeBg: string;
   draftBg: string;
-  sheet: string;
-  sheetGroup: string;
+  groupedBg: string;
+  groupedCard: string;
+  groupedSeparator: string;
+  rowPressed: string;
   sheetClose: string;
   capsule: string;
   capsuleBorder: string;
+  capsuleBorderGrouped: string;
   tabCurrent: string;
   diagramPaper: string;
   link: string;
@@ -93,6 +96,7 @@ export interface Shadows {
   medium: string;
   large: string;
   capsule: string;
+  capsuleGrouped: string;
 }
 
 export type Scheme = 'light' | 'dark';

@@ -45,19 +45,19 @@ Sizes and feedback on a touch screen, phone or tablet.
   before the ✕ could cancel, and Tab skips it for the same reason; it shows on
   every touch screen, a tablet without a keyboard having no Escape either.
 - A touch screen answers a tap the way an app does. A pressed row or menu item
-  darkens, a list row from edge to edge of the screen, and a tab, a button of
-  the capsule and the way back dim, as the bars of iOS do, and so does a tile
-  of a sheet; the press shows 60ms after the finger lands, so a finger that
-  only starts a scroll leaves no flash. Every pressed tone keeps that delay,
-  the one of Mantine's outlined and subtle buttons and subtle icon buttons and
-  the ✕ of a field included; the 1px shift Mantine gives a pressed button shows
-  at once. A button in a row, its menu or its Run, takes the press alone, and
-  the row under it stays as it is. The faint name of a new note in a phone's
-  editor bar is a tap as tall as the bar, across the bar's middle cell, though
-  its line is 21px. A list row's press is one band under the whole row: drawn
-  as its background with a shadow for the gutter, the two ends lit and went out
-  apart from the middle. A row shrinks for a long press only once the finger
-  has rested 150ms, so a tap moves nothing. A long press on the chrome selects
+  darkens, a list row across its row of the group, and a tab, a button of the
+  capsule and the way back dim, as the bars of iOS do, and so does a tile of a
+  sheet; the press shows 60ms after the finger lands, so a finger that only
+  starts a scroll leaves no flash. Every pressed tone keeps that delay, the one
+  of Mantine's outlined and subtle buttons and subtle icon buttons and the ✕ of
+  a field included; the 1px shift Mantine gives a pressed button shows at once.
+  A button in a row, its menu or its Run, takes the press alone, and the row
+  under it stays as it is. The faint name of a new note in a phone's editor bar
+  is a tap as tall as the bar, across the bar's middle cell, though its line is
+  21px. A list row's press is one band under the whole row: drawn as its
+  background with a shadow for the gutter, the two ends lit and went out apart
+  from the middle. A row shrinks for a long press only once the finger has
+  rested 150ms, so a tap moves nothing. A long press on the chrome selects
   nothing and opens no preview of a link, while a note, code and what a reader
   types still select. iOS draws `:active` only under a `touchstart` listener,
   so the document carries an empty one.

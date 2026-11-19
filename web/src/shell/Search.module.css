@@ -165,11 +165,32 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--scrawl-bg);
+  background: var(--scrawl-grouped-bg);
 }
 
 .phoneBody {
-  padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 8px;
+}
+
+.rows,
+.phoneBody [data-testid='search-results'] {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--scrawl-grouped-card);
+}
+
+.phoneBody .file {
+  position: relative;
+  padding: 4px 8px 6px;
+}
+
+.phoneBody .file + .file::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 16px;
+  border-top: 0.5px solid var(--scrawl-grouped-separator);
 }
 
 .phoneStats {
@@ -266,7 +287,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-inline: 4px 0;
+  padding-inline: 16px 0;
+  text-transform: uppercase;
   color: var(--scrawl-text-secondary);
   font-size: 13px;
 }
@@ -274,6 +296,7 @@
 .recentClear {
   min-height: var(--scrawl-tap-target);
   padding: 0 4px;
+  text-transform: none;
   border: 0;
   background: none;
   color: var(--scrawl-accent);
@@ -289,19 +312,28 @@
 }
 
 .recentRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 56px;
-  padding: 6px 4px;
-  border-radius: 10px;
+  padding: 6px 16px;
   color: var(--scrawl-text);
   text-decoration: none;
 }
 
+.recentRow + .recentRow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 52px;
+  border-top: 0.5px solid var(--scrawl-grouped-separator);
+}
+
 .recentRow > svg {
   flex: none;
-  color: var(--scrawl-icon-secondary);
+  color: var(--scrawl-text-tertiary);
 }
 
 .recentText {
@@ -341,7 +373,7 @@
   }
 
   .recentRow:active {
-    background: var(--scrawl-pressed);
+    background: var(--scrawl-row-pressed);
     transition: var(--scrawl-press-in);
   }
 }

@@ -102,7 +102,7 @@
   height: 40px;
   padding: 0 12px;
   border-radius: 10px;
-  background: var(--scrawl-sheet-group);
+  background: var(--scrawl-grouped-card);
   color: var(--scrawl-icon-secondary);
 }
 
@@ -125,7 +125,7 @@
   flex: none;
   overflow: hidden;
   border-radius: 14px;
-  background: var(--scrawl-sheet-group);
+  background: var(--scrawl-grouped-card);
 }
 
 .sheetEmpty {

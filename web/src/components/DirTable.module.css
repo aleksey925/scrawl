@@ -165,13 +165,32 @@
   display: flex;
   flex-direction: column;
   margin-top: 4px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--scrawl-grouped-card);
 }
 
 .listRow {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
-  border-bottom: 1px solid var(--scrawl-border-light);
+  padding-inline-start: 16px;
+}
+
+.listRow + .listRow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 52px;
+  border-top: 0.5px solid var(--scrawl-grouped-separator);
+  pointer-events: none;
+}
+
+.list .listRow::before {
+  inset-inline: 0;
+  background: var(--scrawl-row-pressed);
 }
 
 .listLink {
@@ -188,7 +207,7 @@
 
 .listIcon {
   flex: none;
-  color: var(--scrawl-icon-secondary);
+  color: var(--scrawl-text-tertiary);
 }
 
 .listName {
@@ -202,7 +221,7 @@
 .listLabel {
   min-width: 0;
   overflow: hidden;
-  font-size: 16px;
+  font-size: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -212,18 +231,17 @@
 }
 
 .naming {
-  margin-inline: calc(-1 * var(--mantine-spacing-lg));
-  padding-inline: var(--mantine-spacing-lg);
-  border-bottom-color: transparent;
+  padding-inline-end: 16px;
   background: var(--scrawl-hover);
+}
+
+.naming::after,
+.naming + .listRow::after {
+  display: none;
 }
 
 .naming > .listLink {
   padding-block: calc((52px - var(--scrawl-tap-target)) / 2);
-}
-
-.listRow:has(+ .naming) {
-  border-bottom-color: transparent;
 }
 
 @media (hover: none) {

@@ -237,7 +237,7 @@
   flex: none;
   border: 2px solid transparent;
   border-radius: 14px;
-  background: var(--scrawl-sheet-group);
+  background: var(--scrawl-grouped-card);
 }
 
 .card[data-selected='true'] {

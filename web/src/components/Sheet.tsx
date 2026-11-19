@@ -53,9 +53,9 @@ export function Sheet({
   );
 }
 
-export function SheetGroup({ children, ...rest }: ComponentPropsWithoutRef<'div'>): JSX.Element {
+export function SheetGroup({ children, className, ...rest }: ComponentPropsWithoutRef<'div'>): JSX.Element {
   return (
-    <div {...rest} className={classes.group}>
+    <div {...rest} className={className === undefined ? classes.group : `${classes.group} ${className}`}>
       {children}
     </div>
   );

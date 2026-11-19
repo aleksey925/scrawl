@@ -20,12 +20,14 @@ far from the thumb, and the find bar of a note stood at the top of the screen.
   keeps what is read and seldom tapped: the way back, the title, the sync
   status, and Save in the editor.
 - One floating bar, the capsule, is at the bottom of every screen but the
-  editor. Its shape is the same everywhere and only its buttons change:
+  editor. It is the same pill everywhere, with its buttons changing by screen:
   - in a list and on Profile it is a tab bar of places, Notes, Search and
     Profile, icons over labels, and a round New button stands apart beside it,
     as a tab bar holds places and not actions;
   - on a note it is the note's actions, icons only: Outline, Find in note, Edit
-    and the menu; on any other file Run, Edit and the menu.
+    and the menu; on any other file Run, Edit and the menu. This bar hugs its
+    icons in the middle of the screen, as a bar as wide as the tab bar looked
+    too big for three or four icons.
 - The capsule holds no field. Search and Find in note are light cards over the
   keyboard, and the capsule is hidden while one is open.
 - The current tab is an accent-tint pill with the accent icon and label. The
@@ -43,6 +45,10 @@ far from the thumb, and the find bar of a note stood at the top of the screen.
 - Profile is a place: a tab with a page of its own at `/profile`, which also
   holds the sync details. The sync control at the top right stays as it was,
   with its popover, on every screen.
+- Lists use the grouped style of iOS: a gray page and one white card per list,
+  rows split by a line that starts at the text. A note, a file and the editor
+  stay on the plain page ground. The root and Profile, the first screens of the
+  tabs, start their header on the same line, the row of the bar on top.
 - Back is at the top left of every screen, with the swipe back, and is not
   repeated in the capsule.
 - Nothing is translucent or blurred: the bars and sheets are drawn solid, as

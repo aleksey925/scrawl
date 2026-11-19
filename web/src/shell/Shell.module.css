@@ -1,13 +1,13 @@
 .header {
   border: 0;
-  background: var(--scrawl-bg);
+  background: var(--scrawl-ground, var(--scrawl-bg));
   translate: 0 var(--scrawl-visible-top);
   transition-property: margin-inline-start, margin-inline-end;
 }
 
 .main {
   overflow-x: clip;
-  background: var(--scrawl-bg);
+  background: var(--scrawl-ground, var(--scrawl-bg));
 }
 
 .main:has(> [data-fill]) {

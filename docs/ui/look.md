@@ -38,10 +38,11 @@ Colors, controls and type: how a note and the chrome are drawn.
   takes the hover tint, as a lifted field with its shadow stuck out of the row
   and broke the rhythm of the lines, and a ring glared across the page. The
   tint is the hover's and not the picked row's gray, which read as a picked
-  row. A phone draws that row from edge to edge ([phone](phone.md)). The
-  keyboard's focus on a grid of the editor lifts the same way too. The accent
-  is spent the way Notion spends it, read off its own pages: the one main
-  button and a toggle that is on, and on a phone the current tab of the bar
+  row. A phone draws that row across its row of the list's group
+  ([phone](phone.md)). The keyboard's focus on a grid of the editor lifts the
+  same way too. The accent is spent the way Notion spends it, read off its own
+  pages: the one main button and a toggle that is on, and on a phone the
+  current tab of the bar
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)); the search
   field has no ring, the back link and Cancel are plain text, and a main button
   that cannot be pressed yet fades in its color. The focus of the keyboard is
@@ -100,8 +101,8 @@ Colors, controls and type: how a note and the chrome are drawn.
   not show on a group in the dark theme.
 - A sheet of a phone, `Sheet` in `web/src/components/Sheet.tsx`, is the grouped
   sheet of iOS on mantine's `Drawer` from the bottom: 14px top corners on the
-  theme's `sheet` ground, a 36px grabber, a title of 17px in the 600 weight
-  with a round ✕ of 32px on `sheetClose`, and groups of `sheetGroup` with 14px
+  theme's `groupedBg` ground, a 36px grabber, a title of 17px in the 600 weight
+  with a round ✕ of 32px on `sheetClose`, and groups of `groupedCard` with 14px
   corners. A row is 50px tall with a 22px icon and 17px text, and the rows of a
   group are split by `borderTranslucent`: in the dark theme `borderLight` is
   the color of a group itself. A destructive row is red in a group of its own.

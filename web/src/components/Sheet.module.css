@@ -6,7 +6,7 @@
   height: auto;
   max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px));
   border-radius: 14px 14px 0 0;
-  background: var(--scrawl-sheet);
+  background: var(--scrawl-grouped-bg);
   color: var(--scrawl-text);
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
   overflow: hidden;
@@ -97,7 +97,7 @@
   flex: none;
   overflow: hidden;
   border-radius: 14px;
-  background: var(--scrawl-sheet-group);
+  background: var(--scrawl-grouped-card);
 }
 
 .row {
@@ -201,7 +201,7 @@
   padding: 0;
   border: 0;
   border-radius: 14px;
-  background: var(--scrawl-sheet-group);
+  background: var(--scrawl-grouped-card);
   color: var(--scrawl-text);
   font: inherit;
   font-size: 14px;

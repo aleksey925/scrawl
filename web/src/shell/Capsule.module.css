@@ -2,6 +2,10 @@
   --scrawl-tabbar-space: calc(var(--scrawl-capsule-height) + var(--scrawl-capsule-bottom) + 12px);
 }
 
+:global(:root):has(.capsule[data-kind='actions']) {
+  --scrawl-tabbar-space: calc(var(--scrawl-action-bar-height) + var(--scrawl-capsule-bottom) + 12px);
+}
+
 .capsule {
   position: fixed;
   right: calc(var(--scrawl-capsule-inset) + env(safe-area-inset-right, 0px));
@@ -12,10 +16,10 @@
   align-items: stretch;
   height: var(--scrawl-capsule-height);
   padding: 4px;
-  border: 1px solid var(--scrawl-capsule-border);
+  border: 1px solid var(--scrawl-capsule-line, var(--scrawl-capsule-border));
   border-radius: calc(var(--scrawl-capsule-height) / 2);
   background: var(--scrawl-capsule);
-  box-shadow: var(--scrawl-shadow-capsule);
+  box-shadow: var(--scrawl-capsule-glow, var(--scrawl-shadow-capsule));
 }
 
 .capsule[data-kind='tabs'] {
@@ -27,19 +31,19 @@
 }
 
 .capsule[data-kind='actions'] {
-  --scrawl-capsule-inset: 120px;
+  --scrawl-capsule-inset: 0px;
+  --scrawl-capsule-height: var(--scrawl-action-bar-height);
+  width: max-content;
+  margin-inline: auto;
+  border: 0;
+  box-shadow:
+    inset 0 0 0 1px var(--scrawl-capsule-line, var(--scrawl-capsule-border)),
+    var(--scrawl-capsule-glow, var(--scrawl-shadow-capsule));
 }
 
-.capsule[data-kind='actions']:has(> :nth-child(2)) {
-  --scrawl-capsule-inset: 96px;
-}
-
-.capsule[data-kind='actions']:has(> :nth-child(3)) {
-  --scrawl-capsule-inset: 72px;
-}
-
-.capsule[data-kind='actions']:has(> :nth-child(4)) {
-  --scrawl-capsule-inset: 48px;
+.capsule[data-kind='actions'] > .action {
+  flex: none;
+  width: var(--scrawl-action-width);
 }
 
 .round {
@@ -53,10 +57,10 @@
   width: var(--scrawl-capsule-height);
   height: var(--scrawl-capsule-height);
   padding: 0;
-  border: 1px solid var(--scrawl-capsule-border);
+  border: 1px solid var(--scrawl-capsule-line, var(--scrawl-capsule-border));
   border-radius: 50%;
   background: var(--scrawl-capsule);
-  box-shadow: var(--scrawl-shadow-capsule);
+  box-shadow: var(--scrawl-capsule-glow, var(--scrawl-shadow-capsule));
   color: var(--scrawl-icon);
   cursor: pointer;
   transition: var(--scrawl-press-out);

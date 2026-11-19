@@ -10,7 +10,7 @@ import {
 import { goToLogin } from '../login';
 import { useConnection, useReadingCopy } from '../offline/connection';
 import { documentUrl } from '../paths';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 import { Avatar } from '../shell/Avatar';
 import { spaceLabel, useAccount } from '../shell/NavContext';
 import { useOfflineAccess } from '../shell/OfflineAccess';
@@ -26,10 +26,11 @@ import classes from './ProfilePage.module.css';
 
 export function Component(): JSX.Element {
   usePageChrome(standaloneChrome('Profile'));
+  const phone = useBelow(layoutBreakpoints.phone);
 
   return (
     <Page data-testid="profile-page" variant="list" className={classes.page}>
-      <PageTitle testId="profile-title">Profile</PageTitle>
+      {!phone && <PageTitle testId="profile-title">Profile</PageTitle>}
       <div className={classes.groups}>
         <AccountCard />
         <SyncGroup />
@@ -55,7 +56,7 @@ function AccountCard(): JSX.Element {
   const user = me?.user ?? '';
 
   return (
-    <SheetGroup data-testid="profile-account">
+    <SheetGroup className={classes.card} data-testid="profile-account">
       <div className={classes.account}>
         <Avatar name={user} size={48} className={classes.avatar} />
         <div className={classes.accountText}>
@@ -76,7 +77,7 @@ function SyncGroup(): JSX.Element | null {
   if (offline && me?.space.kind === 'remote') {
     return (
       <Section label="Sync" testId="profile-sync">
-        <SheetGroup>
+        <SheetGroup className={classes.card}>
           <SheetRow testId="profile-sync-status" icon={IconCloudOff} label="Offline" />
         </SheetGroup>
       </Section>
@@ -93,7 +94,7 @@ function SyncGroup(): JSX.Element | null {
   if (syncStatus.state === 'sent' || syncStatus.state === 'sending') {
     return (
       <Section label="Sync" testId="profile-sync">
-        <SheetGroup>
+        <SheetGroup className={classes.card}>
           <SheetRow testId="profile-sync-status" lead={icon} label={syncStatus.name} />
         </SheetGroup>
       </Section>
@@ -103,7 +104,7 @@ function SyncGroup(): JSX.Element | null {
 
   return (
     <Section label="Sync" testId="profile-sync">
-      <SheetGroup>
+      <SheetGroup className={classes.card}>
         <div data-testid="profile-sync-status" className={classes.problem}>
           {icon}
           <div className={classes.problemText}>
@@ -145,7 +146,7 @@ function WorkspaceGroup(): JSX.Element | null {
 
   return (
     <Section label="Workspace" testId="profile-spaces">
-      <SheetGroup>
+      <SheetGroup className={classes.card}>
         {spaces.map((entry) => (
           <SheetRow
             key={entry.name}
@@ -202,7 +203,7 @@ function DeviceGroup(): JSX.Element {
   const signedIn = me !== undefined && me.user !== '';
 
   return (
-    <SheetGroup data-testid="profile-device">
+    <SheetGroup className={classes.card} data-testid="profile-device">
       <Switch
         data-testid="profile-offline"
         checked={offline.wanted}

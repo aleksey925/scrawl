@@ -289,7 +289,7 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
         <RenameField
           session={session}
           testId="dir-rename"
-          icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />}
+          icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeRow} className={classes.listIcon} />}
           className={classes.listField}
         />
       </div>
@@ -300,7 +300,7 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
 function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const body = (
     <>
-      <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
+      <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeRow} className={classes.listIcon} />
       <span className={classes.listName}>
         <span data-testid="dir-row-name" className={classes.listLabel}>
           {entry.name}
@@ -401,7 +401,7 @@ function PhoneDraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
         <NameField
           initial=""
           testId="dir-draft"
-          icon={<IconFolder size={layout.iconSize} className={classes.listIcon} aria-hidden />}
+          icon={<IconFolder size={layout.iconSizeRow} className={classes.listIcon} aria-hidden />}
           className={classes.listField}
           placeholder="Folder name"
           label="Name of the new folder"

@@ -16,8 +16,8 @@ How the app works on a phone.
   put while the page scrolls, as an app's tab bar does: put away on a scroll
   down, it read as the toolbar of a browser. A page ends 12px above it, so its
   last line scrolls clear of the capsule, and a list that fits the screen does
-  not scroll. Its shape is the same on every screen and only its buttons
-  change. The editor has no capsule and keeps one strip of its own at the
+  not scroll. It is the same pill on every screen and only its buttons and its
+  width change. The editor has no capsule and keeps one strip of its own at the
   bottom ([editor](editor.md)), and a site and the run screen have none. Nine
   controls and the crumbs once shared one row on top, and the crumbs got 25px,
   wrapped and fell over the note as a column.
@@ -52,20 +52,44 @@ How the app works on a phone.
   the name field. New folder opens the list of the folder on screen with a row
   after the last folder, the way a desktop puts it in the table: a dialog in
   the middle of the screen covered the list the folder went into. That row, and
-  a row of the list being renamed, is drawn on the gray of a desktop's new row,
-  from edge to edge of the screen, with no line above or below it: a card with
+  a row of the list being renamed, is drawn on the gray of a desktop's new row
+  across its row of the group, with no separator above or below it: a card with
   a shadow read as a window over the list.
+- A list is drawn in the grouped style of iOS: the root, a folder, the recent
+  notes and the results of the search, and the folders of Move to. The page is
+  the theme's `groupedBg` and the list one card of `groupedCard` with 12px
+  corners, 16px from the sides of the screen, with a banner such as a sync
+  problem above it at the same sides. A row is 52px tall: 16px, a 24px icon in
+  the tertiary text color, 12px, the name in 17px, its tags, and `⋯` at the
+  right edge. The rows are split by a 0.5px line of `groupedSeparator` that
+  starts at the text, 52px from the card's edge, with none after the last row,
+  and a pressed row fills its row of the card with `rowPressed`. A page with
+  content, a note, a file or the editor, stays on the plain page ground. On a
+  list the bar on top, the page and the color the browser draws its own bars
+  in, `theme-color`, all take `groupedBg`, so Safari's bars match, and the
+  capsule and New take a fainter line and shadow, `capsuleBorderGrouped` and
+  the `capsuleGrouped` shadow: the ones drawn for a white page looked heavy on
+  the gray.
+- The first screens of the tabs, the root and Profile, start their header on
+  one line, the row of the bar on top: the root's logo and space name, and
+  Profile's large title, 34px in the 800 weight, with the sync control at the
+  right of both. With the title under an empty bar, Profile's header stood
+  about 60px lower than the root's, and a tab switch made it jump.
 - On a note the capsule is the note's actions, icons only: Outline, Find in
   note, Edit and `⋯`. Each shows only where it can be used: Outline when the
-  note has headings, Edit with the right to write. The bar is narrower than the
-  tab bar and centered, 48px from each side with four buttons, 72px with three
-  and 96px with two, so each button keeps about the width of a thumb. The
-  note's bar on top holds only the way back, the title and the sync status,
-  while a tablet and a desktop keep Edit and the menu there: on top they were
-  out of the thumb's reach, and Outline and Find in note were deep in the menu.
-  While a rename has its field in the bar on top, the note's capsule stays, and
-  the keyboard covers it. The page of any other file has Run for an HTML app,
-  Edit for a text file with the right to write, and `⋯`; its bar on top has no
+  note has headings, Edit with the right to write. The bar hugs its buttons and
+  stands in the middle of the screen: 52px high, each button 52px by 44px with
+  no gap between them and 4px of room inside the bar, so 216px wide with four
+  buttons and 164px with three. A bar as wide as the tab bar with three or four
+  icons spread over it looked too big for what it holds. Its bottom is on the
+  line of the tab bar's, and its 1px line is drawn inside it, so it takes no
+  room from the buttons. The tab bar of a list keeps its 62px. The note's bar
+  on top holds only the way back, the title and the sync status, while a tablet
+  and a desktop keep Edit and the menu there: on top they were out of the
+  thumb's reach, and Outline and Find in note were deep in the menu. While a
+  rename has its field in the bar on top, the note's capsule stays, and the
+  keyboard covers it. The page of any other file has Run for an HTML app, Edit
+  for a text file with the right to write, and `⋯`; its bar on top has no
   Download and no `⋯`, and Download is the first row of its `⋯`, above Copy
   link.
 - Every menu on a phone is a sheet from the bottom in the grouped style of iOS
@@ -99,14 +123,16 @@ How the app works on a phone.
   and Titles only at its top, the hint of the mode under them, and the field
   with Aa, ab, .\* and ✕ last, nearest the thumb, as the options are tapped
   less often than the field. A field at the top of a tall phone is out of the
-  thumb's reach. The card stands 8px over the keyboard, or over the home
-  indicator when no keyboard is up. The count of matches is a small line over
-  the card, shown only once there is a query. The recent notes head the screen,
-  each its title over its path, with Clear in their header, which empties the
-  list at once; a desktop's search has no Clear. With the reading copy the
-  Search tab stays, and the search shows only the recent notes, with the field
-  disabled and the line "Search needs the network", so the notes read last are
-  still a tap away.
+  thumb's reach. The field has the focus as soon as the search opens, so the
+  keyboard comes up with it; the dialog's focus trap is told to keep it there,
+  as on its own it moved the focus to Fuzzy, the first control of the card. The
+  card stands 8px over the keyboard, or over the home indicator when no
+  keyboard is up. The count of matches is a small line over the card, shown
+  only once there is a query. The recent notes head the screen, each its title
+  over its path, with Clear in their header, which empties the list at once; a
+  desktop's search has no Clear. With the reading copy the Search tab stays,
+  and the search shows only the recent notes, with the field disabled and the
+  line "Search needs the network", so the notes read last are still a tap away.
 - Find in note is a card 8px from the bottom and the sides of the screen: the
   field, the count and ✕ in its first row, and Aa, ab and .\* with the steps up
   and down in the second. The note's capsule is hidden while the card is open,
@@ -124,11 +150,11 @@ How the app works on a phone.
   since it holds the account, the spaces, the theme and the offline copy, a
   place and not a menu
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)). From the
-  top: the large title Profile, a card with the initial, the name and the
-  space, the Sync group, Workspace, Theme, and a last group of Offline access,
-  Read-only mode where it applies, and Sign out, or Sign in when nobody is
-  signed in; with the reading copy there is neither, and no Read-only mode. A
-  desktop has no link to the page and keeps the space's menu. With nobody
+  top: the large title Profile in the bar, a card with the initial, the name
+  and the space, the Sync group, Workspace, Theme, and a last group of Offline
+  access, Read-only mode where it applies, and Sign out, or Sign in when nobody
+  is signed in; with the reading copy there is neither, and no Read-only mode.
+  A desktop has no link to the page and keeps the space's menu. With nobody
   signed in the card reads "Not signed in" beside the user icon. Workspace
   lists the spaces with a check on the current one and a "read-only" badge on a
   read-only one, and Theme is Auto, Light and Dark as one pill. "Offline

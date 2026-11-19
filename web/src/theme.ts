@@ -70,6 +70,7 @@ export const layout = {
   rowHeight: 30,
   iconSize: 20,
   iconSizeLarge: 22,
+  iconSizeRow: 24,
   iconSizeSmall: 16,
   iconSizeTool: 18,
   iconSizeColumn: 15,
@@ -90,6 +91,8 @@ export const layout = {
   popoverWidth: 320,
   tabBarHeight: 56,
   capsuleHeight: 62,
+  actionBarHeight: 52,
+  actionWidth: 52,
   inputFontSize: 16,
 } as const;
 
@@ -194,6 +197,8 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-popover-width': `${layout.popoverWidth}px`,
   '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
   '--scrawl-capsule-height': `${layout.capsuleHeight}px`,
+  '--scrawl-action-bar-height': `${layout.actionBarHeight}px`,
+  '--scrawl-action-width': `${layout.actionWidth}px`,
 };
 
 function blockVariables(blocks: BlockColors): Record<string, string> {

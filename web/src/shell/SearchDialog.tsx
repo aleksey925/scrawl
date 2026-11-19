@@ -165,6 +165,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
       className={picker.input}
       value={offline ? '' : text}
       autoFocus={!offline}
+      data-autofocus={offline ? undefined : true}
       disabled={offline}
       placeholder="Search the space"
       aria-label="Search the space"
@@ -413,22 +414,24 @@ function PhoneRecent({ notes, offline, onOpen, onClear }: PhoneRecentProps): JSX
           Clear
         </button>
       </div>
-      {notes.map((recent) => (
-        <Link
-          key={recent.path}
-          data-testid="search-recent-item"
-          data-path={recent.path}
-          to={documentUrl(recent.path)}
-          className={classes.recentRow}
-          onClick={onOpen}
-        >
-          <IconFileText size={layout.iconSize} aria-hidden />
-          <span className={classes.recentText}>
-            <span className={classes.recentTitle}>{recent.title === '' ? recent.path : recent.title}</span>
-            <span className={classes.recentPath}>{recent.path}</span>
-          </span>
-        </Link>
-      ))}
+      <div className={classes.rows}>
+        {notes.map((recent) => (
+          <Link
+            key={recent.path}
+            data-testid="search-recent-item"
+            data-path={recent.path}
+            to={documentUrl(recent.path)}
+            className={classes.recentRow}
+            onClick={onOpen}
+          >
+            <IconFileText size={layout.iconSizeRow} aria-hidden />
+            <span className={classes.recentText}>
+              <span className={classes.recentTitle}>{recent.title === '' ? recent.path : recent.title}</span>
+              <span className={classes.recentPath}>{recent.path}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

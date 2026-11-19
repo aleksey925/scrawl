@@ -149,6 +149,11 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             <span className={classes.homeName}>{space}</span>
           </span>
         )}
+        {atProfile && (
+          <span data-testid="topbar-tab-title" className={classes.tabTitle}>
+            Profile
+          </span>
+        )}
         {!atRoot && !tabRoot && (
           <Link
             data-testid="topbar-up"
@@ -167,11 +172,11 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
         )}
       </div>
 
-      <div data-testid="topbar-title" data-shown={showTitle && !atRoot ? 'true' : 'false'} className={classes.title}>
+      <div data-testid="topbar-title" data-shown={showTitle && !atRoot && !atProfile ? 'true' : 'false'} className={classes.title}>
         {renaming !== undefined ? (
           <RenameField session={renaming} testId="page-rename" className={classes.field} />
         ) : (
-          !atRoot && chrome.title
+          !atRoot && !atProfile && chrome.title
         )}
       </div>
 

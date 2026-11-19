@@ -332,8 +332,8 @@ Some limits:
   in memory, so everything the app saved there is lost once Safari closes. In a
   tab of its own the app keeps its data as on any site.
 - On plain http at an address of your network, such as
-  `http://192.168.1.5:7272`, with `APPS_URL` set, Run opens the mini app in a
-  new tab in every browser. See the part for advanced users in
+  `http://192.168.1.5:7272`, with `MINI_APPS_URL` set, Run opens the mini app
+  in a new tab in every browser. See the part for advanced users in
   [On server](#on-server).
 - Inside scrawl a mini app cannot read the clipboard by itself, for example
   with a Paste button of its own. A paste you make with the keyboard or the
@@ -379,26 +379,27 @@ the proxy needs:
 2. These names sent to scrawl, with the `Host` header the browser sent, see
    [Server settings](#server-settings).
 
-Then set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`. With
-Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
+Then set `MINI_APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+With Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
 
 What can go wrong:
 
-- scrawl opened at an address of the network with no `APPS_URL`, such as
-  `http://192.168.1.5:7272`: Run says `HTML apps do not run at this address`.
-- `APPS_URL` has no `{id}`, such as `https://apps.example.com`, or only `{id}`
-  in its first label, such as `https://{id}.example.com`: scrawl does not
-  start, and its message shows the form to use, `https://app-{id}.example.com`.
-- `APPS_URL` is https and a password is set, but neither `TRUSTED_PROXY=true`
-  nor `AUTH_SECURE=always` is: scrawl does not start, and its message names the
-  setting to add, `TRUSTED_PROXY=true` behind a proxy.
-- With `TRUSTED_PROXY=true` and `APPS_URL=https://app-{id}.example.com`, do not
-  also open scrawl at `http://notes.example.com`: the sign-in there is not
-  protected, and scrawl does not warn about it.
+- scrawl opened at an address of the network with no `MINI_APPS_URL`, such as
+  `http://192.168.1.5:7272`: Run says `Mini apps do not run at this address`.
+- `MINI_APPS_URL` has no `{id}`, such as `https://apps.example.com`, or only
+  `{id}` in its first label, such as `https://{id}.example.com`: scrawl does
+  not start, and its message shows the form to use,
+  `https://app-{id}.example.com`.
+- `MINI_APPS_URL` is https and a password is set, but neither
+  `TRUSTED_PROXY=true` nor `AUTH_SECURE=always` is: scrawl does not start, and
+  its message names the setting to add, `TRUSTED_PROXY=true` behind a proxy.
+- With `TRUSTED_PROXY=true` and `MINI_APPS_URL=https://app-{id}.example.com`,
+  do not also open scrawl at `http://notes.example.com`: the sign-in there is
+  not protected, and scrawl does not warn about it.
 
 **For advanced users:** to run mini apps on a home network without https, set
 up a local DNS that answers any `app-...` name with the address of this
-machine, and set `APPS_URL` to it, such as
+machine, and set `MINI_APPS_URL` to it, such as
 `http://app-{id}.apps.home.lan:7272`. A hosts file is not enough, since it has
 no wildcard. With a password, open scrawl at the IP of the machine, such as
 `http://192.168.1.5:7272`, not at a name such as `notes.home.lan`: it is a
@@ -417,7 +418,7 @@ To run mini apps behind Cloudflare Tunnel, with scrawl at `notes.example.com`:
    `Published application`: subdomain `*`, domain `example.com`, the same
    service URL as scrawl. Cloudflare adds the DNS record `*.example.com`
    itself.
-2. Set `APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
+2. Set `MINI_APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
 
 The name around `{id}` can be any, such as `notes-app-{id}.example.com`, but it
 stays one level under the domain: the free certificate covers `*.example.com`
@@ -436,10 +437,10 @@ and keeps the data it saved in the browser.
 - The whole folder of the mini app is kept, not files from other sites such as
   a CDN.
 - Inside scrawl, it works where scrawl and the mini app are on one site: a
-  domain with `APPS_URL`, or locally `http://scrawl.localhost:7272`, which with
-  a password is a neighbor name, see [On your machine](#on-your-machine). At
-  `127.0.0.1` and `localhost` the mini app runs inside scrawl but is not kept
-  there, and with no network Run shows
+  domain with `MINI_APPS_URL`, or locally `http://scrawl.localhost:7272`, which
+  with a password is a neighbor name, see [On your machine](#on-your-machine).
+  At `127.0.0.1` and `localhost` the mini app runs inside scrawl but is not
+  kept there, and with no network Run shows
   `This browser does not keep this app for offline use.`: there the browser
   treats the mini app as another site and gives scrawl's worker no cookie. In a
   new tab it is kept.
@@ -487,7 +488,7 @@ required, everything else has a working default.
 | `RESCAN`           |                       | `60s`               | how often every folder is reread to find changes; negative turns it off, except with `WATCH=poll`                                                                                                                                       |
 | `HISTORY`          |                       | `auto`              | keep a git history of changes; `on` fails without git, `off` never touches the notes; always on for a space that is a git repository                                                                                                    |
 | `TRUSTED_PROXY`    |                       | `false`             | trust `X-Forwarded-For` and `-Proto`; set it behind a reverse proxy                                                                                                                                                                     |
-| `APPS_URL`         |                       |                     | where mini apps run: a URL with `{id}` in its first label, such as `https://app-{id}.example.com`, each mini app on a host of its own; empty runs them on `app-<id>.localhost`, see [Mini apps](#mini-apps)                             |
+| `MINI_APPS_URL`    |                       |                     | where mini apps run: a URL with `{id}` in its first label, such as `https://app-{id}.example.com`, each mini app on a host of its own; empty runs them on `app-<id>.localhost`, see [Mini apps](#mini-apps)                             |
 | `TZ`               |                       | `UTC`               | timezone                                                                                                                                                                                                                                |
 | `DEBUG`            |                       | `false`             | debug logging                                                                                                                                                                                                                           |
 
@@ -777,10 +778,10 @@ read and not write.
 
 ```
 TOKEN=scrawl_...
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/api/spaces
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/s/notes/api/tree
-curl -sH "Authorization: Bearer $TOKEN" 'http://localhost:7272/s/notes/api/search?q=redis'
-curl -sH "Authorization: Bearer $TOKEN" http://localhost:7272/s/notes/api/file/python/notes.md
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:7272/api/spaces
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:7272/s/notes/api/tree
+curl -sH "Authorization: Bearer $TOKEN" 'http://127.0.0.1:7272/s/notes/api/search?q=redis'
+curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:7272/s/notes/api/file/python/notes.md
 ```
 
 Every endpoint that works with notes lives under its space,
@@ -791,7 +792,7 @@ file in between, the `rev` no longer matches and the save is refused instead of
 overwriting their change:
 
 ```
-BASE=http://localhost:7272/s/notes
+BASE=http://127.0.0.1:7272/s/notes
 REV=$(curl -sH "Authorization: Bearer $TOKEN" $BASE/api/file/python/notes.md | jq -r .rev)
 curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"content":"# Notes\n\nredis notes\n","rev":"'"$REV"'"}' \

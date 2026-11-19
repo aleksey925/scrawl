@@ -115,13 +115,13 @@ online would get its files from the copy.
 
 `/static/offline/<hash>.html` is the app's shell with no space and no cookie:
 the auto theme, the site title and an empty `data-base`. `<hash>` is a hash of
-the body and of the page's CSP, so a new title, release, bundle or `APPS_URL`
-is a new url, cached in the same install as the chunks it loads. `mountBase()`
-takes the space from the address when `data-base` is empty. Both shells carry
-`data-version`, the release. The CSP is in the hash because the worker keeps
-the shell with its headers and the browser keeps its url a year: a new
-`frame-src` with the same body would otherwise come back with the old header
-from either cache.
+the body and of the page's CSP, so a new title, release, bundle or
+`MINI_APPS_URL` is a new url, cached in the same install as the chunks it
+loads. `mountBase()` takes the space from the address when `data-base` is
+empty. Both shells carry `data-version`, the release. The CSP is in the hash
+because the worker keeps the shell with its headers and the browser keeps its
+url a year: a new `frame-src` with the same body would otherwise come back with
+the old header from either cache.
 
 ## The versions list
 

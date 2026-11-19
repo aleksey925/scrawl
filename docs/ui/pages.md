@@ -289,13 +289,13 @@ opens over them.
   See [HTML apps](../design/html-apps.md#safari). Every browser does the same
   when scrawl is on plain `http` at an address of the network, any host but
   `127.0.0.1`, `localhost` and `*.localhost`; the 409 of such an address with
-  no `APPS_URL` comes in an error toast and the tab closes. See
+  no `MINI_APPS_URL` comes in an error toast and the tab closes. See
   [plain http](../design/html-apps.md#plain-http-on-a-network).
 - Open in a new tab asks a new ticket in the tap and opens the app in a tab of
   its own; a blocked popup shows an error toast. With no network it opens the
   address of a kept app, and is disabled when the app is not kept.
 - An error of the ticket shows its text under the bar with a link Back to where
-  Run was tapped, the reason and the fix at an address with no `APPS_URL`
+  Run was tapped, the reason and the fix at an address with no `MINI_APPS_URL`
   included. A failure after the ticket shows inside the frame: the browser's
   error page, or the text of a refused cookie,
   `To use this app, sign in to scrawl and open it from there.`
@@ -312,7 +312,8 @@ opens over them.
 - Until the app has drawn its first screen, the page is the theme's ground with
   nothing on it, both before the bundle runs and while the first page's chunk
   loads. Opened from the offline copy, the page has the system's ground until
-  the bundle runs, since that shell knows no theme.
+  the bundle runs, since that shell knows no theme
+  ([ADR 33](../adr/0033-no-logo-while-the-app-loads.md)).
 - With offline access on, the app opens on the copy at once and turns writable
   when the server answers. See [offline copy](../design/offline.md).
 

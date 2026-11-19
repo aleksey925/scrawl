@@ -16,7 +16,7 @@ const APP_HOST = /^app-[a-z2-7]{12}\.(scrawl\.)?localhost$/;
 const NO_RECORD = 'Run this app once with a network to use it offline.';
 const NOT_KEPT = 'This browser does not keep this app for offline use.';
 const MISSING = 'This file is not on this device. Open the app once with a network.';
-const NOT_HERE = 'HTML apps do not run at this address.';
+const NOT_HERE = 'Mini apps do not run at this address.';
 const APP_CACHE = 'scrawl-htmlapp';
 const SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) '
     + 'Version/18.0 Safari/605.1.15';

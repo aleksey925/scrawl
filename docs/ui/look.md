@@ -63,13 +63,16 @@ Colors, controls and type: how a note and the chrome are drawn.
   latches the hover, so a touch screen keeps the tint in both. A menu has 10px
   corners and the theme's shadow, a dialog 12px; a translucent menu ground
   blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
-  weight at 20px, 16px in menus, with two exceptions: the current tab of a
-  phone's bar draws its icon filled
-  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)), and the formatting
-  toolbar over a phone's keyboard draws 22px icons in 44px tools
-  ([ADR 29](../adr/0029-the-phone-editor-bars.md)), and `web/src/icons.ts` is
-  the one place that says which drawing each one is: Notion's own set cannot be
-  taken, and Phosphor is the open one closest to it. A build keeps only the
+  weight at 20px, 16px in menus. The other sizes are named in `layout` of
+  `web/src/theme.ts`, each for its own place: 22px in the tabs of a phone's bar
+  and in the 44px tools over a phone's keyboard
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)), 26px on the New tiles, 18px
+  in the desktop's formatting toolbar, 15px in the heads of a folder's list and
+  14px in small marks such as the sync badge; an empty state draws 32px. The
+  current tab of a phone's bar draws its icon filled
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). `web/src/icons.ts`
+  is the one place that says which drawing each one is: Notion's own set cannot
+  be taken, and Phosphor is the open one closest to it. A build keeps only the
   weights the app draws ([frontend](../design/frontend.md#build-and-release)).
   The note's own controls are the one exception: the picture viewer in
   `web/src/reader/viewer.ts` and the buttons and marks of `markdown.css` are
@@ -100,12 +103,12 @@ Colors, controls and type: how a note and the chrome are drawn.
   dialog sets a height of its own: the editor's gave its buttons the 44px of an
   icon button on every screen, and they stood taller than the buttons of every
   other dialog. A dialog or a drawer with a title keeps 4px between the title
-  and what comes first under it, the room of a focus ring outside a field or a
-  button, so the ring of a field right under the title shows whole. The 4px are
-  taken from the bottom padding and the least height of the title, so the title
-  and the room together are as tall as a Mantine title alone, with a close
-  button or without. The Outline sheet sets the padding of its title itself, so
-  it leaves the bottom one at 0. One with no title gets no room, as nothing is
+  and what comes first under it, the room of a focus ring outside a button, so
+  the ring of a button right under the title shows whole. The 4px are taken
+  from the bottom padding and the least height of the title, so the title and
+  the room together are as tall as a Mantine title alone, with a close button
+  or without. The Outline sheet sets the padding of its title itself, so it
+  leaves the bottom one at 0. One with no title gets no room, as nothing is
   drawn over it ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - The dark scheme is Notion's dark: a `#191919` page, a `#202020` sidebar and
   `#f0efed` text. Bold there is 700 instead of 600. Near-white letters on a

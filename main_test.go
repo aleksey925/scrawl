@@ -57,7 +57,7 @@ func TestParseOptsFlags(t *testing.T) {
 		"--auth.users=bob:secret", "--auth.users=alice:$2a$10$hash",
 		"--auth.tokens=bot:sha256:abc", "--auth.tokens=reader:plain:ro",
 		"--auth.secret=cookie-key", "--auth.secret-file=/state/key", "--auth.secure=always",
-		"--auth.ttl=1h", "--dbg", "--apps.url=https://app-{id}.example.com",
+		"--auth.ttl=1h", "--dbg", "--mini-apps.url=https://app-{id}.example.com",
 	})
 
 	// assert
@@ -106,7 +106,7 @@ func TestParseOptsEnv(t *testing.T) {
 	t.Setenv("HISTORY", "on")
 	t.Setenv("TIMEOUT_SHUTDOWN", "9s")
 	t.Setenv("DEBUG", "true")
-	t.Setenv("APPS_URL", "http://app-{id}.apps.home.lan:7272")
+	t.Setenv("MINI_APPS_URL", "http://app-{id}.apps.home.lan:7272")
 
 	// act
 	opts, err := parseOpts(nil)
@@ -280,9 +280,9 @@ func lastField(line string) string {
 
 func TestValidateGlobal(t *testing.T) {
 	const (
-		noID = "--apps.url (APPS_URL) must have {id} in its first label, such as https://app-{id}.example.com: " +
-			"every HTML app runs on a host of its own"
-		neverSecure = "--apps.url (APPS_URL) is https, but the session cookie is never Secure, so an HTML app " +
+		noID = "--mini-apps.url (MINI_APPS_URL) must have {id} in its first label, such as https://app-{id}.example.com: " +
+			"every mini app runs on a host of its own"
+		neverSecure = "--mini-apps.url (MINI_APPS_URL) is https, but the session cookie is never Secure, so a mini app " +
 			"could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) behind Cloudflare Tunnel or another " +
 			"proxy that sets X-Forwarded-Proto, or --auth.secure=always (AUTH_SECURE=always)"
 		httpsApps = "https://app-{id}.example.com"
@@ -307,10 +307,10 @@ func TestValidateGlobal(t *testing.T) {
 		{name: "apps url with two ids", users: []string{"bob:pass"}, appsURL: "https://{id}-{id}.example.com",
 			errText: noID},
 		{name: "apps url with the id alone", users: []string{"bob:pass"}, appsURL: "https://{id}.example.com",
-			errText: "--apps.url (APPS_URL) must have more than {id} in its first label, such as https://app-{id}.example.com: " +
+			errText: "--mini-apps.url (MINI_APPS_URL) must have more than {id} in its first label, such as https://app-{id}.example.com: " +
 				"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app"},
 		{name: "apps url with a path", users: []string{"bob:pass"}, appsURL: "https://app-{id}.example.com/x",
-			errText: "--apps.url (APPS_URL) must have no path"},
+			errText: "--mini-apps.url (MINI_APPS_URL) must have no path"},
 		{name: "https apps, auto without a trusted proxy", users: []string{"bob:pass"}, appsURL: httpsApps,
 			secure: "auto", errText: neverSecure},
 		{name: "https apps, never", users: []string{"bob:pass"}, appsURL: httpsApps, secure: "never",
@@ -351,9 +351,9 @@ func TestValidateGlobal(t *testing.T) {
 
 func TestAppsWarning(t *testing.T) {
 	const (
-		local = "HTML apps run over http: at localhost an HTML app can sign you out or into another account, " +
+		local = "mini apps run over http: at localhost a mini app can sign you out or into another account, " +
 			"open scrawl at the 127.0.0.1 link printed at start"
-		plain = "--apps.url (APPS_URL) is http: an HTML app can sign you out or into another account when scrawl " +
+		plain = "--mini-apps.url (MINI_APPS_URL) is http: a mini app can sign you out or into another account when scrawl " +
 			"and the apps are on neighbor names, such as notes.home.lan and app-x.home.lan, so do not put them " +
 			"on neighbor names, or use https"
 	)

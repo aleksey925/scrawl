@@ -27,7 +27,8 @@ file run this way; the code says `htmlapp`. Why it is built this way:
 
 ## The setting
 
-- One server flag, `--apps.url` (`APPS_URL`), never a key of the spaces file:
+- One server flag, `--mini-apps.url` (`MINI_APPS_URL`), never a key of the
+  spaces file:
   - empty, the default: the local mode (below);
   - a URL with `{id}` in its first label, `https://app-{id}.example.com`: a
     host per app.
@@ -40,7 +41,7 @@ file run this way; the code says `htmlapp`. Why it is built this way:
   all apps, each in a subfolder, is not supported: apps on one host share one
   origin, so they share storage and read each other's files, a link from the
   root leaves the app's folder, and offline needs a scope and a cache per path.
-- Auth on, an `https` `APPS_URL`, and a session cookie that can never be
+- Auth on, an `https` `MINI_APPS_URL`, and a session cookie that can never be
   `Secure` stop the start. scrawl serves no TLS, so the cookie is `Secure` only
   with `--auth.secure=always`, or `auto` with `--trusted-proxy`;
   `--auth.secure=never` counts as never. The message names
@@ -48,10 +49,11 @@ file run this way; the code says `htmlapp`. Why it is built this way:
   Tunnel. Every message of this part names the flag and the variable, since a
   Docker run sets the one and a run by hand the other.
 - Auth on and the apps over http log one `[WARN]` line at start: the local mode
-  says to open scrawl at the `127.0.0.1` link, an `http` `APPS_URL` says not to
-  put scrawl and the apps on neighbor names. It also shows when the person uses
-  the safe link, and with an `http` `APPS_URL` when scrawl itself is on https.
-  With auth off there is no session to hurt, and neither check applies.
+  says to open scrawl at the `127.0.0.1` link, an `http` `MINI_APPS_URL` says
+  not to put scrawl and the apps on neighbor names. It also shows when the
+  person uses the safe link, and with an `http` `MINI_APPS_URL` when scrawl
+  itself is on https. With auth off there is no session to hurt, and neither
+  check applies.
 
 ## The host switch
 
@@ -70,10 +72,11 @@ file run this way; the code says `htmlapp`. Why it is built this way:
 - No handler of scrawl's host is mounted there. `/login`, `/static/`, `/api/`,
   `/sw.js`, `/ping` or `/s/<name>/` on an apps host is a path of the app, a
   file of its folder or a 404. Only `/__scrawl/` is reserved.
-- `appsHeaders` sets `nosniff`, `Referrer-Policy: no-referrer`,
-  `Cross-Origin-Resource-Policy: same-origin` and `App-Name: scrawl`, the mark
-  the worker below reads, as the app reads it on scrawl's host. Never
-  `X-Frame-Options`: `frame-ancestors` is set per answer.
+- `appsHeaders` sets `nosniff`, `Referrer-Policy: no-referrer` and
+  `Cross-Origin-Resource-Policy: same-origin`. `App-Name: scrawl`, the mark the
+  worker below reads, comes from `appName` of the middlewares both hosts share,
+  as the app reads it on scrawl's host. Never `X-Frame-Options`:
+  `frame-ancestors` is set per answer.
 - The apps routes exist only when the server has an auth service, which only
   tests leave out.
 
@@ -107,7 +110,7 @@ file run this way; the code says `htmlapp`. Why it is built this way:
   worth nothing.
 - The app cookie (`app-cookie`) lives as long as a session and holds the space,
   the folder and the parent origin. It is `__Host-scrawl_app` with an `https`
-  `APPS_URL`, else `scrawl_app`: `Path=/`, `HttpOnly`, never `Domain`.
+  `MINI_APPS_URL`, else `scrawl_app`: `Path=/`, `HttpOnly`, never `Domain`.
   `SameSite` follows the `Sec-Fetch-Site` and `Sec-Fetch-Dest` of the enter
   request, which say how the scrawl page relates to this host: a `cross-site`
   `iframe` gets `SameSite=None; Secure; Partitioned`, anything else `Lax`,
@@ -220,8 +223,8 @@ with `no-store`:
 
 ## The local mode
 
-With no `APPS_URL` the app host follows the address scrawl is opened at, with
-the scheme and the port of the page. Chrome and Firefox send every
+With no `MINI_APPS_URL` the app host follows the address scrawl is opened at,
+with the scheme and the port of the page. Chrome and Firefox send every
 `*.localhost` name to the loopback themselves.
 
 - At `127.0.0.1` the app is `app-<id>.localhost`. An IP is never a cookie
@@ -234,14 +237,14 @@ the scheme and the port of the page. Chrome and Firefox send every
   same-site, as on a real domain. With auth on these are neighbors, which the
   warning at start names.
 - At any other address the ticket is a 409: on this machine the printed link,
-  from another device https with `APPS_URL`. Where Run opens a tab of its own,
-  in [Safari](#safari) and on [plain http](#plain-http-on-a-network), it shows
-  the 409 in a toast; elsewhere the run screen shows it in place of the frame,
-  as it does at its address. `[::1]` is one of them, and with `APPS_URL` set
-  any IPv6 address gets the 409 as well: a CSP source cannot name an IPv6
-  address, so `frame-ancestors` could not let the app in its frame. No code is
-  added for a browser that does not open `app-<id>.localhost`; such a frame
-  shows the browser's error page.
+  from another device https with `MINI_APPS_URL`. Where Run opens a tab of its
+  own, in [Safari](#safari) and on [plain http](#plain-http-on-a-network), it
+  shows the 409 in a toast; elsewhere the run screen shows it in place of the
+  frame, as it does at its address. `[::1]` is one of them, and with
+  `MINI_APPS_URL` set any IPv6 address gets the 409 as well: a CSP source
+  cannot name an IPv6 address, so `frame-ancestors` could not let the app in
+  its frame. No code is added for a browser that does not open
+  `app-<id>.localhost`; such a frame shows the browser's error page.
 
 ## Safari
 
@@ -270,9 +273,9 @@ the scheme and the port of the page. Chrome and Firefox send every
   `*.localhost` a browser sends no `Sec-Fetch-*`
   ([quirks](../quirks.md#browsers)) and keeps no `Secure` cookie
   ([the cookie](#the-ticket-and-the-cookie)). So with scrawl at
-  `http://192.168.1.5` and the apps at an `http` `APPS_URL` the enter request
-  looks like a first party and gets the `Lax` cookie, which the cross-site
-  frame drops, and every file of the app gets the 401.
+  `http://192.168.1.5` and the apps at an `http` `MINI_APPS_URL` the enter
+  request looks like a first party and gets the `Lax` cookie, which the
+  cross-site frame drops, and every file of the app gets the 401.
 - So Run opens the app in a tab of its own, as in Safari, when the page is on
   `http:` at a host other than `127.0.0.1`, `localhost` and `*.localhost`.
   `framesLoseCookie` tells it by the page's address alone: the tab opens in the
@@ -283,9 +286,10 @@ the scheme and the port of the page. Chrome and Firefox send every
   cross-site pair needs a public suffix list, and it is a pair of neighbors,
   which the warning at start names.
 - Keyed on the page, the check misses both ways. A page at `127.0.0.1` or
-  `localhost` with an `http` `APPS_URL` at a name of the network takes the
+  `localhost` with an `http` `MINI_APPS_URL` at a name of the network takes the
   frame, which gets the 401; an `http` page at a network address with an
-  `https` `APPS_URL` takes the tab, though its frame would keep the cookie.
+  `https` `MINI_APPS_URL` takes the tab, though its frame would keep the
+  cookie.
 - The run screen opened by its address, from a bookmark or a reload, still
   mounts the frame at such an address, and every file gets the 401, whose text
   says to sign in, not to open the app in a tab.
@@ -299,7 +303,7 @@ offline on and off, and with it off nothing of an app is kept. scrawl's own
 worker never sees a request of another origin, so a second worker of scrawl on
 the apps host keeps the files.
 
-- Only a same-site frame is kept: a real domain with `APPS_URL`, or
+- Only a same-site frame is kept: a real domain with `MINI_APPS_URL`, or
   `scrawl.localhost`. In a cross-site frame Chromium registers the worker but
   sends no cookie on its fetches, so every request of the worker got a 401
   ([quirks](../quirks.md#browsers)). The enter route therefore sends

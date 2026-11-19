@@ -7,24 +7,28 @@ Sizes and feedback on a touch screen, phone or tablet.
   few, a segmented control or a chip beside one, 36px. The layouts at the
   bottom of a phone's editor are the one choice drawn at 40px: they fill the
   strip under the thumb alone, with no chip beside them, as the mockup has it
-  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Mantine's 26px menu rows
-  put the theme and the space three to a fingertip, and a choice drawn at the
-  tap height stood twice as tall as the chip beside it. On a touch screen an
-  open menu or popover has a clear ground under it that takes the tap closing
-  it (`TapGuard`): the menu's own outside tap closed it on touchstart, and the
-  click went on to the row underneath and opened the file there. The guard
-  closes only on a tap that started on it: a long press opens a menu while the
-  finger is down, and lifting that finger sent the guard a click. On a touch
-  screen a menu grows out of the corner nearest what opened it, the corner
-  taken from where it was placed after any flip. A phone shows no keys, neither
-  the list of shortcuts nor a key beside a menu row. The text of a field is
-  never under 16px on a touch screen, the sign-in form, the editor and the
-  hidden field a copy uses included: iOS zooms the page into a smaller field
-  when it takes the focus and never zooms back. `TapGuard` is in a portal, and
-  the mark a lifted row's menu opens from sits beside the scaled card and not
-  in it: inside a row, the rows after it painted over the guard and a press on
-  the guard pressed the row, and inside a scaled element a fixed one is placed
-  in that element, which shrank the guard to the card.
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Three more leave the scale:
+  Discard and Restore of a draft's row, plain words with no frame, take the
+  44px of an icon button ([editor](editor.md)), and the gray field of a rename
+  or a draft's name in a phone's top bar and the search field of a phone's
+  picker are 38px. Mantine's 26px menu rows put the theme and the space three
+  to a fingertip, and a choice drawn at the tap height stood twice as tall as
+  the chip beside it. On a touch screen an open menu or popover has a clear
+  ground under it that takes the tap closing it (`TapGuard`): the menu's own
+  outside tap closed it on touchstart, and the click went on to the row
+  underneath and opened the file there. The guard closes only on a tap that
+  started on it: a long press opens a menu while the finger is down, and
+  lifting that finger sent the guard a click. On a touch screen a menu grows
+  out of the corner nearest what opened it, the corner taken from where it was
+  placed after any flip. A phone shows no keys, neither the list of shortcuts
+  nor a key beside a menu row. The text of a field is never under 16px on a
+  touch screen, the sign-in form, the editor and the hidden field a copy uses
+  included: iOS zooms the page into a smaller field when it takes the focus and
+  never zooms back. `TapGuard` is in a portal, and the mark a lifted row's menu
+  opens from sits beside the scaled card and not in it: inside a row, the rows
+  after it painted over the guard and a press on the guard pressed the row, and
+  inside a scaled element a fixed one is placed in that element, which shrank
+  the guard to the card.
 - A name field, for a new entry or a rename, saves on a tap outside it, apart
   from the new row of a folder's list, which keeps a typed name
   ([entries](entries.md)). The field hears the tap as a `click` on the page and

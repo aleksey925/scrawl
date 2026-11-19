@@ -26,9 +26,9 @@ const (
 
 var (
 	ErrNoID = errors.New("must have {id} in its first label, such as https://app-{id}.example.com: " +
-		"every HTML app runs on a host of its own")
-	ErrNotHere  = errors.New("HTML apps do not run at this address")
-	ErrSameHost = errors.New("an HTML app cannot run on the host of scrawl")
+		"every mini app runs on a host of its own")
+	ErrNotHere  = errors.New("mini apps do not run at this address")
+	ErrSameHost = errors.New("a mini app cannot run on the host of scrawl")
 )
 
 var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)

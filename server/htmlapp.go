@@ -37,11 +37,11 @@ const (
 
 	appsExpired  = "This link has expired. Open the app from scrawl again."
 	appsNoCookie = "To use this app, sign in to scrawl and open it from there."
-	appsNotHere  = "HTML apps do not run at this address. On this machine, open scrawl at %s, " +
-		"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set."
-	appsSameHost    = "HTML apps cannot run on the address of scrawl itself. Set APPS_URL to a name of its own."
-	appsNeedBrowser = "HTML apps open only in a browser"
-	appsNotAnApp    = "only an .html file runs as an app"
+	appsNotHere  = "Mini apps do not run at this address. On this machine, open scrawl at %s, " +
+		"the link it prints at start. From a phone or another device, open scrawl over https with MINI_APPS_URL set."
+	appsSameHost    = "Mini apps cannot run on the address of scrawl itself. Set MINI_APPS_URL to a name of its own."
+	appsNeedBrowser = "Mini apps open only in a browser"
+	appsNotAnApp    = "only an .html file runs as a mini app"
 	enterTemplate   = `<!doctype html>
 <html lang="en">
 <head>

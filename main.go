@@ -87,8 +87,8 @@ type options struct {
 	} `group:"auth" namespace:"auth" env-namespace:"AUTH"`
 
 	Apps struct {
-		URL string `long:"url" env:"URL" description:"where HTML apps run, a URL with {id} in its first label such as https://app-{id}.example.com; empty runs them on *.localhost"`
-	} `group:"apps" namespace:"apps" env-namespace:"APPS"`
+		URL string `long:"url" env:"URL" description:"where mini apps run, a URL with {id} in its first label such as https://app-{id}.example.com; empty runs them on *.localhost"`
+	} `group:"mini apps" namespace:"mini-apps" env-namespace:"MINI_APPS"`
 
 	Timeouts struct {
 		ReadHeader time.Duration `long:"read-header" env:"READ_HEADER" default:"5s" description:"read header timeout"`
@@ -554,11 +554,11 @@ func validateGlobal(opts *options) (htmlapp.Hosts, error) {
 	}
 	apps, err := htmlapp.Parse(opts.Apps.URL)
 	if err != nil {
-		return htmlapp.Hosts{}, fmt.Errorf("--apps.url (APPS_URL) %w", err)
+		return htmlapp.Hosts{}, fmt.Errorf("--mini-apps.url (MINI_APPS_URL) %w", err)
 	}
 	if !opts.Auth.Disabled && apps.Secure() && !secureCookiePossible(opts) {
-		return htmlapp.Hosts{}, errors.New("--apps.url (APPS_URL) is https, but the session cookie is never Secure, " +
-			"so an HTML app could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) " +
+		return htmlapp.Hosts{}, errors.New("--mini-apps.url (MINI_APPS_URL) is https, but the session cookie is never Secure, " +
+			"so a mini app could change the sign-in: add --trusted-proxy (TRUSTED_PROXY=true) " +
 			"behind Cloudflare Tunnel or another proxy that sets X-Forwarded-Proto, " +
 			"or --auth.secure=always (AUTH_SECURE=always)")
 	}
@@ -580,10 +580,10 @@ func appsWarning(authDisabled bool, apps htmlapp.Hosts) string {
 		return ""
 	}
 	if apps.Local() {
-		return "HTML apps run over http: at localhost an HTML app can sign you out or into another account, " +
+		return "mini apps run over http: at localhost a mini app can sign you out or into another account, " +
 			"open scrawl at the 127.0.0.1 link printed at start"
 	}
-	return "--apps.url (APPS_URL) is http: an HTML app can sign you out or into another account " +
+	return "--mini-apps.url (MINI_APPS_URL) is http: a mini app can sign you out or into another account " +
 		"when scrawl and the apps are on neighbor names, such as notes.home.lan and app-x.home.lan, " +
 		"so do not put them on neighbor names, or use https"
 }

@@ -60,10 +60,10 @@ Spaces, routes, settings and the guards on every request.
   beside `data-base`.
 - An HTML app has two routes in its space, `/run/<path>`, the run screen, and
   `POST /api/run/<path>`, its ticket, and a host of its own. `router()` looks
-  at `r.Host` before any middleware: a host of the apps, by `APPS_URL` or
+  at `r.Host` before any middleware: a host of the apps, by `MINI_APPS_URL` or
   `app-<id>.localhost`, goes to a small stack of its own with none of scrawl's
   routes, only the app's files and `/__scrawl/enter`, `/__scrawl/enter.js`,
-  `/__scrawl/sw.js` and `/__scrawl/files`. An `APPS_URL` without `{id}`, or
+  `/__scrawl/sw.js` and `/__scrawl/files`. A `MINI_APPS_URL` without `{id}`, or
   with `{id}` alone in its label, stops the start. See
   [HTML apps](html-apps.md).
 
@@ -98,10 +98,10 @@ Spaces, routes, settings and the guards on every request.
 - `worker-src` is `'self'`. It changes nothing a browser does, since it falls
   back to `script-src`, but it names the rule for the offline copy's worker.
 - `frame-src` names the hosts of the HTML apps, on every page, and nothing
-  else: the policy is built once at start from `APPS_URL`. Every answer of the
-  scrawl host carries `Cross-Origin-Resource-Policy: same-origin`, so an HTML
-  app on a sibling host cannot embed `/raw/` with the person's cookie. On a
-  request `secureFor` calls secure the session cookie is
+  else: the policy is built once at start from `MINI_APPS_URL`. Every answer of
+  the scrawl host carries `Cross-Origin-Resource-Policy: same-origin`, so an
+  HTML app on a sibling host cannot embed `/raw/` with the person's cookie. On
+  a request `secureFor` calls secure the session cookie is
   `__Host-scrawl_session`, which no other host can set, and only that name is
   read there. Why: [HTML apps](html-apps.md#the-threat).
 - A successful sign-in sets `scrawl_signin` beside the session cookie, and on a

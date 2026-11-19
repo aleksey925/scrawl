@@ -178,7 +178,7 @@ Before changing a part, read its doc:
 - the editor opening where the reader was, the split panes:
   [editor position](docs/design/editor-position.md)
 - the index, the search modes, the find bar: [search](docs/design/search.md)
-- HTML apps, `APPS_URL`, the apps host, the ticket and the app cookie, the
+- HTML apps, `MINI_APPS_URL`, the apps host, the ticket and the app cookie, the
   cookie threat and `__Host-`, the run screen and its frame's permissions, a
   Run in a tab in Safari and on plain http at a network address, an app kept
   offline: [HTML apps](docs/design/html-apps.md)

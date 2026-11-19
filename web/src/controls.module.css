@@ -19,6 +19,10 @@
   transition: var(--scrawl-press-in);
 }
 
+.wayBack:focus-visible {
+  outline-offset: -2px;
+}
+
 .menuControl {
   padding: 0 var(--mantine-spacing-sm) var(--mantine-spacing-xs);
 }

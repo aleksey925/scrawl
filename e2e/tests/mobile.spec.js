@@ -276,6 +276,24 @@ test.describe('mobile', () => {
         expect(box.x >= 0 && box.y + box.height <= page.viewportSize().height).toBe(true);
     });
 
+    test('the keyboard focus ring of the way up stays inside the bar', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        const up = page.getByTestId('topbar-up');
+        await expect(up).toBeVisible();
+        await page.keyboard.press('Tab');
+
+        // act
+        await up.focus();
+
+        // assert
+        await expect(up).toHaveCSS('outline-style', 'solid');
+        await expect(up).toHaveCSS('outline-offset', '-2px');
+        const bar = await page.getByTestId('topbar').boundingBox();
+        const box = await up.boundingBox();
+        expect(box.y >= bar.y && box.y + box.height <= bar.y + bar.height).toBe(true);
+    });
+
     test.describe('the action of the tab bar', () => {
         const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
 

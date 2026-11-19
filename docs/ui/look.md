@@ -50,7 +50,8 @@ Colors, controls and type: how a note and the chrome are drawn.
   where the browser drew a ring of its own that differed from control to
   control. A crumb of the topbar draws it 2px inside its edge, as the row of
   crumbs clips what is outside it, and so does a tab of a phone's bar, as the
-  edge of the screen would clip the first, the last and the bottom of each. The
+  edge of the screen would clip the first, the last and the bottom of each, and
+  so does the way back of a phone's bar, which has 2px of the bar above it. The
   note's own controls in `markdown.css` and the mini outline draw theirs to fit
   their box. The Save of a phone's editor is the exception: a word and not a
   filled button, it is the faint gray of a disabled tab while there is nothing

@@ -332,8 +332,9 @@ Some limits:
   in memory, so everything the app saved there is lost once Safari closes. In a
   tab of its own the app keeps its data as on any site.
 - On plain http at an address of your network, such as
-  `http://192.168.1.5:7272`, Run opens the mini app in a new tab in every
-  browser. See the part for advanced users in [On server](#on-server).
+  `http://192.168.1.5:7272`, with `APPS_URL` set, Run opens the mini app in a
+  new tab in every browser. See the part for advanced users in
+  [On server](#on-server).
 - Inside scrawl a mini app cannot read the clipboard by itself, for example
   with a Paste button of its own. A paste you make with the keyboard or the
   menu works. In a new tab the app can ask for the clipboard as on any site.

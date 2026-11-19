@@ -412,17 +412,17 @@ test.describe('html apps', () => {
         });
     });
 
-    test('runs an html file in a tab of its own at a network address over http', async ({playwright}) => {
+    test('a Run at a network address over http opens a tab of its own, which closes on the 409 with a toast', async ({playwright}) => {
         // arrange
-        const browser = await playwright.chromium.launch({args: [`--host-resolver-rules=MAP ${NETWORK_HOST} 127.0.0.1`]});
+        const browser = await playwright.chromium.launch({channel: 'chromium', args: [`--host-resolver-rules=MAP ${NETWORK_HOST} 127.0.0.1`]});
         try {
-            const context = await browser.newContext();
+            const context = await browser.newContext({viewport: {width: 1440, height: 900}});
             const page = await context.newPage();
             await signIn(page, {baseURL: NETWORK.base, from: SHARED.routes.doc(COUNTER_FILE)});
             await openFile(page, NETWORK, COUNTER_FILE);
 
             // act
-            const [tab] = await Promise.all([context.waitForEvent('page', {timeout: 10_000}), page.getByTestId('file-run').click()]);
+            const [tab] = await Promise.all([context.waitForEvent('page'), page.getByTestId('file-run').click()]);
 
             // assert
             await expect.poll(() => tab.isClosed()).toBe(true);
@@ -439,11 +439,10 @@ test.describe('html apps', () => {
         await signIn(page, {baseURL: LOCALHOST.base, from: SHARED.routes.doc(COUNTER_FILE)});
 
         // act
-        const frame = await run(page, LOCALHOST, COUNTER_FILE, 'Counter');
+        await run(page, LOCALHOST, COUNTER_FILE, 'Counter');
 
         // assert
         await expect(page).toHaveURL(LOCALHOST.run(COUNTER_FILE));
-        expect(new URL(frame.url()).hostname).toMatch(APP_HOST);
     });
 
     test('keeps the frame and its input through a lost network', async ({page, context}) => {

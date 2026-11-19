@@ -232,13 +232,14 @@ the scheme and the port of the page. Chrome and Firefox send every
   same-site, as on a real domain. With auth on these are neighbors, which the
   warning at start names.
 - At any other address the ticket is a 409: on this machine the printed link,
-  from another device https with `APPS_URL`. Run shows it in a toast
-  ([plain http](#plain-http-on-a-network)), the run screen at its address in
-  place of the frame. `[::1]` is one of them, and with `APPS_URL` set any IPv6
-  address gets the 409 as well: a CSP source cannot name an IPv6 address, so
-  `frame-ancestors` could not let the app in its frame. No code is added for a
-  browser that does not open `app-<id>.localhost`; such a frame shows the
-  browser's error page.
+  from another device https with `APPS_URL`. Where Run opens a tab of its own,
+  in [Safari](#safari) and on [plain http](#plain-http-on-a-network), it shows
+  the 409 in a toast; elsewhere the run screen shows it in place of the frame,
+  as it does at its address. `[::1]` is one of them, and with `APPS_URL` set
+  any IPv6 address gets the 409 as well: a CSP source cannot name an IPv6
+  address, so `frame-ancestors` could not let the app in its frame. No code is
+  added for a browser that does not open `app-<id>.localhost`; such a frame
+  shows the browser's error page.
 
 ## Safari
 
@@ -263,8 +264,9 @@ the scheme and the port of the page. Chrome and Firefox send every
 
 ## Plain http on a network
 
-- Over `http://` to a host other than `localhost` a browser sends no
-  `Sec-Fetch-*` ([quirks](../quirks.md#browsers)) and keeps no `Secure` cookie
+- Over `http://` to a host other than `127.0.0.1`, `localhost` and
+  `*.localhost` a browser sends no `Sec-Fetch-*`
+  ([quirks](../quirks.md#browsers)) and keeps no `Secure` cookie
   ([the cookie](#the-ticket-and-the-cookie)). So with scrawl at
   `http://192.168.1.5` and the apps at an `http` `APPS_URL` the enter request
   looks like a first party and gets the `Lax` cookie, which the cross-site

@@ -1,6 +1,6 @@
 # scrawl
 
-A web app for a folder of markdown files.
+Markdown notes in any browser, from a folder or a git repository.
 
 scrawl lets you read and edit your notes from a browser, on a laptop or a
 phone. Point it at a folder or a git repository and it serves the notes there
@@ -86,6 +86,7 @@ scrawl only reads.
   - [Use git repository](#use-git-repository)
 - [Installation](#installation)
   - [Docker](#docker)
+  - [Homebrew](#homebrew)
   - [mise](#mise)
   - [From source](#from-source)
   - [Running binary](#running-binary)
@@ -205,6 +206,16 @@ docker pull ghcr.io/aleksey925/scrawl:latest
 [Quick start](#quick-start) shows how to run it, and
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
 deployment.
+
+### Homebrew
+
+```
+brew install aleksey925/apps/scrawl
+```
+
+This installs the latest
+[release](https://github.com/aleksey925/scrawl/releases) on macOS or Linux.
+`brew upgrade scrawl` updates it.
 
 ### mise
 

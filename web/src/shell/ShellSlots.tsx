@@ -5,6 +5,7 @@ export interface ShellSlots {
   actionsSlot: HTMLElement | null;
   tocSlot: HTMLElement | null;
   barSlot: HTMLElement | null;
+  footSlot: HTMLElement | null;
   barClaimed: boolean;
   claimBar: () => () => void;
   setTocPresent: (present: boolean) => void;
@@ -31,6 +32,11 @@ export function PageBar({ children }: { children: ReactNode }): JSX.Element | nu
   const { barSlot, claimBar } = useShellSlots();
   useLayoutEffect(claimBar, [claimBar]);
   return barSlot === null ? null : createPortal(children, barSlot);
+}
+
+export function PageFoot({ children }: { children: ReactNode }): JSX.Element | null {
+  const { footSlot } = useShellSlots();
+  return footSlot === null ? null : createPortal(children, footSlot);
 }
 
 export function usePageBarClaimed(): boolean {

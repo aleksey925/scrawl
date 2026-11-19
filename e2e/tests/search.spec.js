@@ -195,6 +195,16 @@ test.describe('search', () => {
         await expect(page).not.toHaveURL(/\?q=/);
     });
 
+    test('Find on a wide screen scrolls the page itself, not a box inside it', async ({page}) => {
+        // act
+        await page.goto(`${routes.doc(docs.long.path)}?q=curl`);
+
+        // assert
+        await expect(page.locator('[data-testid=find-hit][data-active="true"]')).toBeInViewport();
+        await expect(page.locator('[data-screen]')).not.toHaveAttribute('data-fill');
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    });
+
     test('a word written with combining marks is found in the note the search opens', async ({page}) => {
         // arrange
         const decomposed = 'e2e-search/decomposed.md';

@@ -186,6 +186,17 @@ function moveVisibleArea(page, top, height) {
     }, {offsetTop: top, visible: height});
 }
 
+function readingPlace(page, note = '[data-testid=doc]') {
+    return page.evaluate((selector) => {
+        const top = document.querySelector('header').getBoundingClientRect().bottom;
+        const root = document.querySelector(selector);
+        const block = root === null ? undefined : [...root.children].find((child) => child.getBoundingClientRect().bottom > top);
+        return block === undefined
+            ? null
+            : {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)};
+    }, note);
+}
+
 async function settled(page) {
     await expect.poll(() => page.evaluate(() => document.getAnimations()
         .filter((animation) => animation.playState === 'running').length)).toBe(0);
@@ -1101,6 +1112,57 @@ test.describe('mobile', () => {
                 id: expect.stringMatching(/^leaving-md-mermaid-/),
             });
             removeFixture(note);
+        });
+
+        test('a swipe back while Find is open slides away the line that was being read', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.long.path));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+            await page.getByTestId('note-bar-find').tap();
+            await expect(page.getByTestId('doc-find')).toBeVisible();
+            const read = await readingPlace(page);
+            await page.evaluate(() => {
+                window.addEventListener('touchend', () => {
+                    const top = document.querySelector('header').getBoundingClientRect().bottom;
+                    const copy = document.querySelector('[data-leaving] .markdown-document');
+                    const block = copy === null ? undefined : [...copy.children].find((child) => child.getBoundingClientRect().bottom > top);
+                    window.copied = block === undefined
+                        ? null
+                        : {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)};
+                }, {once: true});
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.copied)).toEqual(read);
+        });
+
+        test('a swipe back while Find is open at the top of a note slides away a copy as tall as the screen', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.long.path));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.getByTestId('note-bar-find').tap();
+            await expect(page.getByTestId('doc-find')).toBeVisible();
+            const screen = await page.locator('[data-screen]').evaluate((element) => Math.round(element.getBoundingClientRect().height));
+            await page.evaluate(() => {
+                window.addEventListener('touchend', () => {
+                    const copy = document.querySelector('[data-leaving] > *');
+                    window.copiedHeight = copy === null ? null : Math.round(copy.getBoundingClientRect().height);
+                }, {once: true});
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.copiedHeight)).toBe(screen);
         });
 
         test('a drag from the edge asks for the folder above before the page is let go', async ({page}) => {
@@ -4688,6 +4750,154 @@ test.describe('mobile', () => {
         await page.getByTestId('doc-find-close').tap();
         await expect(page.getByTestId('doc-find')).toHaveCount(0);
         await expect(page.getByTestId('note-bar')).toBeVisible();
+    });
+
+    test('Find in note keeps the place being read, scrolls the note instead of the page, and gives the place back when closed', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+        const read = await readingPlace(page);
+
+        // act
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const opened = {place: await readingPlace(page), pageY: await page.evaluate(() => window.scrollY)};
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 300, behavior: 'instant'}));
+        const moved = await readingPlace(page);
+        await page.getByTestId('doc-find-close').tap();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+
+        // assert
+        expect(opened).toEqual({place: read, pageY: 0});
+        expect(await readingPlace(page)).toEqual(moved);
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(1200);
+    });
+
+    test('a match found on a phone stands in the middle of the note, above the find card', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+
+        // act
+        await page.getByTestId('doc-find-input').fill('awk');
+
+        // assert
+        const active = page.locator('[data-testid=find-hit][data-active="true"]');
+        await expect(active).toBeVisible();
+        const place = await active.evaluate((hit) => {
+            const note = hit.closest('[data-screen]').getBoundingClientRect();
+            const box = hit.getBoundingClientRect();
+            const card = document.querySelector('[data-testid=doc-find]').getBoundingClientRect();
+            return {
+                centered: Math.abs(box.top + box.height / 2 - (note.top + note.height / 2)) <= 1,
+                aboveCard: box.bottom <= card.top,
+                pageY: window.scrollY,
+            };
+        });
+        expect(place).toEqual({centered: true, aboveCard: true, pageY: 0});
+    });
+
+    test('with the keyboard up, the note scrolls under a find card that stays over the keyboard', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const {height} = page.viewportSize();
+        await moveVisibleArea(page, 120, height - 300);
+        const card = await boxOf(page, 'doc-find');
+
+        // act
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 400, behavior: 'instant'}));
+
+        // assert
+        const after = {card: await boxOf(page, 'doc-find'), pageY: await page.evaluate(() => window.scrollY)};
+        expect({...after, bottom: card.bottom}).toEqual({card, pageY: 0, bottom: 120 + height - 300 - 8});
+    });
+
+    test('closing Find with the keyboard up gives back the line being read, not one moved by the keyboard', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const {height} = page.viewportSize();
+        await moveVisibleArea(page, 120, height - 300);
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 1200, behavior: 'instant'}));
+        const read = await readingPlace(page);
+
+        // act
+        await page.getByTestId('doc-find-close').tap();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+
+        // assert
+        expect(await readingPlace(page)).toEqual(read);
+    });
+
+    test('a link followed while Find is open gives the page the line being read before it leaves, and opens the next page at its top', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.linked.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const link = page.locator('[data-testid=doc] a[href$="/notes/gone.md"]');
+        await link.evaluate((anchor) => anchor.scrollIntoView({block: 'center', behavior: 'instant'}));
+        const read = await readingPlace(page);
+        await page.evaluate(() => {
+            window.addEventListener('click', () => {
+                const top = document.querySelector('header').getBoundingClientRect().bottom;
+                const block = [...document.querySelector('[data-testid=doc]').children].find((child) => child.getBoundingClientRect().bottom > top);
+                window.leftAt = {
+                    place: {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)},
+                    pageScrolled: window.scrollY > 0,
+                };
+            }, {once: true});
+        });
+
+        // act
+        await link.tap();
+        await expect(page.getByTestId('doc-missing')).toBeVisible();
+
+        // assert
+        expect({left: await page.evaluate(() => window.leftAt), opened: await page.evaluate(() => window.scrollY)})
+            .toEqual({left: {place: read, pageScrolled: true}, opened: 0});
+    });
+
+    test('a match found before the keyboard comes up stays in view above the card', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(`${routes.doc(docs.long.path)}?q=awk`);
+        const active = page.locator('[data-testid=find-hit][data-active="true"]');
+        await expect(active).toBeVisible();
+        const {height} = page.viewportSize();
+
+        // act
+        await moveVisibleArea(page, 0, height - 300);
+
+        // assert
+        await expect.poll(() => active.evaluate((hit) => {
+            const box = hit.getBoundingClientRect();
+            const note = hit.closest('[data-screen]').getBoundingClientRect();
+            return box.top >= note.top && box.bottom <= note.bottom;
+        })).toBe(true);
+    });
+
+    test('a note printed while Find is open on a phone prints whole', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+
+        // act
+        await page.emulateMedia({media: 'print'});
+
+        // assert
+        const printed = await page.locator('[data-screen]').evaluate((screen) => ({
+            note: getComputedStyle(screen).overflowY,
+            root: getComputedStyle(document.documentElement).overflowY,
+            whole: screen.scrollHeight === screen.clientHeight,
+        }));
+        expect(printed).toEqual({note: 'visible', root: 'visible', whole: true});
     });
 
     test('the find card stays right over a phone keyboard while the visible area shrinks and pans, in the same event', async ({page}) => {

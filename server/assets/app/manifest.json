@@ -8,9 +8,10 @@
     "name": "AsyncContent",
     "imports": [
       "_naming.js",
+      "_useVisibleArea.js",
       "_errors.js",
-      "_icons.js",
       "_screenMotion.js",
+      "_icons.js",
       "index.html"
     ],
     "css": [
@@ -37,6 +38,7 @@
       "_naming.js",
       "_AsyncContent.js",
       "_EmptyState.js",
+      "_useVisibleArea.js",
       "_PressRow.module.js",
       "_icons.js",
       "_platform.js",
@@ -70,6 +72,7 @@
       "_Text.js",
       "_AsyncContent.js",
       "_EmptyState.js",
+      "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
       "_platform.js",
@@ -134,6 +137,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_useVisibleArea.js",
       "_icons.js",
       "index.html",
       "_Picker.module.js"
@@ -170,11 +174,12 @@
       "_findControl.js",
       "_Stack.js",
       "_Text.js",
+      "_useVisibleArea.js",
       "_storage.js",
       "_client.js",
+      "_screenMotion.js",
       "_icons.js",
       "_platform.js",
-      "_screenMotion.js",
       "_diagramSvg.js",
       "index.html"
     ],
@@ -227,7 +232,7 @@
     "file": "assets/chunk-3FUC2YCW.js",
     "name": "chunk-3FUC2YCW",
     "imports": [
-      "index.html",
+      "_preload-helper.js",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
@@ -378,7 +383,7 @@
     "file": "assets/chunk-O7XYJQB3.js",
     "name": "chunk-O7XYJQB3",
     "imports": [
-      "index.html",
+      "_preload-helper.js",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_purify.es.js"
@@ -496,8 +501,8 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_icons.js",
-      "_screenMotion.js"
+      "_screenMotion.js",
+      "_icons.js"
     ]
   },
   "_graphlib.js": {
@@ -572,7 +577,7 @@
     "file": "assets/mermaid-parser.core.js",
     "name": "mermaid-parser.core",
     "imports": [
-      "index.html",
+      "_preload-helper.js",
       "_chunk-FOHPRMQF.js"
     ],
     "dynamicImports": [
@@ -626,6 +631,10 @@
       "_naming.js"
     ]
   },
+  "_preload-helper.js": {
+    "file": "assets/preload-helper.js",
+    "name": "preload-helper"
+  },
   "_purify.es.js": {
     "file": "assets/purify.es.js",
     "name": "purify.es"
@@ -659,6 +668,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_useVisibleArea.js",
       "_diagramSvg.js"
     ],
     "css": [
@@ -689,6 +699,15 @@
       "_naming.js"
     ]
   },
+  "_useVisibleArea.js": {
+    "file": "assets/useVisibleArea.js",
+    "name": "useVisibleArea",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_preload-helper.js"
+    ]
+  },
   "index.html": {
     "file": "assets/index.js",
     "name": "index",
@@ -700,13 +719,15 @@
       "_findControl.js",
       "_Stack.js",
       "_Text.js",
+      "_useVisibleArea.js",
+      "_preload-helper.js",
       "_changeSignal.js",
       "_storage.js",
       "_client.js",
       "_errors.js",
+      "_screenMotion.js",
       "_icons.js",
-      "_platform.js",
-      "_screenMotion.js"
+      "_platform.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
@@ -2465,7 +2486,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "index.html",
+      "_preload-helper.js",
       "_chunk-Y2CYZVJY.js",
       "_src.js",
       "_chunk-O7XYJQB3.js",
@@ -2604,12 +2625,14 @@
       "_Text.js",
       "_AsyncContent.js",
       "_EmptyState.js",
+      "_useVisibleArea.js",
+      "_preload-helper.js",
       "_storage.js",
       "_client.js",
       "_errors.js",
+      "_screenMotion.js",
       "_icons.js",
       "_platform.js",
-      "_screenMotion.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
@@ -2791,6 +2814,7 @@
     "imports": [
       "_naming.js",
       "_Text.js",
+      "_useVisibleArea.js",
       "index.html"
     ]
   },
@@ -2828,6 +2852,7 @@
     "imports": [
       "_naming.js",
       "_EmptyState.js",
+      "_useVisibleArea.js",
       "_PressRow.module.js",
       "_icons.js",
       "index.html",
@@ -2845,6 +2870,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
       "index.html"
@@ -2863,6 +2889,7 @@
       "_naming.js",
       "_Text.js",
       "_AsyncContent.js",
+      "_useVisibleArea.js",
       "_client.js",
       "index.html",
       "_SearchResults.js"
@@ -2923,6 +2950,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_use-debounced-value.js",
+      "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
       "index.html",

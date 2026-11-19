@@ -869,6 +869,29 @@ test.describe('reading', () => {
         removeFixture(OUTLINE);
     });
 
+    test('a scroll of the outline itself keeps the section the address names', async ({page}) => {
+        // arrange
+        const sections = Array.from({length: 70}, (_, at) => [`## Section ${at + 1}`, 'text '.repeat(20)]).flat();
+        writeFixture(OUTLINE, ['# Outline pin', '', ...sections].join('\n\n'));
+        await page.goto(`${routes.doc(OUTLINE)}#section-64`);
+        await showOutline(page);
+        const active = page.locator('[data-testid=toc-entry][data-active="true"]');
+        await expect(active).toHaveText('Section 64');
+        const panel = page.getByTestId('mini-outline-panel');
+        await panel.evaluate((rail) => rail.scrollTo({top: (rail.scrollHeight - rail.clientHeight) / 2, behavior: 'instant'}));
+        await panel.hover();
+        const pageY = await page.evaluate(() => window.scrollY);
+
+        // act
+        await page.mouse.wheel(0, 100);
+        await page.waitForTimeout(300);
+
+        // assert
+        expect(await page.evaluate(() => window.scrollY), 'only the outline scrolled').toBe(pageY);
+        await expect(active).toHaveText('Section 64');
+        removeFixture(OUTLINE);
+    });
+
     test('the outline reaches the short sections at the end of a note', async ({page}) => {
         // arrange
         const filler = Array.from({length: 40}, () => 'long '.repeat(12)).join('\n\n');

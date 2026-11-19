@@ -64,6 +64,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
   const [tocPresent, setTocPresent] = useState(false);
   const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
+  const [footSlot, setFootSlot] = useState<HTMLElement | null>(null);
   const [barClaims, setBarClaims] = useState(0);
   const claimBar = useCallback(() => {
     setBarClaims((count) => count + 1);
@@ -108,8 +109,8 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   );
 
   const slots = useMemo<ShellSlots>(
-    () => ({ actionsSlot, tocSlot, barSlot, barClaimed: barClaims > 0, claimBar, setTocPresent }),
-    [actionsSlot, tocSlot, barSlot, barClaims, claimBar],
+    () => ({ actionsSlot, tocSlot, barSlot, footSlot, barClaimed: barClaims > 0, claimBar, setTocPresent }),
+    [actionsSlot, tocSlot, barSlot, footSlot, barClaims, claimBar],
   );
 
   const start = navHidden && (
@@ -161,6 +162,7 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                 <AppShell.Main style={{ minWidth: 0 }}>
                   <div className={classes.banner}>{banner}</div>
                   {children}
+                  <div ref={setFootSlot} className={classes.foot} />
                 </AppShell.Main>
               </AppShell>
 

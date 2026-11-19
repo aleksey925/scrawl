@@ -1,9 +1,11 @@
+import { useMediaQuery } from '@mantine/hooks';
 import { useCallback, useEffect, useRef, type JSX, type RefObject } from 'react';
 
 import type { Heading } from '../api/types';
 import { imagesOf } from '../reader/dom';
 import { FindBar } from '../reader/FindBar';
 import { useFindControl } from '../reader/findControl';
+import { useFindScreen } from '../reader/findScreen';
 import { MiniOutline } from '../reader/MiniOutline';
 import { ReaderToc } from '../reader/ReaderToc';
 import { useDocumentControls } from '../reader/useDocumentControls';
@@ -13,9 +15,9 @@ import { useKatex } from '../reader/useKatex';
 import { useDiagrams } from '../reader/useDiagrams';
 import { useOutline } from '../reader/useOutline';
 import { openViewer } from '../reader/viewer';
-import { PageToc } from '../shell/ShellSlots';
+import { PageFoot, PageToc } from '../shell/ShellSlots';
 import { appShortcut, modChord } from '../shell/shortcuts';
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { layoutBreakpoints, useAtLeast, useBelow } from '../theme';
 
 import classes from './DocumentHtml.module.css';
 
@@ -25,14 +27,18 @@ export interface DocumentHtmlProps {
   html: string;
   toc?: Heading[];
   placed?: RefObject<boolean>;
+  screenOwner?: string;
 }
 
-export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Element {
+export function DocumentHtml({ html, toc, placed, screenOwner }: DocumentHtmlProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
   const outline = useOutline(rootRef, html, toc);
   const find = useFindOnPage(rootRef, html);
   useFindShortcut(rootRef, find.open, find.opened);
   const floating = useAtLeast(layoutBreakpoints.miniOutline);
+  const phone = usePhoneOnScreen();
+  const findScreen = find.opened && phone && screenOwner !== undefined;
+  useFindScreen(rootRef, findScreen, screenOwner ?? '');
 
   const closeViewer = useRef<(() => void) | null>(null);
   const openPicture = useCallback((image: HTMLImageElement): void => {
@@ -70,9 +76,26 @@ export function DocumentHtml({ html, toc, placed }: DocumentHtmlProps): JSX.Elem
       />
       {outline !== null && floating && <MiniOutline outline={outline} />}
 
-      {find.opened && <FindBar find={find} />}
+      {find.opened &&
+        (findScreen ? (
+          <PageFoot>
+            <FindBar find={find} docked />
+          </PageFoot>
+        ) : (
+          <FindBar find={find} />
+        ))}
     </>
   );
+}
+
+function usePhoneOnScreen(): boolean {
+  const phone = useBelow(layoutBreakpoints.phone);
+  const printing = useMediaQuery('print', false, { getInitialValueInEffect: false });
+  const kept = useRef(phone);
+  if (!printing) {
+    kept.current = phone;
+  }
+  return kept.current;
 }
 
 function selectedText(root: HTMLElement): string | undefined {

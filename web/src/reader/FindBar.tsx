@@ -29,7 +29,7 @@ type ToggleName = keyof Omit<FindQuery, 'text'>;
 
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
-export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
+export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: boolean }): JSX.Element {
   const bar = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const atBottom = useBelow(layoutBreakpoints.phone);
@@ -44,6 +44,10 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
     const follow = (): void => {
       const element = bar.current;
       if (element === null) {
+        return;
+      }
+      if (docked) {
+        element.dataset.keyboard = keyboardShown(view) ? 'true' : 'false';
         return;
       }
       if (atBottom) {
@@ -65,10 +69,10 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       view.removeEventListener('resize', follow);
       window.removeEventListener('scroll', follow);
     };
-  }, [atBottom]);
+  }, [atBottom, docked]);
 
   useEffect(() => {
-    input.current?.focus();
+    input.current?.focus({ preventScroll: true });
     input.current?.select();
   }, [find.openings]);
 
@@ -103,7 +107,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
     <div
       ref={bar}
       data-testid="doc-find"
-      className={classes.bar}
+      className={docked ? `${classes.bar} ${classes.docked}` : classes.bar}
       role="search"
       data-print="hide"
       {...ownsShortcuts}

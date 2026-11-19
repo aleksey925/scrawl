@@ -10,6 +10,7 @@ import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
 import { directoryUrl, isDocPath, isEditPath, isProfilePath, isRecentPath } from '../paths';
 import { usePlatform } from '../platform';
+import { pageScrolled, readingTop } from '../reader/findScreen';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
@@ -24,9 +25,9 @@ import { useSwipeBack } from './useSwipeBack';
 function titleGone(): boolean {
   const heading = document.querySelector('[data-screen] h1');
   if (heading === null) {
-    return window.scrollY > 0;
+    return pageScrolled();
   }
-  return heading.getBoundingClientRect().bottom <= layout.topbarHeightCompact;
+  return heading.getBoundingClientRect().bottom <= readingTop();
 }
 
 interface WayUp extends Crumb {
@@ -51,13 +52,13 @@ function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boole
 
   useEffect(() => {
     const update = (): void => {
-      const scrolled = window.scrollY > 0;
+      const scrolled = pageScrolled();
       const showTitle = !watchTitle || titleGone();
       setState((prev) => (prev.scrolled === scrolled && prev.showTitle === showTitle ? prev : { scrolled, showTitle }));
     };
     update();
-    window.addEventListener('scroll', update, { passive: true });
-    return () => window.removeEventListener('scroll', update);
+    document.addEventListener('scroll', update, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', update, { capture: true });
   }, [watchTitle, location.key]);
 
   return state;

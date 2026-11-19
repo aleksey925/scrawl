@@ -25,6 +25,24 @@
   translate: 0 var(--scrawl-visible-top);
 }
 
+.foot {
+  flex: none;
+}
+
+@media screen {
+  .main:has(> [data-fill='find']) {
+    min-height: 0;
+    height: var(--scrawl-visible-height, 100dvh);
+    translate: 0 var(--scrawl-visible-top);
+  }
+
+  :global(:root[data-find-screen]),
+  :global(:root[data-find-screen]) :global(body) {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
 @mixin larger-than $mantine-breakpoint-sm {
   :global(html) {
     overscroll-behavior-y: none;
@@ -43,7 +61,7 @@
   padding: 12px 16px 0;
 }
 
-.main:has(> [data-fill='screen']) > .banner:has(> [data-empty='true']) {
+.main:has(> [data-fill='screen'], > [data-fill='find']) > .banner:has(> [data-empty='true']) {
   padding: 0;
 }
 

@@ -114,6 +114,18 @@
     transform: translateY(calc(var(--scrawl-find-bottom, 100dvh) - 100% - 8px));
   }
 
+  .bar.docked {
+    position: relative;
+    inset: auto;
+    margin: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+    transform: none;
+  }
+
+  .bar.docked[data-keyboard='true'] {
+    margin-bottom: 8px;
+    transform: none;
+  }
+
   .icon {
     order: 1;
     margin-inline-end: 12px;

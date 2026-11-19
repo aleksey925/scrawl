@@ -151,13 +151,15 @@ How the app works on a phone.
   of the page, so a check that the visible area ends above the bottom missed
   the keyboard, and the card kept the room of the home indicator, about 40px
   over the keys. With the keyboard up the card leaves no room for the home
-  indicator, which the keyboard covers. With the keyboard up, the scroll to a
-  match moves the visible area down the page, and the find card follows it. It
-  is moved in the scroll event itself, not by a React render: a render came a
-  frame late, and the card jumped on every step to a match. The editor of a
-  note is placed the same way: the whole screen, its bar on top included, takes
-  the visible area, so its toolbar is over the keyboard and no text is under
-  it.
+  indicator, which the keyboard covers. While the find card is open the note is
+  a screen of its own, the way the editor is: the bar on top, the note and the
+  card under it take the visible area, the page stops scrolling and the note
+  scrolls inside, by a finger or to a match, which stands in the middle of the
+  note above the card. A page that scrolled with the keyboard up moved the
+  visible area across it, and the card and the bar on top jumped on every
+  scroll, by up to 70px ([quirks](../quirks.md#phones-and-touch-screens)).
+  Opening and closing the card keep the line being read where it was, and a
+  wider screen keeps its find bar at the top and the page scrolling.
 - Profile is a page of its own at `/profile` on the gray ground of a sheet,
   since it holds the account, the spaces, the theme and the offline copy, a
   place and not a menu

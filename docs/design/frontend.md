@@ -319,6 +319,30 @@ How the react app in `web/` is built, shipped and wired.
   keeps a phone's keyboard down, and the text is picked with
   `setSelectionRange` as well as `select()`, because iOS ignores `select()`
   there.
+- Find in note on a phone turns the note into a screen of its own
+  (`useFindScreen` in `web/src/reader/findScreen.ts`): the note's `Page` gets
+  `data-fill="find"`, the shell's main takes the visible area as it does for
+  the editor, the root stops scrolling and the page scrolls inside. The card is
+  drawn in the shell's foot slot, after the page in the main, not fixed: the
+  main is moved with the visible area, which makes it the box a fixed element
+  is placed in, and a fixed card got that move twice. The line being read is
+  measured from the bar on top, kept as the screen comes and given back to the
+  window as it goes, after the screen has let go of the visible area, so a
+  keyboard still up does not shift it. It is not given back when the note on
+  screen is another one by then or the page is leaving: the note before stays
+  on screen while the next one loads, and its place landed on the next note. A
+  click on a link that leaves the page gives it back first, so the place the
+  browser keeps for Back is the one being read. Another note opened with Find
+  still open starts a screen of its own. A match keeps its place in the middle
+  while the screen changes size under it, as when the keyboard comes up after
+  it was found, until a finger or a wheel moves the note. What reads the scroll
+  of the page, the bar on top and the outline, reads the screen's while it is
+  there, and only a scroll of the page or of the screen lets go of the heading
+  the address names, not one of the outline's own panel. A swiped page's copy
+  keeps the screen's height and scroll and is put in the body, as the main it
+  came from loses its move when the next page comes. Print shows the note
+  whole, keeps the phone's layout across the paper's width and gives the screen
+  its scroll back after.
 - A panel that covers the page is mantine's `Drawer`, which owns the `inert`
   behind it, the focus it took and which single panel is up. The drawer and the
   outline sheet once each ran their own copy of that over overlapping elements,

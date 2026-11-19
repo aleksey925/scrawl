@@ -55,7 +55,7 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
             {`Nothing has been written in ${basenameOf(doc.path)} yet.`}
           </EmptyState>
         ) : (
-          <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} placed={placed} />
+          <DocumentHtml html={doc.html} toc={doc.show_toc ? doc.toc : undefined} placed={placed} screenOwner={doc.path} />
         )}
       </Page>
     </>

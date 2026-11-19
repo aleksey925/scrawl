@@ -76,6 +76,14 @@ words; the fact itself is written here.
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
+- In an app on the home screen of iOS 27.2, the visible area is moved by the
+  system while the page scrolls with the keyboard up, and the page hears of it
+  frames later: an element moved from the scroll events, not by React, still
+  stood up to 70px off in a third of the frames of a recording. When the page
+  cannot scroll and a box sized to the visible area scrolls instead, it stood
+  still in all but one of 456 frames. `interactive-widget=resizes-content` does
+  not shrink the page there: `clientHeight` stays 873 with the visible
+  height 459. [Phone](ui/phone.md)
 - With the keyboard up, a scrolling box as tall as the page runs under the
   keys, and a drag in it moves either the box or the visible area across the
   page. [Editor](ui/editor.md)

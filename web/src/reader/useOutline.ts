@@ -6,6 +6,7 @@ import { interactionEvents } from './position';
 import { layout, layoutBreakpoints, useAtLeast } from '../theme';
 
 import { decodeFragment, elementWithId } from './dom';
+import { findScreenOf } from './findScreen';
 import { findParam } from './useFindOnPage';
 
 const readingBand = 0.3;
@@ -90,20 +91,22 @@ function usePinned(rootRef: RefObject<HTMLDivElement | null>, html: string, entr
     const touch = (): void => {
       touched = true;
     };
-    const onScroll = (): void => {
-      if (touched) {
+    const onScroll = (event: Event): void => {
+      const root = rootRef.current;
+      const page = event.target === document || (root !== null && event.target === findScreenOf(root));
+      if (touched && page) {
         setPin(null);
       }
     };
     for (const name of interactionEvents) {
       window.addEventListener(name, touch, { passive: true });
     }
-    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
     return () => {
       for (const name of interactionEvents) {
         window.removeEventListener(name, touch);
       }
-      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('scroll', onScroll, { capture: true });
     };
   }, [pin]);
 
@@ -143,14 +146,21 @@ export function useOutline(
     }
 
     const mark = (): void => {
-      if (window.scrollY < atTop) {
+      const screen = findScreenOf(root);
+      const scroll = screen === null ? window.scrollY : screen.scrollTop;
+      if (scroll < atTop) {
         setSpiedId(first.id);
         return;
       }
-      const scroll = window.scrollY;
-      const viewport = window.innerHeight;
-      const tops = found.map((heading) => heading.element.getBoundingClientRect().top + scroll);
-      const page = { scroll, viewport, headerHeight, maxScroll: document.documentElement.scrollHeight - viewport };
+      const viewport = screen === null ? window.innerHeight : screen.clientHeight;
+      const origin = screen === null ? scroll : scroll - screen.getBoundingClientRect().top;
+      const tops = found.map((heading) => heading.element.getBoundingClientRect().top + origin);
+      const page = {
+        scroll,
+        viewport,
+        headerHeight: screen === null ? headerHeight : 0,
+        maxScroll: (screen === null ? document.documentElement.scrollHeight : screen.scrollHeight) - viewport,
+      };
       setSpiedId(found[activeIndex(tops, page)]?.id ?? first.id);
     };
 
@@ -166,14 +176,14 @@ export function useOutline(
 
     const resized = new ResizeObserver(schedule);
     resized.observe(root);
-    window.addEventListener('scroll', schedule, { passive: true });
+    document.addEventListener('scroll', schedule, { capture: true, passive: true });
     window.addEventListener('resize', schedule);
     schedule();
 
     return () => {
       window.cancelAnimationFrame(frame);
       resized.disconnect();
-      window.removeEventListener('scroll', schedule);
+      document.removeEventListener('scroll', schedule, { capture: true });
       window.removeEventListener('resize', schedule);
     };
   }, [rootRef, html, entries, headerHeight]);

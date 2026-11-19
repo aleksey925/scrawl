@@ -34,6 +34,7 @@ export interface ReaderExtensions {
   RowMenu?: ComponentType<RowMenuProps>;
   FileView?: ComponentType<{ file: FilePageResponse }>;
   RunLink?: ComponentType<RunLinkProps>;
+  filePages?: boolean;
 }
 
 const none: ReaderExtensions = {};

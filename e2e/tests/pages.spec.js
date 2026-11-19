@@ -61,7 +61,7 @@ test.describe('pages', () => {
 
     test('the pages of a note and of the editor load while the browser is idle', async ({page}) => {
         // arrange
-        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/DocumentPage.js'));
+        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/NotePage.js'));
         const editPage = page.waitForRequest((request) => request.url().endsWith('/assets/EditPage.js'));
 
         // act
@@ -73,7 +73,7 @@ test.describe('pages', () => {
         const afterLoad = () => page.evaluate(() => {
             const loaded = performance.getEntriesByType('navigation')[0].loadEventStart;
             return performance.getEntriesByType('resource')
-                .filter((entry) => /\/assets\/(DocumentPage|EditPage)\.js$/.test(entry.name))
+                .filter((entry) => /\/assets\/(NotePage|EditPage)\.js$/.test(entry.name))
                 .map((entry) => entry.startTime >= loaded);
         });
         await expect.poll(afterLoad).toEqual([true, true]);
@@ -88,7 +88,7 @@ test.describe('pages', () => {
                 asked.push(request.url());
             }
         });
-        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/DocumentPage.js'));
+        const documentPage = page.waitForRequest((request) => request.url().endsWith('/assets/NotePage.js'));
 
         // act
         await page.goto(routes.home());
@@ -188,7 +188,7 @@ test.describe('pages', () => {
             const clicked = new Promise((resolve) => {
                 click = resolve;
             });
-            await page.route('**/assets/DocumentPage.js', async (route) => {
+            await page.route('**/assets/NotePage.js', async (route) => {
                 asked += 1;
                 if (asked === 1) {
                     await clicked;
@@ -535,7 +535,7 @@ test.describe('pages', () => {
             await failing;
             await route.fulfill({status: 404, body: 'gone'});
         });
-        const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+        const chunk = await holdRoute(page, '**/assets/NotePage.js');
         let loads = 0;
         page.on('load', () => {
             loads += 1;
@@ -573,7 +573,7 @@ test.describe('pages', () => {
 
     test('the page is empty while the first page loads', async ({page}) => {
         // arrange
-        const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+        const chunk = await holdRoute(page, '**/assets/NotePage.js');
 
         // act
         await page.goto(routes.doc(docs.doc.path), {waitUntil: 'commit'});

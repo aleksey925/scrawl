@@ -228,6 +228,11 @@ How the react app in `web/` is built, shipped and wired.
   `web/src/components/Page.module.css`. A band that runs from edge to edge of
   the screen pulls out past the gutter by the same value, so a new gutter has
   to change it too.
+- What only the page of a note draws, its bar and menu and a file's own page,
+  comes with that page's chunk and not with the entry: `NoteExtensions` adds
+  them to the reader's extensions, and the routes of a note and of History wrap
+  the reader's page in it. A folder's list learns that the app has a page for
+  any file from `filePages`, as the list is drawn on other routes too.
 - A screen keeps the answer it has while it fetches the next one, and answers
   are remembered across a route swap (`useApi`, cleared whole by any mutation).
   Clearing the data before the request blanked the tree, the note and every
@@ -377,10 +382,21 @@ How the react app in `web/` is built, shipped and wired.
   the finger.
 - The whole pass goes to `track` in `pending.ts`, which a PDF waits for, so a
   print has every diagram drawn.
-- Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`. PlantUML's own
-  ids get that prefix too, and every `url(#...)` and `href="#..."` that points
-  at one follows (`scopeIds` in `diagramSvg.ts`): every PlantUML diagram
-  carries the same ids, and a heading of the note may be called that too.
+- The last 64 diagrams drawn are kept, by kind, theme, scheme and source, and
+  the last 512 formulas by their TeX and whether they stand alone. The preview
+  gets a new note with each pause in typing, and drew every diagram and formula
+  again, each behind its placeholder, though one paragraph changed. A block
+  whose drawing is kept gets it in the layout effect, before the browser draws,
+  with no engine loaded: the svg itself when it is no longer on the page, else
+  a copy with ids of its own, the way PlantUML's are made. A pass over a note
+  already drawn skips every block drawn for the same look, so an unchanged
+  stretch opened in a comparison draws only its own blocks. A failed drawing is
+  not kept, as a library a network error kept from PlantUML would stay failed.
+- Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`, and a kept svg
+  brings the id of the pass that drew it. PlantUML's own ids get that prefix
+  too, and every `url(#...)` and `href="#..."` that points at one follows
+  (`scopeIds` in `diagramSvg.ts`): every PlantUML diagram carries the same ids,
+  and a heading of the note may be called that too.
 - The viewer shows a copy of the diagram. The copy gets ids of its own, with an
   `md-viewer` prefix, and its `<style>` follows them, so the ids in the note
   and the viewer's are never the same while it is open.

@@ -9,10 +9,8 @@ import { offlineMe, storedMe } from '../offline/source';
 import { documentPage, editPage, preloadPage } from '../pagePreloads';
 
 import { preloadDialogs } from './dialogChunks';
-import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
-import { FileView } from './FileView';
 import { NavProvider, useAccount } from './NavContext';
 import { NetworkGate } from './NeedsNetwork';
 import { OfflineMark } from './OfflineMark';
@@ -27,7 +25,7 @@ import { SyncControl } from './SyncControl';
 import { TabBar } from './TabBar';
 import { useMe, type MeState } from './useMe';
 
-const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu, RunLink };
+const extensions: ReaderExtensions = { RowMenu, RunLink, filePages: true };
 
 const chrome: ReaderChrome = {
   sidebarFoot: <SpaceMenu />,

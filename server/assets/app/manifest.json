@@ -9,6 +9,8 @@
     "imports": [
       "_naming.js",
       "_errors.js",
+      "_icons.js",
+      "_screenMotion.js",
       "index.html"
     ],
     "css": [
@@ -20,7 +22,7 @@
     "name": "DialogActions",
     "imports": [
       "_naming.js",
-      "index.html"
+      "_Stack.js"
     ]
   },
   "_DirectoryView.css": {
@@ -34,48 +36,48 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_AsyncContent.js",
+      "_EmptyState.js",
       "_PressRow.module.js",
+      "_icons.js",
+      "_platform.js",
       "index.html"
     ],
     "css": [
       "assets/DirectoryView.css"
     ]
   },
-  "_DocumentHtml.css": {
-    "file": "assets/DocumentHtml.css",
-    "src": "_DocumentHtml.css"
-  },
-  "_DocumentHtml.js": {
-    "file": "assets/DocumentHtml.js",
-    "name": "DocumentHtml",
+  "_EmptyState.js": {
+    "file": "assets/EmptyState.js",
+    "name": "EmptyState",
     "imports": [
-      "_rolldown-runtime.js",
       "_naming.js",
-      "_Text.js",
-      "_findMatches.js",
-      "index.html"
-    ],
-    "css": [
-      "assets/DocumentHtml.css"
+      "_Stack.js",
+      "_Text.js"
     ]
   },
-  "_DocumentView.css": {
-    "file": "assets/DocumentView.css",
-    "src": "_DocumentView.css"
+  "_NoteExtensions.css": {
+    "file": "assets/NoteExtensions.css",
+    "src": "_NoteExtensions.css"
   },
-  "_DocumentView.js": {
-    "file": "assets/DocumentView.js",
-    "name": "DocumentView",
+  "_NoteExtensions.js": {
+    "file": "assets/NoteExtensions.js",
+    "name": "NoteExtensions",
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_DocumentHtml.js",
+      "_findControl.js",
+      "_anchor.js",
+      "_Text.js",
       "_AsyncContent.js",
+      "_EmptyState.js",
+      "_client.js",
+      "_icons.js",
+      "_platform.js",
       "index.html",
       "_recentNotes.js"
     ],
     "css": [
-      "assets/DocumentView.css"
+      "assets/NoteExtensions.css"
     ]
   },
   "_Picker.css": {
@@ -99,7 +101,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "index.html"
+      "_icons.js"
     ],
     "css": [
       "assets/PressRow.css"
@@ -115,7 +117,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_DocumentHtml.js",
+      "_anchor.js",
       "index.html"
     ],
     "css": [
@@ -132,6 +134,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_icons.js",
       "index.html",
       "_Picker.module.js"
     ],
@@ -139,11 +142,44 @@
       "assets/SearchResults.css"
     ]
   },
+  "_Stack.js": {
+    "file": "assets/Stack.js",
+    "name": "Stack",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ]
+  },
   "_Text.js": {
     "file": "assets/Text.js",
     "name": "Text",
     "imports": [
       "_naming.js"
+    ]
+  },
+  "_anchor.css": {
+    "file": "assets/anchor.css",
+    "src": "_anchor.css"
+  },
+  "_anchor.js": {
+    "file": "assets/anchor.js",
+    "name": "anchor",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_findControl.js",
+      "_Stack.js",
+      "_Text.js",
+      "_storage.js",
+      "_client.js",
+      "_icons.js",
+      "_platform.js",
+      "_screenMotion.js",
+      "_diagramSvg.js",
+      "index.html"
+    ],
+    "css": [
+      "assets/anchor.css"
     ]
   },
   "_arc.js": {
@@ -421,7 +457,6 @@
       "_naming.js",
       "_changeSignal.js",
       "_storage.js",
-      "_findMatches.js",
       "_errors.js"
     ]
   },
@@ -447,19 +482,37 @@
     "file": "assets/defaultLocale.js",
     "name": "defaultLocale"
   },
+  "_diagramSvg.js": {
+    "file": "assets/diagramSvg.js",
+    "name": "diagramSvg"
+  },
   "_errors.js": {
     "file": "assets/errors.js",
     "name": "errors"
   },
-  "_findMatches.js": {
-    "file": "assets/findMatches.js",
-    "name": "findMatches"
+  "_findControl.js": {
+    "file": "assets/findControl.js",
+    "name": "findControl",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_icons.js",
+      "_screenMotion.js"
+    ]
   },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
     "imports": [
       "_baseUniq.js"
+    ]
+  },
+  "_icons.js": {
+    "file": "assets/icons.js",
+    "name": "icons",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
     ]
   },
   "_init.js": {
@@ -565,6 +618,14 @@
     "file": "assets/path.js",
     "name": "path"
   },
+  "_platform.js": {
+    "file": "assets/platform.js",
+    "name": "platform",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ]
+  },
   "_purify.es.js": {
     "file": "assets/purify.es.js",
     "name": "purify.es"
@@ -577,7 +638,7 @@
       "_naming.js",
       "_changeSignal.js",
       "_storage.js",
-      "index.html"
+      "_platform.js"
     ]
   },
   "_rolldown-runtime.js": {
@@ -587,6 +648,22 @@
   "_rough.esm.js": {
     "file": "assets/rough.esm.js",
     "name": "rough.esm"
+  },
+  "_screenMotion.css": {
+    "file": "assets/screenMotion.css",
+    "src": "_screenMotion.css"
+  },
+  "_screenMotion.js": {
+    "file": "assets/screenMotion.js",
+    "name": "screenMotion",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_diagramSvg.js"
+    ],
+    "css": [
+      "assets/screenMotion.css"
+    ]
   },
   "_simple-mode.js": {
     "file": "assets/simple-mode.js",
@@ -620,18 +697,22 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_findControl.js",
+      "_Stack.js",
       "_Text.js",
       "_changeSignal.js",
       "_storage.js",
       "_client.js",
-      "_findMatches.js",
-      "_errors.js"
+      "_errors.js",
+      "_icons.js",
+      "_platform.js",
+      "_screenMotion.js"
     ],
     "dynamicImports": [
       "node_modules/mermaid/dist/mermaid.core.mjs",
       "src/reader/plantuml.ts",
       "node_modules/katex/dist/katex.mjs",
-      "src/pages/DocumentPage.tsx",
+      "src/pages/NotePage.tsx",
       "src/pages/EditPage.tsx",
       "src/shell/SearchDialog.tsx",
       "src/shell/MoveDialog.tsx",
@@ -2508,17 +2589,6 @@
     "src": "node_modules/prettier/standalone.mjs",
     "isDynamicEntry": true
   },
-  "src/pages/DocumentPage.tsx": {
-    "file": "assets/DocumentPage.js",
-    "name": "DocumentPage",
-    "src": "src/pages/DocumentPage.tsx",
-    "isDynamicEntry": true,
-    "imports": [
-      "_naming.js",
-      "_DirectoryView.js",
-      "_DocumentView.js"
-    ]
-  },
   "src/pages/EditPage.tsx": {
     "file": "assets/EditPage.js",
     "name": "EditPage",
@@ -2527,13 +2597,19 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_findControl.js",
       "_use-debounced-value.js",
-      "_DocumentHtml.js",
+      "_anchor.js",
+      "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
+      "_EmptyState.js",
       "_storage.js",
       "_client.js",
       "_errors.js",
+      "_icons.js",
+      "_platform.js",
+      "_screenMotion.js",
       "index.html",
       "_lezer-common.js",
       "_lezer-html.js",
@@ -2681,13 +2757,15 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
       "_storage.js",
       "_client.js",
       "_errors.js",
+      "_NoteExtensions.js",
+      "_icons.js",
       "index.html",
-      "_DocumentView.js",
       "_RenderedDiff.js",
       "_DialogActions.js"
     ],
@@ -2716,6 +2794,17 @@
       "index.html"
     ]
   },
+  "src/pages/NotePage.tsx": {
+    "file": "assets/NotePage.js",
+    "name": "NotePage",
+    "src": "src/pages/NotePage.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_naming.js",
+      "_DirectoryView.js",
+      "_NoteExtensions.js"
+    ]
+  },
   "src/pages/ProfilePage.tsx": {
     "file": "assets/ProfilePage.js",
     "name": "ProfilePage",
@@ -2724,6 +2813,7 @@
     "imports": [
       "_naming.js",
       "_client.js",
+      "_icons.js",
       "index.html"
     ],
     "css": [
@@ -2737,7 +2827,9 @@
     "isDynamicEntry": true,
     "imports": [
       "_naming.js",
+      "_EmptyState.js",
       "_PressRow.module.js",
+      "_icons.js",
       "index.html",
       "_recentNotes.js"
     ],
@@ -2754,6 +2846,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_client.js",
+      "_icons.js",
       "index.html"
     ],
     "css": [
@@ -2782,7 +2875,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime.js",
-      "index.html",
+      "_diagramSvg.js",
       "_purify.es.js"
     ]
   },
@@ -2794,6 +2887,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_icons.js",
       "index.html",
       "_Picker.module.js"
     ],
@@ -2809,6 +2903,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Stack.js",
       "_Text.js",
       "_client.js",
       "_errors.js",
@@ -2829,6 +2924,7 @@
       "_naming.js",
       "_use-debounced-value.js",
       "_client.js",
+      "_icons.js",
       "index.html",
       "_recentNotes.js",
       "_Picker.module.js",

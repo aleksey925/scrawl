@@ -150,7 +150,7 @@ test.describe.serial('upload', () => {
         // arrange
         const docPath = `${FOLDER}/discard-uploading.md`;
         writeFixture(docPath, '# Сброс\n\n');
-        const reader = await holdRoute(page, '**/assets/DocumentPage.js');
+        const reader = await holdRoute(page, '**/assets/NotePage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toContain('Сброс');
         const upload = await holdRoute(page, '**/api/upload/**');

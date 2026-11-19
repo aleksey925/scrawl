@@ -35,8 +35,7 @@ function opensRow(event: MouseEvent): boolean {
 
 export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
-  const { FileView, RowMenu, RunLink } = useReaderExtensions();
-  const filePages = FileView !== undefined;
+  const { RowMenu, RunLink, filePages = false } = useReaderExtensions();
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
   const menu = usePointerMenu<DirEntry>();

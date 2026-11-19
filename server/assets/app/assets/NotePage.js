@@ -1,0 +1,1 @@
+import{$ as e,gt as t,kn as n,z as r}from"./naming.js";import{t as i}from"./DirectoryView.js";import{n as a,t as o}from"./NoteExtensions.js";var s=n();function c(){let n=t()[`*`]??``;return r(n)?(0,s.jsx)(i,{path:e(n)}):(0,s.jsx)(a,{path:n})}function l(){return(0,s.jsx)(o,{children:(0,s.jsx)(c,{})})}export{l as Component};

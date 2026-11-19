@@ -281,6 +281,38 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('an edit elsewhere in the note keeps its diagram and formula drawn in the preview', async ({page}) => {
+        // arrange
+        const docPath = scratch('preview-kept');
+        const body = (word) => `# Схема\n\n$x^2$\n\n\`\`\`mermaid\nflowchart TD\n  A --> B\n\`\`\`\n\n${word}\n`;
+        writeFixture(docPath, body('старый'));
+        await page.goto(routes.edit(docPath));
+        const preview = page.getByTestId('editor-preview');
+        await expect(preview.locator('.md-diagram[data-state="done"] svg')).toBeVisible();
+        await expect(preview.locator('.math.is-typeset')).toHaveCount(1);
+        await preview.locator('.md-diagram svg').evaluate((svg) => {
+            svg.dataset.kept = 'yes';
+        });
+        await preview.evaluate((root) => {
+            window.undrawnSeen = 0;
+            new MutationObserver(() => {
+                const undrawn = '.math:not(.is-typeset), .md-diagram:not([data-state="done"]), :not(.md-diagram) > pre.mermaid';
+                if (root.querySelector(undrawn) !== null) {
+                    window.undrawnSeen += 1;
+                }
+            }).observe(root, {childList: true, subtree: true});
+        });
+
+        // act
+        await setSource(page, body('новый'));
+
+        // assert
+        await expect(preview).toContainText('новый');
+        await expect(preview.locator('.md-diagram svg')).toHaveAttribute('data-kept', 'yes');
+        expect(await page.evaluate(() => window.undrawnSeen)).toBe(0);
+        removeFixture(docPath);
+    });
+
     test('Restore in Preview puts the draft back into the text', async ({page}) => {
         // arrange
         const docPath = scratch('restore-in-preview');
@@ -497,7 +529,7 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('save-reader-loads');
         writeFixture(docPath, 'kept\n');
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        const {release, reached} = await holdRoute(page, '**/assets/NotePage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await reached;
@@ -1159,7 +1191,7 @@ test.describe('editing', () => {
         const untitled = `${folder}/${text.create.untitled}`;
         fs.mkdirSync(fixtureFile(folder), {recursive: true});
         try {
-            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            const chunk = await holdRoute(page, '**/assets/NotePage.js');
             await page.goto(routes.draft(untitled));
             await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
             await chunk.reached;
@@ -1372,7 +1404,7 @@ test.describe('editing', () => {
         const docPath = scratch('save-went-elsewhere');
         writeFixture(docPath, 'kept\n');
         try {
-            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            const chunk = await holdRoute(page, '**/assets/NotePage.js');
             await page.goto(routes.edit(docPath));
             await expect.poll(() => sourceText(page)).toBe('kept\n');
             await chunk.reached;
@@ -1688,7 +1720,7 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'an older draft\n');
         await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        const {release, reached} = await holdRoute(page, '**/assets/NotePage.js');
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toBeVisible();
         await reached;

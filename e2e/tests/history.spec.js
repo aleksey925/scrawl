@@ -84,18 +84,19 @@ test.describe.serial('history', () => {
         const diff = page.getByTestId('rendered-diff');
         const rows = diff.getByTestId('diff-row');
         await expect(diff).toHaveAttribute('data-layout', 'split');
-        await expect(rows).toHaveCount(3);
-        await expect(rows.nth(1)).toHaveAttribute('data-kind', 'format');
-        await expect(rows.nth(2)).toHaveAttribute('data-kind', 'changed');
-        await expect(rows.nth(2).locator('.diff-old del.diff-del')).toHaveText('Быстрая');
-        await expect(rows.nth(2).locator('.diff-new ins.diff-ins')).toHaveText('Медленная');
+        await expect(diff.getByTestId('diff-fold')).toHaveCount(1);
+        await expect(rows).toHaveCount(2);
+        await expect(rows.nth(0)).toHaveAttribute('data-kind', 'format');
+        await expect(rows.nth(1)).toHaveAttribute('data-kind', 'changed');
+        await expect(rows.nth(1).locator('.diff-old del.diff-del')).toHaveText('Быстрая');
+        await expect(rows.nth(1).locator('.diff-new ins.diff-ins')).toHaveText('Медленная');
         await shot(page, 'history-rendered-diff');
 
         await page.getByTestId('history-diff-layout').getByText('Unified').click();
         await expect(diff).toHaveAttribute('data-layout', 'unified');
-        await expect(rows.nth(2).locator('.diff-cell')).toHaveCount(1);
-        await expect(rows.nth(2).locator('del.diff-del')).toHaveText('Быстрая');
-        await expect(rows.nth(2).locator('ins.diff-ins')).toHaveText('Медленная');
+        await expect(rows.nth(1).locator('.diff-cell')).toHaveCount(1);
+        await expect(rows.nth(1).locator('del.diff-del')).toHaveText('Быстрая');
+        await expect(rows.nth(1).locator('ins.diff-ins')).toHaveText('Медленная');
         await shot(page, 'history-rendered-diff-unified');
         await page.reload();
         await expect(page.getByTestId('rendered-diff')).toHaveAttribute('data-layout', 'unified');
@@ -151,6 +152,32 @@ test.describe.serial('history', () => {
         const inside = await fold.getByTestId('diff-row').first().boundingBox();
         const outside = await diff.locator(':scope > [data-testid=diff-row]').first().boundingBox();
         expect(Math.round(inside.x)).toBe(Math.round(outside.x));
+    });
+
+    test('an unchanged stretch draws its rows and diagrams only once it is opened', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('folded-diagram');
+        const diagram = '```mermaid\nflowchart TD\n  A --> B\n```';
+        const body = (last) => [`# Схема ${stamp}`, diagram, 'Один.', 'Два.', 'Три.', last].join('\n\n');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `${body('Четыре.')}\n`);
+        await saveInEditor(page, `${body('Пять.')}\n`);
+        await page.goto(HISTORY.url.history(docPath));
+        const diff = page.getByTestId('rendered-diff');
+        const fold = diff.getByTestId('diff-fold').first();
+        await expect(fold).toBeVisible();
+        await expect(fold.getByTestId('diff-row')).toHaveCount(0);
+        await expect(diff.locator('.md-diagram')).toHaveCount(0);
+
+        // act
+        await fold.locator('summary').click();
+
+        // assert
+        const drawn = fold.locator('.md-diagram[data-state="done"] > .md-diagram-view svg');
+        await expect(drawn).toHaveCount(2);
+        const ids = await drawn.evaluateAll((svgs) => svgs.map((svg) => svg.id));
+        expect(new Set(ids).size, 'the two sides draw under ids of their own').toBe(2);
+        await expect(fold.getByTestId('diff-row')).not.toHaveCount(0);
     });
 
     test('a deleted note is brought back from a version before the deletion', async ({page}) => {

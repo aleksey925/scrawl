@@ -78,11 +78,7 @@ function NewButton({ here }: { here: string }): JSX.Element {
         testId="new-menu"
         overlayTestId="new-scrim"
         returnFocus={returnFocus}
-        title={
-          <>
-            Create in <span className={classes.folder}>{here === '' ? spaceLabel(me) : basenameOf(here)}</span>
-          </>
-        }
+        title={`Create in ${here === '' ? spaceLabel(me) : basenameOf(here)}`}
       >
         <SheetTiles>
           <SheetTile big testId="new-menu-folder" label="New folder" icon={IconFolderPlus} onClick={() => create(actions.newFolder)} />

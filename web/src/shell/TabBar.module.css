@@ -56,7 +56,3 @@
   background: var(--scrawl-accent);
   color: var(--scrawl-on-accent);
 }
-
-.folder {
-  color: var(--scrawl-text-secondary);
-}

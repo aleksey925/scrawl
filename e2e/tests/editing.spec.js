@@ -4,7 +4,8 @@ const fs = require('fs');
 
 const {
     MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
-    removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, writeFixture,
+    removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, storedDrafts,
+    writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const lightTheme = require('../../theme/themes/light.json');
@@ -35,15 +36,6 @@ async function editFromReader(page, docPath, body) {
 async function typeInSource(page, typed) {
     await page.locator('[data-testid=editor-source] .cm-content').click();
     await page.keyboard.type(typed);
-}
-
-function storedDrafts(page) {
-    return page.evaluate(() => Object.keys(localStorage)
-        .filter((key) => key.startsWith('scrawl.draft:'))
-        .map((key) => {
-            const {content, name} = JSON.parse(localStorage.getItem(key));
-            return {path: key.slice(key.lastIndexOf(':') + 1), content, name};
-        }));
 }
 
 async function offerDraft(page, docPath, draft) {
@@ -592,49 +584,58 @@ test.describe('editing', () => {
     test('Cmd+Enter in the text saves, opens the reader and adds no line', async ({page}) => {
         // arrange
         const docPath = scratch('save-cmd-enter');
-        await editFromReader(page, docPath, 'kept\n');
-        await setSource(page, 'written\n');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'written\n');
 
-        // act
-        await page.keyboard.press('ControlOrMeta+Enter');
+            // act
+            await page.keyboard.press('ControlOrMeta+Enter');
 
-        // assert
-        await expect(page).toHaveURL(MAIN.url.doc(docPath));
-        await expect.poll(() => readFixture(docPath)).toBe('written\n');
-        removeFixture(docPath);
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect.poll(() => readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
     });
 
     test('Esc in the text leaves the editor and keeps the changes as a draft', async ({page}) => {
         // arrange
         const docPath = scratch('leave-esc');
-        await editFromReader(page, docPath, 'kept\n');
-        await setSource(page, 'typed and left\n');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
 
-        // act
-        await page.keyboard.press('Escape');
+            // act
+            await page.keyboard.press('Escape');
 
-        // assert
-        await expect(page).toHaveURL(MAIN.url.doc(docPath));
-        await expect(okToast(page)).toHaveText(text.toast.draftKept);
-        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
-        expect(readFixture(docPath)).toBe('kept\n');
-        removeFixture(docPath);
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect(okToast(page)).toHaveText(text.toast.draftKept);
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+            expect(readFixture(docPath)).toBe('kept\n');
+        } finally {
+            removeFixture(docPath);
+        }
     });
 
     test('Esc in the filter of the sidebar clears the filter and leaves the editor open', async ({page}) => {
         // arrange
         const docPath = scratch('esc-filter');
-        await editFromReader(page, docPath, 'kept\n');
-        const filter = page.getByTestId('sidebar-filter');
-        await filter.fill('kept');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            const filter = page.getByTestId('sidebar-filter');
+            await filter.fill('kept');
 
-        // act
-        await filter.press('Escape');
+            // act
+            await filter.press('Escape');
 
-        // assert
-        await expect(filter).toHaveValue('');
-        await stays(() => page.url(), MAIN.url.edit(docPath), 500);
-        removeFixture(docPath);
+            // assert
+            await expect(filter).toHaveValue('');
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
     });
 
     test('Cmd+Enter with nothing focused saves and opens the reader', async ({page}) => {

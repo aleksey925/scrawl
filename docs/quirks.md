@@ -248,6 +248,9 @@ words; the fact itself is written here.
 - `router.state.location` of React Router holds the path with the basename,
   `/s/<name>/doc/...`, while `useLocation` and every link of the app hold it
   without. [Phone](ui/phone.md)
+- React Router calls a route's `lazy` before it sets `router.state.navigation`,
+  so code that reads the navigation inside the call sees none and does not know
+  the address the click was going to. [Frontend](design/frontend.md)
 - A phone that puts a tab away and later drops it fires no `beforeunload`.
   [Editor](ui/editor.md)
 - A paste that carries `text/plain` is never taken as a picture: Word and Excel

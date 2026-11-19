@@ -27,7 +27,6 @@ export interface DraftControl {
   abandon: () => void;
   flush: () => boolean;
   keepAs: (path: string, rev: string, content: string) => boolean;
-  forget: (path: string) => void;
   replace: () => boolean;
   clear: () => void;
 }
@@ -94,11 +93,6 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     [storageScope],
   );
 
-  const forget = useCallback(
-    (target: string): void => removeKey(localStore(), draftKey(storageScope, target)),
-    [storageScope],
-  );
-
   const replace = useCallback((): boolean => {
     const wrote = latest.current.dirty && flush();
     if (wrote) {
@@ -158,5 +152,5 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, abandon, flush, keepAs, forget, replace, clear };
+  return { offered, stale, stored, dismiss, abandon, flush, keepAs, replace, clear };
 }

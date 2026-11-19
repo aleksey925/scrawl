@@ -368,7 +368,7 @@ test.describe('mobile', () => {
             await expect(cells(page)).toHaveText(['Notes', 'Search', 'Recent', 'Profile']);
             const width = page.viewportSize().width;
             const boxes = await cells(page).evaluateAll((items) => items.map((el) => el.getBoundingClientRect().width));
-            expect(boxes.map((wide) => Math.round(wide * 4))).toEqual(Array(4).fill(width));
+            expect(boxes.map((px) => Math.round(px * 4))).toEqual(Array(4).fill(width));
         });
 
         test('New opens two tiles over the bar, a tap on the scrim or a tab only closes them, and so does Escape', async ({page}) => {
@@ -988,13 +988,13 @@ test.describe('mobile', () => {
             // assert
             await expect.poll(() => page.evaluate(() => window.watched === true)).toBe(true);
             const frames = await page.evaluate(() => window.copyFrames);
-            const from = frames.findIndex((shown) => shown.copy);
-            const under = frames.findIndex((shown) => shown.copy && shown.left === 'list');
+            const from = frames.findIndex((snap) => snap.copy);
+            const under = frames.findIndex((snap) => snap.copy && snap.left === 'list');
             expect(from).toBeGreaterThanOrEqual(0);
-            expect(frames.filter((shown) => shown.copy).every((shown) => shown.opaque && shown.catches && shown.marks === 0)).toBe(true);
+            expect(frames.filter((snap) => snap.copy).every((snap) => snap.opaque && snap.catches && snap.marks === 0)).toBe(true);
             expect(frames[from].right).toBe('copy');
             expect(under).toBeGreaterThanOrEqual(0);
-            expect(frames.slice(under).filter((shown) => shown.left !== 'list' || shown.seam === 'nothing')).toEqual([]);
+            expect(frames.slice(under).filter((snap) => snap.left !== 'list' || snap.seam === 'nothing')).toEqual([]);
             expect(frames.at(-1)).toEqual({copy: false, left: 'list', right: 'list', seam: 'none', opaque: true, catches: true, marks: 0});
             await expect(page).toHaveURL(folder());
         });

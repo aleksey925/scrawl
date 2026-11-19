@@ -120,10 +120,13 @@ How the react app in `web/` is built, shipped and wired.
   on its own (`loadQuietly` in `staleBundle.ts`): it reloaded the page under a
   person who was only reading. The load is marked failed instead, and the way
   to that page, or the dialog opened, then loads the app again as a stale chunk
-  does, at the address the click was going to. Waiting for the import to fail
-  again was not enough: when only a stylesheet failed, the page opened with no
-  style ([quirks](../quirks.md#browsers)). The error does not name the import,
-  so while a load on idle is on its way no failed chunk reloads from
+  does, at the address the click was going to. A page checks the mark once its
+  import has come, since the router names that address only after it asked for
+  the page ([quirks](../quirks.md#react-mantine-and-the-editor)); a dialog
+  changes no address, so it checks before it loads. Waiting for the import to
+  fail again was not enough: when only a stylesheet failed, the page opened
+  with no style ([quirks](../quirks.md#browsers)). The error does not name the
+  import, so while a load on idle is on its way no failed chunk reloads from
   `vite:preloadError`. A chunk the app waits for, a page, a dialog opened or a
   diagram engine, goes through `loadChunk`, which then loads the page again
   itself: a note with math opened at the start lost its KaTeX that way. The

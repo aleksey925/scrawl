@@ -87,19 +87,19 @@ The editor screen.
   ran stays there. Once the save is done and the reader is on its way, the text
   can no longer be changed: the guard on leaving is asked only as the move
   starts, and the reader may still be loading. A save midway that keeps the
-  editor is `Ctrl`/`Cmd` + `S`. `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is
-  Cancel, from the text or with nothing focused; in a field, a menu, a dialog
-  or the sidebar `Esc` closes what it closed before. In the text `Esc` first
-  closes what codemirror has open: a list of completions, the search panel,
-  from its field, its buttons or the text, and several cursors, which it makes
-  one. Both are taken before the text
-  ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
-  and any other way out leave without saving and ask nothing: the unsaved text
-  is written to the draft on the device as the editor goes, neither the text
-  nor an offered draft can be changed while the next page loads, a toast says
-  "Changes kept as a draft on this device", and the editor offers the draft
-  back the next time ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The
-  toast has no button: the way back is the note itself, and for a note not
+  editor is `Ctrl`/`Cmd` + `S`, from anywhere on the screen, a field too.
+  `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is Cancel, from the text or with
+  nothing focused; in a field, a menu, a dialog or the sidebar `Esc` closes
+  what it closed before. In the text `Esc` first closes what codemirror has
+  open: a list of completions, the search panel, from its field, its buttons or
+  the text, and several cursors, which it makes one. Both are taken before the
+  text ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back
+  arrow and any other way out leave without saving and ask nothing: the unsaved
+  text is written to the draft on the device as the editor goes, neither the
+  text nor an offered draft can be changed while the next page loads, a toast
+  says "Changes kept as a draft on this device", and the editor offers the
+  draft back the next time ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)).
+  The toast has no button: the way back is the note itself, and for a note not
   created yet the next New note in its folder, which opens at the same address
   and offers the draft. Text typed there instead of Restore leaves the offered
   draft as it is while the editor stays open, and replaces it only when the

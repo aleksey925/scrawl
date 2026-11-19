@@ -66,7 +66,7 @@ export function loadChunk<T>(load: Promise<T>): Promise<T> {
   return load.then(
     (module) => (reloading ? never() : module),
     (error: unknown) => {
-      if (reloading || recover()) {
+      if (reloadForStaleBundle()) {
         return never();
       }
       throw error;

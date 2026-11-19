@@ -5,7 +5,7 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {
     MAIN, MOVE_WAIT_MS, PAST_DRAFT_DELAY_MS, atHome, fixtureFile, holdRoute, nameOf, pressShortcut, readFixture, recordMoves, removeFixture, rightClickPrevented,
-    routes, save, setSource, shot, signIn, sourceText, stays, writeFixture,
+    routes, save, setSource, shot, signIn, sourceText, stays, storedDrafts, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 
@@ -298,20 +298,16 @@ test.describe.serial('file management', () => {
         const folder = 'e2e-scratch/draft-named-later';
         const untitled = `${folder}/${text.create.untitled}`;
         fs.mkdirSync(fixtureFile(folder), {recursive: true});
-        const storedName = () => page.evaluate(() => {
-            const key = Object.keys(localStorage).find((entry) => entry.startsWith('scrawl.draft:'));
-            return key === undefined ? undefined : JSON.parse(localStorage.getItem(key)).name ?? null;
-        });
         try {
             await page.goto(routes.draft(untitled));
             await setSource(page, 'milk\n');
-            await expect.poll(storedName).toBe(null);
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: 'milk\n'}]);
 
             // act
             await nameDraft(page, 'shopping.md');
 
             // assert
-            await expect.poll(storedName).toBe('shopping.md');
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: untitled, content: 'milk\n', name: 'shopping.md'}]);
         } finally {
             removeFixture(folder);
         }

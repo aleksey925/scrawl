@@ -252,16 +252,16 @@ test.describe('pages', () => {
             release = resolve;
         });
         try {
-            let idle = 0;
+            let preloads = 0;
             await page.route('**/assets/EditPage.js', async (route) => {
-                idle += 1;
-                if (idle === 1) {
+                preloads += 1;
+                if (preloads === 1) {
                     await held;
                 }
                 await route.continue();
             });
             await page.goto(routes.doc(docs.doc.path));
-            await expect.poll(() => idle).toBe(1);
+            await expect.poll(() => preloads).toBe(1);
             let asked = 0;
             await page.route('**/assets/katex.js', async (route) => {
                 asked += 1;

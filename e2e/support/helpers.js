@@ -245,6 +245,15 @@ function okToast(page) {
     return page.locator('[data-testid=toast][data-kind="ok"]');
 }
 
+function storedDrafts(page) {
+    return page.evaluate(() => Object.keys(localStorage)
+        .filter((key) => key.startsWith('scrawl.draft:'))
+        .map((key) => {
+            const {content, name} = JSON.parse(localStorage.getItem(key));
+            return {path: key.slice(key.lastIndexOf(':') + 1), content, name};
+        }));
+}
+
 function setRefusingDrafts(page, refusing) {
     return page.evaluate((next) => {
         window.refuseDrafts = next;
@@ -419,6 +428,7 @@ module.exports = {
     signIn,
     sourceText,
     stays,
+    storedDrafts,
     submitCredentials,
     switchCopy,
     titleRoom,

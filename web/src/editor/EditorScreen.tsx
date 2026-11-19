@@ -114,6 +114,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const savedAsRef = useRef(savedAs);
   manualRef.current = manual;
   savedAsRef.current = savedAs;
+  const notCreated = drafting && savedAs === undefined;
   const named = manual ?? joinPath(folder, noteNameOf(content));
   const filePath = drafting ? (savedAs ?? named) : path;
   const kind: EditorKind = isMarkdown(filePath) ? 'markdown' : 'text';
@@ -124,6 +125,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
 
   const [saved, setSaved] = useState(editorText);
   const [rev, setRev] = useState(initialRev);
+  const exists = rev !== '';
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<EditorView | undefined>(undefined);
 
@@ -150,12 +152,12 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
   const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({
-    path: drafting ? (savedAs ?? path) : path,
+    path: savedAs ?? path,
     rev,
     content,
     dirty,
     savedContent: editorText,
-    name: drafting && savedAs === undefined && manual !== undefined ? basenameOf(manual) : undefined,
+    name: notCreated && manual !== undefined ? basenameOf(manual) : undefined,
   });
 
   const draftRef = useRef(draft);
@@ -343,7 +345,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     formatOnSave,
     lineBreak,
     dirty,
-    exists: rev !== '',
+    exists,
     contentRef,
     revRef,
     manualRef,
@@ -407,7 +409,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [bufferText, folder, liveView],
   );
 
-  useDraftChrome(drafting && savedAs === undefined ? { path: named, rename: renameDraft } : undefined);
+  useDraftChrome(notCreated ? { path: named, rename: renameDraft } : undefined);
 
   const onAction = useCallback((action: MarkdownAction): void => {
     const current = viewRef.current;
@@ -475,13 +477,13 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
         ? draft.stored
           ? 'drafted'
           : 'dirty'
-        : isNew && rev === ''
+        : isNew && !exists
           ? 'new'
           : 'saved';
 
   const statusText = saveState === 'new' && kind === 'text' ? 'New file' : saveStateText[saveState];
   const unsaved = saveState === 'dirty' || saveState === 'drafted';
-  const savable = dirty || rev === '';
+  const savable = dirty || !exists;
   const phoneOptions: SegmentedOption<PhoneMode>[] = [
     { value: 'source', label: 'Text', testId: 'editor-tab-source' },
     { value: 'preview', label: 'Preview', testId: 'editor-tab-preview' },

@@ -191,6 +191,8 @@ export function useEditSession({
     });
   }, [blocker, draftRef, keepDraft, uploading]);
 
+  const notCreated = useCallback((): boolean => drafting && savedAsRef.current === undefined, [drafting, savedAsRef]);
+
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);
     setRev(nextRev);
@@ -246,7 +248,7 @@ export function useEditSession({
       setSaving(true);
       rememberReadingPosition();
       let sent = bufferText();
-      const first = drafting && savedAsRef.current === undefined;
+      const first = notCreated();
       let dest = savedAsRef.current ?? path;
       try {
         await uploads.wait();
@@ -289,8 +291,8 @@ export function useEditSession({
         }
         if (first) {
           const draft = draftRef.current;
-          if (draft.offered === undefined) {
-            draft.forget(path);
+          if (!shown && draft.offered === undefined) {
+            draft.clear();
           }
           const kept = shown || draft.keepAs(dest, res.rev, bufferText());
           savedAsRef.current = dest;
@@ -340,11 +342,11 @@ export function useEditSession({
       bufferText,
       draftRef,
       draftTarget,
-      drafting,
       formatBuffer,
       formatOnSave,
       lineBreak,
       markSaved,
+      notCreated,
       path,
       putIfUnchanged,
       readOnly,
@@ -373,7 +375,7 @@ export function useEditSession({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!modChord(event, 's')) {
+      if (!modChord(event, 's') || composing(event)) {
         return;
       }
       event.preventDefault();
@@ -395,13 +397,13 @@ export function useEditSession({
   }, [navigate, path, rememberReadingPosition, savedAsRef]);
 
   const cancel = useCallback((): void => {
-    if (!drafting || savedAsRef.current !== undefined) {
+    if (!notCreated()) {
       openReader();
       return;
     }
     const step = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     void (step > 0 ? navigate(-1) : navigate(directoryUrl(folder), { replace: true }));
-  }, [drafting, folder, navigate, openReader, savedAsRef]);
+  }, [folder, navigate, notCreated, openReader]);
 
   const saveAndLeave = useCallback(async (): Promise<void> => {
     const res: SaveResult = dirty || !exists ? await save() : { shownStored: true };
@@ -422,24 +424,24 @@ export function useEditSession({
     const textHoldsEscape = (): boolean => {
       const current = liveView();
       return (
-        document.querySelector('.cm-tooltip-autocomplete') !== null ||
-        (current !== undefined && (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-search') !== null))
+        current !== undefined &&
+        (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-tooltip-autocomplete, .cm-search') !== null)
       );
     };
     const onKey = (event: KeyboardEvent): void => {
-      const saving = modChord(event, 'enter');
-      const closing = event.key === 'Escape' && !textHoldsEscape();
-      if ((!saving && !closing) || !inText(event.target) || composing(event)) {
+      const saveChord = modChord(event, 'enter');
+      const closeKey = event.key === 'Escape' && !textHoldsEscape();
+      if ((!saveChord && !closeKey) || !inText(event.target) || composing(event)) {
         return;
       }
-      if (saving) {
+      if (saveChord) {
         event.preventDefault();
         event.stopPropagation();
       }
       if (savingRef.current || leavingRef.current) {
         return;
       }
-      if (saving) {
+      if (saveChord) {
         void saveAndLeave();
       } else {
         cancel();

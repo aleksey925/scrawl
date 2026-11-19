@@ -32,10 +32,10 @@ Creating, naming, moving and deleting files and folders.
   the root, or of a folder's page, and on a phone the New note tile of the
   bar's New. A folder is made from the arrow beside the blue New, whose menu
   holds New folder alone, the empty folder's New folder, the right click on
-  free space, the phone's New folder tile and `Shift` + `N`, which keeps where
-  `N` works. Its name is typed in a row where it will stand: in the tree for
-  the tree's menu, and in a folder's list, on a desktop and on a phone, in a
-  row after the last folder, so a long list is not scrolled to its end. Enter
+  free space, the phone's New folder tile and `Shift` + `N`, which works where
+  `N` does. Its name is typed in a row where it will stand: in the tree for the
+  tree's menu, and in a folder's list, on a desktop and on a phone, in a row
+  after the last folder, so a long list is not scrolled to its end. Enter
   creates it, and so does a click or a tap outside the tree's field, while the
   row of a list keeps a typed name and drops only an empty one, so a click on
   another row of the list does not make a folder with half a name; Escape, or

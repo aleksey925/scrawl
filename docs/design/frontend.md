@@ -123,31 +123,36 @@ How the react app in `web/` is built, shipped and wired.
   does, at the address the click was going to. A page checks the mark once its
   import has come, since the router names that address only after it asked for
   the page ([quirks](../quirks.md#react-mantine-and-the-editor)); a dialog
-  changes no address, so it checks before it loads. Waiting for the import to
+  changes no address, so it checks before it loads. Both wait first for a load
+  on idle of the same chunk that is still on its way. Waiting for the import to
   fail again was not enough: when only a stylesheet failed, the page opened
-  with no style ([quirks](../quirks.md#browsers)). The error does not name the
-  import, so while a load on idle is on its way no failed chunk reloads from
-  `vite:preloadError`. A chunk the app waits for, a page, a dialog opened or a
-  diagram engine, goes through `loadChunk`, which then loads the page again
-  itself: a note with math opened at the start lost its KaTeX that way. The
-  formatter's chunks go through it as well, and while the editor holds unsaved
-  text a failed one only fails that format. A dialog whose chunk is there draws
-  in the same render as the click that opened it, with no `Suspense`: one that
-  waited for its chunk let the keys typed after Cmd+K go to the page, and on a
-  phone its field took the focus outside the tap, so no keyboard opened
-  ([quirks](../quirks.md#ios-and-safari)). A dialog opened before the idle load
-  is done draws nothing until its chunk comes, and has those two faults. That
-  window, from the page's load until the browser is idle and the chunks have
-  come, is short and is left open: holding the keys and the tap would take a
-  second field drawn in the main bundle. A chunk that does not load as the
-  dialog opens loads the page again as a stale chunk does, when the editor
-  holds no unsaved text. When it does, a dialog that was opening closes with a
-  toast that asks to load the page again: Chromium keeps a failed import of a
-  module for the life of the page ([quirks](../quirks.md#browsers)), so asking
-  again would fail the same way. Under unsaved text a dialog whose load on idle
-  failed closes with that toast too and keeps its mark for the next time: vite
-  does not ask for a failed stylesheet again, and the dialog would open with no
-  style.
+  with no style, and an import made while vite still waited for that stylesheet
+  came without it ([quirks](../quirks.md#browsers)). A page whose mark is set
+  and that cannot load the app again, as less than a minute after the last
+  time, shows the error page, which asks to load the page again, and the router
+  keeps that answer until it is; a dialog shows the toast below. The error does
+  not name the import, so while a load on idle is on its way no failed chunk
+  reloads from `vite:preloadError`. A chunk the app waits for, a page, a dialog
+  opened or a diagram engine, goes through `loadChunk`, which then loads the
+  page again itself: a note with math opened at the start lost its KaTeX that
+  way. The formatter's chunks go through it as well, and while the editor holds
+  unsaved text a failed one only fails that format. A dialog whose chunk is
+  there draws in the same render as the click that opened it, with no
+  `Suspense`: one that waited for its chunk let the keys typed after Cmd+K go
+  to the page, and on a phone its field took the focus outside the tap, so no
+  keyboard opened ([quirks](../quirks.md#ios-and-safari)). A dialog opened
+  before the idle load is done draws nothing until its chunk comes, and has
+  those two faults. That window, from the page's load until the browser is idle
+  and the chunks have come, is short and is left open: holding the keys and the
+  tap would take a second field drawn in the main bundle. A chunk that does not
+  load as the dialog opens loads the page again as a stale chunk does, when the
+  editor holds no unsaved text. When it does, a dialog that was opening closes
+  with a toast that asks to load the page again: Chromium keeps a failed import
+  of a module for the life of the page ([quirks](../quirks.md#browsers)), so
+  asking again would fail the same way. Under unsaved text a dialog whose load
+  on idle failed closes with that toast too and keeps its mark for the next
+  time: vite does not ask for a failed stylesheet again, and the dialog would
+  open with no style.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

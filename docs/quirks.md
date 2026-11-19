@@ -111,7 +111,8 @@ words; the fact itself is written here.
   importing it again fails at once and sends no request.
   [Frontend](design/frontend.md)
 - Vite asks for a stylesheet a dynamic import needs once per page: when it
-  failed, the next import of the same chunk loads the script without it. And
+  failed, the next import of the same chunk loads the script without it, and an
+  import made while it is still on its way does not wait for it. And
   `vite:preloadError` carries only the error, not the import it came from.
   [Frontend](design/frontend.md)
 - `overflow-x: hidden` makes an element a scroll container, and every sticky

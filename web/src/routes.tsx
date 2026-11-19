@@ -14,8 +14,10 @@ function Blank(): null {
 function lazyPage<T>(load: () => Promise<T>): () => Promise<T> {
   return () =>
     loadChunk(
-      load().then((module) => {
-        reloadIfFailedQuietly(load);
+      load().then(async (module) => {
+        if (await reloadIfFailedQuietly(load)) {
+          throw new Error('Its part of the app did not load. Load the page again to open it.');
+        }
         return module;
       }),
     );

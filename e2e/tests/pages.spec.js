@@ -427,6 +427,102 @@ test.describe('pages', () => {
         }
     });
 
+    test('a page opened while its stylesheet loaded on idle is on its way, which then fails, loads the app again on the way to that page', async ({page}) => {
+        // arrange
+        let fail = () => {};
+        const failing = new Promise((resolve) => {
+            fail = resolve;
+        });
+        let asked = 0;
+        await page.route('**/assets/EditPage.css', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await failing;
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(1);
+        await page.getByTestId('doc-edit').click();
+        await stays(() => page.url(), MAIN.url.doc(docs.doc.path), 500);
+
+        // act
+        fail();
+
+        // assert
+        await expect.poll(() => loads).toBe(2);
+        await expect(page).toHaveURL(MAIN.url.edit(docs.doc.path));
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect.poll(() => asked).toBe(2);
+    });
+
+    test('a page whose stylesheet failed while the browser was idle, opened less than a minute after the app was loaded again, says it did not load', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            sessionStorage.setItem('scrawl-stale-bundle-reload', String(Date.now()));
+        });
+        let asked = 0;
+        await page.route('**/assets/EditPage.css', (route) => {
+            asked += 1;
+            return route.fulfill({status: 404, body: 'gone'});
+        });
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(1);
+
+        // act
+        await page.getByTestId('doc-edit').click();
+
+        // assert
+        await expect(page.getByTestId('app-error-message')).toHaveText('Its part of the app did not load. Load the page again to open it.');
+        await expect(page.getByTestId('editor-source')).toHaveCount(0);
+        expect(loads).toBe(1);
+    });
+
+    test('Move to opened while its stylesheet loaded on idle is on its way, which then fails, loads the page again', async ({page}) => {
+        // arrange
+        let fail = () => {};
+        const failing = new Promise((resolve) => {
+            fail = resolve;
+        });
+        let asked = 0;
+        await page.route('**/assets/MoveDialog.css', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await failing;
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(1);
+        const rowMenu = page.locator(`[data-testid=tree-row][data-path="${docs.doc.path}"] [data-testid=tree-row-menu]`);
+        await rowMenu.click();
+        await page.getByTestId('tree-row-menu-move').click();
+        await stays(() => page.getByTestId('move-dialog').count(), 0, 500);
+        const reloaded = page.waitForEvent('load');
+
+        // act
+        fail();
+
+        // assert
+        await reloaded;
+        await expect.poll(() => asked).toBe(2);
+        await rowMenu.click();
+        await page.getByTestId('tree-row-menu-move').click();
+        await expect(page.getByTestId('move-dialog')).toBeVisible();
+    });
+
     test('a dialog\'s chunk that fails while the browser is idle and a page is on its way does not load the app again', async ({page}) => {
         // arrange
         let fail = () => {};

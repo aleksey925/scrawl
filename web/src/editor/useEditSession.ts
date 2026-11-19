@@ -1,6 +1,6 @@
 import { runScopeHandlers, type EditorView } from '@codemirror/view';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
-import { useBlocker, useNavigate } from 'react-router';
+import { useBlocker, useNavigate, useNavigation } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
 import { ApiError, type ApiConflict } from '../api/errors';
@@ -101,6 +101,9 @@ export function useEditSession({
   rememberReadingPosition,
 }: UseEditSessionOptions): EditSession {
   const navigate = useNavigate();
+  const navigation = useNavigation();
+  const movingRef = useRef(false);
+  movingRef.current = navigation.state !== 'idle';
   const { refreshMe } = useAccount();
   const reportMutation = useMutationState();
 
@@ -116,6 +119,11 @@ export function useEditSession({
       mountedRef.current = false;
     };
   }, []);
+
+  const stays = useCallback(
+    (): boolean => mountedRef.current && !leavingRef.current && !movingRef.current,
+    [],
+  );
 
   useEffect(() => installUnauthorizedHandler('screen', () => draftRef.current.replace()), [draftRef]);
 
@@ -212,12 +220,14 @@ export function useEditSession({
       );
       setSaved(sent);
       draftRef.current.clear();
-      leavingRef.current = true;
-      await navigate(editUrl(copyPath), { replace: true });
+      if (stays()) {
+        leavingRef.current = true;
+        await navigate(editUrl(copyPath), { replace: true });
+      }
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
-  }, [contentRef, draftRef, lineBreak, navigate, path, reportMutation, setSaved]);
+  }, [contentRef, draftRef, lineBreak, navigate, path, reportMutation, setSaved, stays]);
 
   const draftTarget = useCallback(async (sent: string): Promise<string | undefined> => {
     const chosen = manualRef.current;
@@ -290,11 +300,7 @@ export function useEditSession({
           showToast('warn', { title: 'Could not update the contents', message: tocFailure });
         }
         if (first) {
-          const draft = draftRef.current;
-          const kept = shown || draft.keepAs(dest, res.rev, bufferText());
-          if (!shown && kept && draft.offered === undefined) {
-            draft.clear();
-          }
+          const kept = shown || draftRef.current.moveTo(dest, res.rev, bufferText());
           savedAsRef.current = dest;
           setSavedAs(dest);
           reportMutation(res, `Created "${basenameOf(dest)}"`);
@@ -380,14 +386,14 @@ export function useEditSession({
       }
       event.preventDefault();
       void save().then((res) => {
-        if (res.created !== undefined && mountedRef.current && !leavingRef.current) {
+        if (res.created !== undefined && stays()) {
           reopenAt(res.created);
         }
       });
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [reopenAt, save]);
+  }, [reopenAt, save, stays]);
 
   const openReader = useCallback((target?: string): void => {
     rememberReadingPosition();
@@ -410,12 +416,12 @@ export function useEditSession({
     if (!res.shownStored) {
       return;
     }
-    if (mountedRef.current && !leavingRef.current) {
+    if (stays()) {
       leavingRef.current = true;
       setLeaving(true);
       openReader(res.created);
     }
-  }, [dirty, exists, openReader, save]);
+  }, [dirty, exists, openReader, save, stays]);
 
   useEffect(() => {
     const inText = (target: EventTarget | null): boolean =>
@@ -444,13 +450,13 @@ export function useEditSession({
         event.preventDefault();
         event.stopPropagation();
       }
-      if (savingRef.current || leavingRef.current) {
+      if (leavingRef.current) {
         return;
       }
-      if (saveChord) {
-        void saveAndLeave();
-      } else {
+      if (!saveChord) {
         cancel();
+      } else if (!savingRef.current) {
+        void saveAndLeave();
       }
     };
     document.addEventListener('keydown', onKey, true);

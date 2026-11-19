@@ -10,6 +10,8 @@ let quietLoads = 0;
 
 const failedQuietly = new Set<() => Promise<unknown>>();
 
+const quietlyLoading = new Map<() => Promise<unknown>, Promise<unknown>>();
+
 let recover: () => boolean = () => false;
 
 const holds = new Set<() => boolean>();
@@ -76,15 +78,17 @@ export function loadChunk<T>(load: Promise<T>): Promise<T> {
 
 export function loadQuietly(load: () => Promise<unknown>): void {
   quietLoads += 1;
-  void load()
+  const settled = load()
     .catch(() => {
       failedQuietly.add(load);
     })
     .finally(() => {
       quietLoads -= 1;
     });
+  quietlyLoading.set(load, settled);
 }
 
-export function reloadIfFailedQuietly(load: () => Promise<unknown>): boolean {
+export async function reloadIfFailedQuietly(load: () => Promise<unknown>): Promise<boolean> {
+  await quietlyLoading.get(load);
   return failedQuietly.has(load) && !reloadForStaleBundle();
 }

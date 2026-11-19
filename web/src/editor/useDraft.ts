@@ -11,6 +11,7 @@ export interface Draft {
   content: string;
   at: number;
   name?: string;
+  by?: string;
 }
 
 interface WrittenDraft {
@@ -26,7 +27,7 @@ export interface DraftControl {
   dismiss: () => void;
   abandon: () => void;
   flush: () => boolean;
-  keepAs: (path: string, rev: string, content: string) => boolean;
+  moveTo: (path: string, rev: string, content: string) => boolean;
   replace: () => boolean;
   clear: () => void;
 }
@@ -73,16 +74,19 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const latest = useRef({ rev, content, dirty, key, name });
   latest.current = { rev, content, dirty, key, name };
   const abandonedRef = useRef(false);
-  const ownSinceRef = useRef(0);
+  const [writer] = useState(() => Math.random().toString(36).slice(2));
+  const openedAtRef = useRef(0);
 
-  const writeDraft = useCallback((target: string, draftRev: string, text: string, draftName?: string): boolean => {
-    const at = Date.now();
-    const wrote = writeJson(localStore(), target, { rev: draftRev, content: text, at, name: draftName });
-    if (wrote) {
-      ownSinceRef.current = at;
-    }
-    return wrote;
-  }, []);
+  const writeDraft = useCallback(
+    (target: string, draftRev: string, text: string, draftName?: string): boolean =>
+      writeJson(localStore(), target, { rev: draftRev, content: text, at: Date.now(), name: draftName, by: writer }),
+    [writer],
+  );
+
+  const owns = useCallback((target: string): boolean => {
+    const stored = readJson<Draft>(localStore(), target);
+    return stored === undefined || stored.by === writer || (stored.at ?? 0) <= openedAtRef.current;
+  }, [writer]);
 
   const flush = useCallback((): boolean => {
     const now = latest.current;
@@ -94,9 +98,22 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     return stored;
   }, [writeDraft]);
 
-  const keepAs = useCallback(
-    (target: string, targetRev: string, text: string): boolean => writeDraft(draftKey(storageScope, target), targetRev, text),
-    [storageScope, writeDraft],
+  const moveTo = useCallback(
+    (target: string, targetRev: string, text: string): boolean => {
+      const from = latest.current.key;
+      const to = draftKey(storageScope, target);
+      const moved = writeDraft(to, targetRev, text);
+      if (to === from || offered !== undefined || !owns(from)) {
+        return moved;
+      }
+      if (moved) {
+        removeKey(localStore(), from);
+      } else {
+        writeDraft(from, latest.current.rev, text, latest.current.name);
+      }
+      return moved;
+    },
+    [offered, owns, storageScope, writeDraft],
   );
 
   const replace = useCallback((): boolean => {
@@ -108,17 +125,16 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   }, [flush]);
 
   const clear = useCallback((): void => {
-    const store = localStore();
     const current = latest.current.key;
-    if ((readJson<Draft>(store, current)?.at ?? 0) <= ownSinceRef.current) {
-      removeKey(store, current);
+    if (owns(current)) {
+      removeKey(localStore(), current);
     }
     setWritten(undefined);
     setOffered(undefined);
-  }, []);
+  }, [owns]);
 
   useEffect(() => {
-    ownSinceRef.current = Date.now();
+    openedAtRef.current = Date.now();
     prune();
   }, []);
 
@@ -163,5 +179,5 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
-  return { offered, stale, stored, dismiss, abandon, flush, keepAs, replace, clear };
+  return { offered, stale, stored, dismiss, abandon, flush, moveTo, replace, clear };
 }

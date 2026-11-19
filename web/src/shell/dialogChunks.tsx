@@ -46,15 +46,16 @@ function chunkDialog<P extends DialogProps>(
           onClose();
         }
       };
-      if (reloadIfFailedQuietly(preload)) {
-        refuse();
-        return undefined;
-      }
-      fetchDialog().then((component) => {
+      void reloadIfFailedQuietly(preload).then(async (refused) => {
+        if (refused) {
+          refuse();
+          return;
+        }
+        const component = await fetchDialog();
         if (live) {
           setDialog(() => component);
         }
-      }, refuse);
+      }).catch(refuse);
       return () => {
         live = false;
       };

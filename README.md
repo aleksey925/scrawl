@@ -337,7 +337,9 @@ Some limits:
   [On server](#on-server).
 - Inside scrawl a mini app cannot read the clipboard by itself, for example
   with a Paste button of its own. A paste you make with the keyboard or the
-  menu works. In a new tab the app can ask for the clipboard as on any site.
+  menu works. In a new tab the app can ask for the clipboard as on any site,
+  but not on plain http at an address of your network: there the browser gives
+  no site the clipboard.
 - A mini app opens only from scrawl. If you open its address directly, you see
   `To use this app, sign in to scrawl and open it from there`. If you see this
   right after Run, your browser blocks the app inside scrawl. This can happen
@@ -403,8 +405,8 @@ no wildcard. With a password, open scrawl at the IP of the machine, such as
 neighbor of the names of mini apps, and a mini app there can sign you out, or
 into another account. scrawl logs a warning about this at start. At any plain
 http address of the network, the IP or a name, Run opens the mini app in a new
-tab, not inside scrawl: over http the browser does not keep the app's cookie
-inside scrawl.
+tab, not inside scrawl: with scrawl at the IP, over http the browser does not
+keep the app's cookie inside scrawl.
 
 ### Cloudflare Tunnel
 

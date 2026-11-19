@@ -212,7 +212,9 @@ with `no-store`:
   and `allow="clipboard-write; fullscreen"`. `clipboard-read` is left out:
   Chrome asks for it in the name of scrawl, and once allowed every app in the
   frame reads the clipboard without asking. A paste the person makes needs no
-  permission; an app that reads the clipboard itself works in a tab of its own.
+  permission; an app that reads the clipboard itself works in a tab of its own,
+  though not on plain http at a network address, which has no clipboard api
+  ([quirks](../quirks.md#browsers)).
 - CSRF needs no change: a POST from an app on a sibling host carries
   `Sec-Fetch-Site: same-site` and is refused. No GET of the scrawl host writes.
 

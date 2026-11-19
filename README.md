@@ -50,12 +50,16 @@ give you a private repository for free, and every change you make is a commit:
 the notes are backed up and versioned by the same thing that syncs them. You
 open them in a browser, so there is nothing to install on each device.
 
-**Compared to Obsidian.** Out of the box, Obsidian syncs between devices only
-through its paid Sync service. The free way is to research community plugins
-and pick one, and each comes at a cost: some need infrastructure of their own,
-such as a database server or a storage bucket, and the git plugin warns that it
-is very unstable on mobile. scrawl is one small binary: run it on any server,
-point it at a repository, and nothing else is needed.
+**Compared to Obsidian.** Obsidian is built around the files on one device, and
+sync between devices comes on top of it. scrawl is built around sync: one copy
+on a server, opened from any browser. With a remote repository every change is
+also pushed to your git host, so there is always a second copy with the whole
+history. Out of the box, Obsidian syncs between devices only through its paid
+Sync service. The free way is to research community plugins and pick one, and
+each comes at a cost: some need infrastructure of their own, such as a database
+server or a storage bucket, and the git plugin warns that it is very unstable
+on mobile. scrawl is one small binary: run it on any server, point it at a
+repository, and nothing else is needed.
 
 **When something else fits better.** If you want to edit notes with no network
 at all, or a plugin for every need, Obsidian is the better tool. Offline,

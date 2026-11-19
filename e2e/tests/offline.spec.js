@@ -4,7 +4,7 @@ const {expect, test} = require('../support/test');
 
 const {otherUser, user} = require('../support/env');
 const {
-    MAIN, MULTI, fixtureFile, holdRoute, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
+    MAIN, MULTI, fixtureFile, holdRoute, jsonRequest, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
     signIn, stays, submitCredentials, switchCopy, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -1228,24 +1228,13 @@ test.describe('offline access', () => {
         expect(await storedUrls(page)).toContain(`/s/notes/raw/${PICTURE}`);
     });
 
-    test('a nav an older tab stored under its own URL is copied again', async ({page, context}) => {
-        // arrange
-        await copyOn(page);
-        await page.evaluate(async () => {
-            const cache = await caches.open('scrawl-data');
-            await cache.put('/s/notes/api/nav?path=', await cache.match('/s/notes/api/nav'));
-            await cache.delete('/s/notes/api/nav');
-        });
-
+    test('the nav is kept under the URL older releases asked', async ({page}) => {
         // act
-        await page.reload();
-        await expect.poll(async () => (await storedBody(page, '/s/notes/api/nav')) !== undefined, {timeout: 30_000})
-            .toBe(true);
-        await context.setOffline(true);
-        await page.goto(routes.doc(NOTE));
+        await copyOn(page);
 
         // assert
-        await expect(page.getByTestId('tree-row').filter({hasText: FOLDER})).toBeVisible();
+        const nav = await jsonRequest(page, 'GET', '/s/notes/api/nav');
+        expect(JSON.parse(await storedBody(page, '/s/notes/api/nav?path='))).toEqual(JSON.parse(nav.body));
     });
 
     test('off deletes the copy and the worker at once', async ({page}) => {

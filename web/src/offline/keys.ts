@@ -56,7 +56,7 @@ export const answerUrl = {
   page: (base: string, path: string): string => `${base}/api/page/${encodeContentPath(path)}`,
   dir: (base: string, path: string): string => `${base}/api/dir/${encodeContentPath(path)}`,
   raw: (base: string, path: string): string => `${base}/raw/${encodeContentPath(path)}`,
-  nav: (base: string): string => `${base}/api/nav`,
+  nav: (base: string): string => `${base}/api/nav?path=`,
   me: (base: string): string => `${base}/api/me`,
   versions: (base: string): string => `${base}/api/versions`,
   spaces: '/api/spaces',

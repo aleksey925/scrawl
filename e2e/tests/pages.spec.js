@@ -499,11 +499,7 @@ test.describe('pages', () => {
         const shown = await title.textContent();
 
         const slow = /\/api\/(page|dir|nav)\b/;
-        await page.route(slow, async (route) => {
-            await new Promise((resolve) => setTimeout(resolve, 1_500));
-            await route.continue().catch(() => {
-            });
-        });
+        const {release} = await holdRoute(page, slow);
         const other = page.locator('[data-testid=tree-row][data-current="false"][data-dir="false"]').first();
         const target = await other.getAttribute('data-path');
         await other.getByTestId('tree-link').click();
@@ -517,6 +513,8 @@ test.describe('pages', () => {
         await expect(page.getByTestId('sidebar-loading')).toHaveCount(0);
         await shot(page, 'pages-slow-navigation');
 
+        release();
+        await expect(title).toHaveText(readFixture(target).split('\n')[0].replace(/^# /, ''));
         await page.unroute(slow);
     });
 

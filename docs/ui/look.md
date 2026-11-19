@@ -51,11 +51,11 @@ Colors, controls and type: how a note and the chrome are drawn.
   control. A crumb of the topbar draws it 2px inside its edge, as the row of
   crumbs clips what is outside it, and so does a tab of a phone's bar, as the
   edge of the screen would clip the first, the last and the bottom of each, and
-  so does the way back of a phone's bar, which has 2px of the bar above it. The
-  note's own controls in `markdown.css` and the mini outline draw theirs to fit
-  their box. The Save of a phone's editor is the exception: a word and not a
-  filled button, it is the faint gray of a disabled tab while there is nothing
-  to save, so the accent appears only with a change
+  so do the way back and the Save of a phone's bars, which have 2px of the bar
+  above them. The note's own controls in `markdown.css` and the mini outline
+  draw theirs to fit their box. The Save of a phone's editor is the exception:
+  a word and not a filled button, it is the faint gray of a disabled tab while
+  there is nothing to save, so the accent appears only with a change
   ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light theme spends it
   the way macOS does on two more things: a link in a note, which the dark theme
   draws in the text's color, and the menu row under the pointer, filled with

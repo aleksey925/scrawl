@@ -432,6 +432,10 @@
   transition: var(--scrawl-press-out);
 }
 
+.phoneSave:focus-visible {
+  outline-offset: -2px;
+}
+
 .phoneSave:disabled {
   color: var(--scrawl-text-faint);
   cursor: default;

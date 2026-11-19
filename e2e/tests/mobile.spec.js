@@ -294,6 +294,26 @@ test.describe('mobile', () => {
         expect(box.y >= bar.y && box.y + box.height <= bar.y + bar.height).toBe(true);
     });
 
+    test('the keyboard focus ring of Save stays inside the editor bar', async ({page}) => {
+        // arrange
+        writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
+        await page.goto(routes.edit(SCRATCH));
+        const saveButton = page.getByTestId('editor-save');
+        await setSource(page, '# Заметка\n\nновый текст\n');
+        await expect(saveButton).toBeEnabled();
+        await page.keyboard.press('Tab');
+
+        // act
+        await saveButton.focus();
+
+        // assert
+        await expect(saveButton).toHaveCSS('outline-style', 'solid');
+        await expect(saveButton).toHaveCSS('outline-offset', '-2px');
+        const bar = await page.getByTestId('topbar').boundingBox();
+        const box = await saveButton.boundingBox();
+        expect(box.y >= bar.y && box.y + box.height <= bar.y + bar.height).toBe(true);
+    });
+
     test.describe('the action of the tab bar', () => {
         const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
 

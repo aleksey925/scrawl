@@ -57,6 +57,7 @@ docs/ui/               how each screen looks and behaves
 docs/adr/              decisions, with the options turned down
 docs/quirks.md         facts about browsers, libraries, git and the OS
 docs/plans/            plans of past and current work
+docs/screenshots/      the pictures of the README
 ```
 
 ## Rules

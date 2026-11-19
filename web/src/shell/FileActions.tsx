@@ -291,7 +291,7 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       return undefined;
     }
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key.toLowerCase() !== 'n' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+      if (event.key.toLowerCase() !== 'n' || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
       if (!plainShortcut(event) || isEditPath(shown.current.route)) {
@@ -299,11 +299,16 @@ export function FileActionsProvider({ children }: { children: ReactNode }): JSX.
       }
       event.preventDefault();
       const { path, onFolder: folderShown } = shown.current;
-      newNote(folderFor(path, path === '' || folderShown));
+      const folder = folderFor(path, path === '' || folderShown);
+      if (event.shiftKey) {
+        newFolder(folder);
+      } else {
+        newNote(folder);
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [canWrite, newNote]);
+  }, [canWrite, newFolder, newNote]);
 
   const moveInto = useCallback(
     (paths: readonly string[], folder: string) => {

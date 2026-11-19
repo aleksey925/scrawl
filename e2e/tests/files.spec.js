@@ -1806,6 +1806,23 @@ test.describe.serial('file management', () => {
         await expect(page).toHaveURL(inBlank);
     });
 
+    test('Shift+N opens the name row of a new folder in the folder on screen', async ({page}) => {
+        // arrange
+        const made = `${BLANK_FOLDER}/e2e-shift-n`;
+        await page.goto(routes.dir(BLANK_FOLDER));
+
+        // act
+        await pressShortcut(page, 'Shift+N');
+        await expect(page.getByTestId('tree-draft-input')).toBeFocused();
+        await page.getByTestId('tree-draft-input').fill(nameOf(made));
+        await page.getByTestId('tree-draft-input').press('Enter');
+
+        // assert
+        await expect.poll(() => fs.existsSync(fixtureFile(made))).toBe(true);
+        await expect(page).toHaveURL(MAIN.url.dir(BLANK_FOLDER));
+        removeFixture(made);
+    });
+
     test('N typed into a field is a letter, and with a modifier it opens no draft', async ({page}) => {
         // arrange
         await page.goto(routes.dir(BLANK_FOLDER));
@@ -1815,7 +1832,7 @@ test.describe.serial('file management', () => {
         await filter.press('n');
         await filter.press('Escape');
         await filter.blur();
-        await page.keyboard.press('Shift+N');
+        await page.keyboard.press('Alt+N');
 
         // assert
         await expect(page).toHaveURL(MAIN.url.dir(BLANK_FOLDER));

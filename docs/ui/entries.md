@@ -30,23 +30,23 @@ Creating, naming, moving and deleting files and folders.
   the root, or of a folder's page, and on a phone the New note tile of the
   bar's New. A folder is made from the arrow beside the blue New, whose menu
   holds New folder alone, the empty folder's New folder, the right click on
-  free space and the phone's New folder tile. Its name is typed in a row where
-  it will stand: in the tree for the tree's menu, and in a folder's list, on a
-  desktop and on a phone, in a row after the last folder, so a long list is not
-  scrolled to its end. Enter creates it, and so does a click or a tap outside
-  the tree's field, while the row of a list keeps a typed name and drops only
-  an empty one, so a click on another row of the list does not make a folder
-  with half a name; Escape, or the ✕ on a touch screen, drops either. A row's
-  `⋯` creates nothing, and a folder's page has no `⋯` of its own. A dialog
-  asked for the folder the tree already knew and then covered it, and one menu
-  that named the entry in the tree in one place and in the table in another
-  sent the eye away from what the reader was looking at. Rows drag into
-  folders, one or the whole picked run; a plain click picks, shift takes the
-  range from the row picked last, at first the current one, a file's folder on
-  its page, and a modified click stays the browser's "open in a tab". The rows
-  being dragged are kept in state as well as in the drag's data, because a page
-  cannot read that data during `dragover`, when a folder says whether it takes
-  the drop.
+  free space, the phone's New folder tile and `Shift` + `N`, which keeps where
+  `N` works. Its name is typed in a row where it will stand: in the tree for
+  the tree's menu, and in a folder's list, on a desktop and on a phone, in a
+  row after the last folder, so a long list is not scrolled to its end. Enter
+  creates it, and so does a click or a tap outside the tree's field, while the
+  row of a list keeps a typed name and drops only an empty one, so a click on
+  another row of the list does not make a folder with half a name; Escape, or
+  the ✕ on a touch screen, drops either. A row's `⋯` creates nothing, and a
+  folder's page has no `⋯` of its own. A dialog asked for the folder the tree
+  already knew and then covered it, and one menu that named the entry in the
+  tree in one place and in the table in another sent the eye away from what the
+  reader was looking at. Rows drag into folders, one or the whole picked run; a
+  plain click picks, shift takes the range from the row picked last, at first
+  the current one, a file's folder on its page, and a modified click stays the
+  browser's "open in a tab". The rows being dragged are kept in state as well
+  as in the drag's data, because a page cannot read that data during
+  `dragover`, when a folder says whether it takes the drop.
 - A name typed by hand for a draft is a note unless it carries an extension of
   its own: a title becomes its slug with `.md`, and `notes.txt` or `Main.java`
   is that file, named as typed. A slug, of a note or a folder, keeps the case

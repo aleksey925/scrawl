@@ -67,7 +67,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
         setPulled(0);
       }}
     >
-      <Icon size={layout.iconSizeSmall} weight="bold" className={classes.icon} data-tone={tone} aria-hidden />
+      <Icon size={phone ? layout.iconSizeToast : layout.iconSizeSmall} weight="bold" className={classes.icon} data-tone={tone} aria-hidden />
       <div className={classes.body}>{data.message}</div>
     </div>
   );

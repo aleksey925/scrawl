@@ -4267,8 +4267,13 @@ test.describe('mobile', () => {
         const toast = await page.getByTestId('toast').boundingBox();
         await expect.poll(async () => {
             const pillBox = await page.getByTestId('toast-box').boundingBox();
-            return [pillBox.x, pillBox.x + pillBox.width, pillBox.height];
-        }).toEqual([16, page.viewportSize().width - 16, 48]);
+            const width = page.viewportSize().width;
+            return {
+                centered: Math.abs(pillBox.x - (width - pillBox.x - pillBox.width)) < 1,
+                hugs: pillBox.x > 16,
+                height: pillBox.height,
+            };
+        }).toEqual({centered: true, hugs: true, height: 48});
         await expect(page.getByTestId('toast-box')).toHaveCSS('background-color', rgb(lightTheme.palette.capsule));
         await expect(page.getByTestId('toast-box')).toHaveCSS('border-radius', '24px');
         const bar = await page.getByTestId('tab-bar').boundingBox();
@@ -4333,10 +4338,18 @@ test.describe('mobile', () => {
 
         const pillLook = (page) => page.getByTestId('toast-box').evaluate((el) => {
             const style = getComputedStyle(el);
-            return {border: style.borderTopColor, shadow: style.boxShadow, background: style.backgroundColor, color: style.color};
+            return {
+                border: style.borderTopColor,
+                shadow: style.boxShadow,
+                background: style.backgroundColor,
+                color: style.color,
+                padding: style.padding,
+                icon: getComputedStyle(el.querySelector('svg')).color,
+                iconSize: el.querySelector('svg').getBoundingClientRect().width,
+            };
         });
 
-        test('on a note it stands in the middle over the note bar, as wide as its content and at least as the bar', async ({page}) => {
+        test('on a note it stands in the middle over the note bar, as wide as its content', async ({page}) => {
             // act
             await noteLinkCopied(page);
 
@@ -4356,14 +4369,14 @@ test.describe('mobile', () => {
             });
             expect({
                 centered: Math.abs(pill.x - (width - pill.x - pill.width)) < 1,
-                atLeastBar: pill.width >= bar.width,
-                withinScreen: pill.x >= 16 && pill.x + pill.width <= width - 16,
+                hugs: pill.x > 16,
+                left: Math.round(content.left - pill.x),
+                right: Math.round(pill.x + pill.width - content.right),
                 height: pill.height,
-                contentCentered: Math.abs((content.left - pill.x) - (pill.x + pill.width - content.right)) < 1,
-            }).toEqual({centered: true, atLeastBar: true, withinScreen: true, height: 48, contentCentered: true});
+            }).toEqual({centered: true, hugs: true, left: 15, right: 19, height: 48});
         });
 
-        test('has one look on a list and on a note, the line and shadow of a capsule on a group', async ({page}) => {
+        test('has one look on a list and on a note: a white pill, a green check and its own shadow', async ({page}) => {
             // arrange
             await copied(page);
             const onList = await pillLook(page);
@@ -4373,11 +4386,23 @@ test.describe('mobile', () => {
 
             // assert
             expect(await pillLook(page)).toEqual(onList);
-            expect([onList.border, onList.background, onList.color]).toEqual([
-                rgb(lightTheme.palette.capsuleBorderGrouped),
-                rgb(lightTheme.palette.capsule),
-                rgb(lightTheme.palette.text),
-            ]);
+            const shadow = await page.evaluate((value) => {
+                const probe = document.createElement('div');
+                probe.style.boxShadow = value;
+                document.body.append(probe);
+                const drawn = getComputedStyle(probe).boxShadow;
+                probe.remove();
+                return drawn;
+            }, lightTheme.shadows.toastPhone);
+            expect(onList).toEqual({
+                border: rgb(lightTheme.palette.capsuleBorderGrouped),
+                shadow,
+                background: rgb(lightTheme.palette.capsule),
+                color: rgb(lightTheme.palette.text),
+                padding: '4px 18px 4px 14px',
+                icon: rgb(lightTheme.palette.toastSuccess),
+                iconSize: 18,
+            });
         });
 
         test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
@@ -4438,6 +4463,10 @@ test.describe('mobile', () => {
             });
             expect(Math.round(box.x + box.width - word)).toBe(Math.round(icon.x - box.x));
             await expect(page.getByTestId('toast-action')).toHaveCSS('color', rgb(lightTheme.palette.accent));
+            await expect(page.getByTestId('toast-box')).toContainText(`Deleted “${file.split('/').pop()}”`);
+            expect([action.height, Math.round(action.y + action.height / 2), box.width]).toEqual([
+                40, Math.round(box.y + box.height / 2), width - 32,
+            ]);
             const lines = await page.getByTestId('toast-box').locator('[data-toast-text]').evaluate((el) => ({
                 lines: Math.round(el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight)),
                 cut: el.scrollHeight > el.clientHeight,

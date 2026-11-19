@@ -55,6 +55,7 @@ export interface Palette {
   toastText: string;
   toastAction: string;
   toastHover: string;
+  toastSuccess: string;
   tooltip: string;
   tooltipText: string;
   tooltipTextSecondary: string;
@@ -97,6 +98,7 @@ export interface Shadows {
   large: string;
   capsule: string;
   capsuleGrouped: string;
+  toastPhone: string;
 }
 
 export type Scheme = 'light' | 'dark';

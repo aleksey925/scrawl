@@ -44,7 +44,7 @@ const failedMoveWords = {
 };
 
 function quoted(path: string, spaceName: string): string {
-  return `"${path === '' ? spaceName : basenameOf(path)}"`;
+  return `“${path === '' ? spaceName : basenameOf(path)}”`;
 }
 
 function renamedMessage(from: string, to: string, isDir: boolean, spaceName: string): string {

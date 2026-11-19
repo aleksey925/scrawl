@@ -26,7 +26,7 @@ const (
 
 var BlockNames = []string{"gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"}
 
-var ShadowNames = []string{"small", "medium", "large", "capsule", "capsuleGrouped"}
+var ShadowNames = []string{"small", "medium", "large", "capsule", "capsuleGrouped", "toastPhone"}
 
 var CodeNames = []string{"keyword", "string", "comment", "function", "number", "builtin"}
 

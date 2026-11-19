@@ -215,40 +215,40 @@ How the app works on a phone.
   the page gets the keyboard's height as room, so a row at the end of the list
   scrolls up too instead of Safari moving the whole screen and the bar on top
   under the status bar.
-- A toast on a phone is a capsule 8px over the tab bar or the bar of a note, or
-  over the edge of the screen where there is none, 48px high and fully round,
-  with the fill of the capsule and the fainter line and shadow it has on a
-  group, `capsuleBorderGrouped` and the `capsuleGrouped` shadow, on every page,
-  so it reads as one more bar of the same family. Over the tab bar it spans the
-  row 16px from each side, from the tab bar's left edge to New's right edge.
-  Over the bar of a note or a file it stands in the middle, as wide as its
-  content with 16px at the sides, never narrower than that bar and never wider
-  than the screen less 16px at each side; `Capsule` puts the bar's width in
-  `--scrawl-action-bar-width` for it. With a button, Undo or the folder of a
-  move, a check or a warning sign and the text sit at the left and the button
-  at the right in the accent, in the 600 weight; without one the sign and the
-  text stand in the middle. A long text wraps to a second line and is cut with
-  an ellipsis after it; there is no close button. It comes up and fades in and
-  goes after 2.5 seconds, 6 with a button, or at a tap on it or a flick down.
-  At the top it stood far from the thumb and the controls that made it, which
-  all live at the bottom. With the keyboard up it stands over the keyboard,
-  placed by the visible area the way the editor is, as a toast fixed to the
-  bottom of the page sat under the keys. Mantine's card slid in sideways from
-  the edge and read as a web page. Only the pill takes a touch: the containers
-  span the screen, took the taps meant for the bar under them, and on iOS kept
-  the hover that pauses a toast, which then never left. A press on a button in
-  the pill, the Undo or the folder of a move, is that button's and does not
-  dismiss it. A desktop shows a dark toast with 10px corners at the bottom in
-  the middle, as Notion does, gone after 4 seconds or 6 with a button, or at a
-  click on it outside its buttons, and kept while the pointer is on it; a click
-  that ends a text selection in it leaves it, so an error is still copied from
-  it; mantine's white card with a colored bar and a close button stood at the
-  top right, over Edit and the page's menu, and looked like a web page of years
-  ago. The button of a desktop's toast is lettered in its own lighter blue,
-  which the theme names, since the accent is too dark on the toast's ground. A
-  long name without spaces breaks inside the word, and on a phone is cut after
-  two lines, so it never pushes the button out of the toast or off the screen.
-  `Toasts` draws both, for the app and for a site.
+- A toast on a phone follows one rule on every screen, the lists, the profile,
+  a note, a file and the editor: a pill 8px over the tab bar or the bar of a
+  note, or over the edge of the screen where there is none, in the middle and
+  as wide as its content, never wider than the screen less 16px at each side. A
+  toast across the whole row over the tab bar and one in the middle over a
+  note's bar were two shapes for one thing. It is at least 48px high with 24px
+  corners, on the fill of the capsule with the fainter line of a group,
+  `capsuleBorderGrouped`, and a shadow of its own, `toastPhone`. Left to right
+  it holds a check in `toastSuccess`, or a warning sign, of 18px, the text of
+  15px aligned left, and a button, Undo or the folder of a move, in the accent
+  and the 600 weight with no ground, 40px tall and centered on the pill's
+  height. A long text wraps to a second line and is cut with an ellipsis after
+  it, and the button stays at the right; there is no close button. A name in
+  the text stands in typographic quotes, as on a desktop. It comes up and fades
+  in and goes after 2.5 seconds, 6 with a button, or at a tap on it or a flick
+  down. At the top it stood far from the thumb and the controls that made it,
+  which all live at the bottom. With the keyboard up it stands over the
+  keyboard, placed by the visible area the way the editor is, as a toast fixed
+  to the bottom of the page sat under the keys. Mantine's card slid in sideways
+  from the edge and read as a web page. Only the pill takes a touch: the
+  containers span the screen, took the taps meant for the bar under them, and
+  on iOS kept the hover that pauses a toast, which then never left. A press on
+  a button in the pill, the Undo or the folder of a move, is that button's and
+  does not dismiss it. A desktop shows a dark toast with 10px corners at the
+  bottom in the middle, as Notion does, gone after 4 seconds or 6 with a
+  button, or at a click on it outside its buttons, and kept while the pointer
+  is on it; a click that ends a text selection in it leaves it, so an error is
+  still copied from it; mantine's white card with a colored bar and a close
+  button stood at the top right, over Edit and the page's menu, and looked like
+  a web page of years ago. The button of a desktop's toast is lettered in its
+  own lighter blue, which the theme names, since the accent is too dark on the
+  toast's ground. A long name without spaces breaks inside the word, and on a
+  phone is cut after two lines, so it never pushes the button out of the toast
+  or off the screen. `Toasts` draws both, for the app and for a site.
 - On a phone a screen opened slides in from the right and fades in, and one
   gone back to slides in from the left with no fade, as an app moves its
   screens, on an even ease-out of 300ms: the curve before put most of the way

@@ -77,6 +77,7 @@ export const layout = {
   iconSizeTiny: 14,
   iconSizeTile: 26,
   iconSizeClear: 17,
+  iconSizeToast: 18,
   controlHeight: 28,
   controlHeightLarge: 36,
   buttonHeight: 32,

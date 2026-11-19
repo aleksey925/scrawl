@@ -41,6 +41,10 @@
   white-space: nowrap;
 }
 
+.crumb:focus-visible {
+  outline-offset: -2px;
+}
+
 .current {
   color: var(--scrawl-text);
 }

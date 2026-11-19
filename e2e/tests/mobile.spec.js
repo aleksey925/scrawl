@@ -108,7 +108,7 @@ async function forcePress(page) {
 
 function hitsDown(page, x, box) {
     return page.evaluate(([left, heights]) => heights.map((y) => document.elementFromPoint(left, y)?.dataset.testid),
-        [x, [box.y + 2, box.y + box.height / 2, box.y + box.height - 2]]);
+        [x, [box.y, box.y + box.height / 2, box.y + box.height - 1]]);
 }
 
 async function pressedBand(page, selector) {

@@ -811,7 +811,7 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
-    test('the keyboard focus on a button of the draft offer and on a link of the chrome is one ring of the accent', async ({page}) => {
+    test('the keyboard focus on a button of the draft offer and on a crumb is one ring of the accent, a crumb\'s inside its row', async ({page}) => {
         // arrange
         const docPath = scratch('draft-offer-focus');
         await offerDraft(page, docPath, 'the offered draft\n');
@@ -820,7 +820,8 @@ test.describe('editing', () => {
             return [style.outlineStyle, style.outlineWidth, style.outlineColor, style.outlineOffset];
         });
         const expected = ['solid', '2px', rgb(lightTheme.palette.accent), '2px'];
-        const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+        const crumbs = page.getByTestId('topbar-crumbs');
+        const space = crumbs.getByTestId('crumb').first();
 
         // act & assert
         await page.getByTestId('editor-draft-discard').focus();
@@ -828,7 +829,9 @@ test.describe('editing', () => {
         await expect(page.getByTestId('editor-draft-restore')).toBeFocused();
         expect(await ring(page.getByTestId('editor-draft-restore'))).toEqual(expected);
         await space.focus();
-        expect(await ring(space)).toEqual(expected);
+        expect(await ring(space)).toEqual(['solid', '2px', rgb(lightTheme.palette.accent), '-2px']);
+        const [row, crumb] = [await crumbs.boundingBox(), await space.boundingBox()];
+        expect(crumb.x >= row.x && crumb.y >= row.y && crumb.y + crumb.height <= row.y + row.height).toBe(true);
         removeFixture(docPath);
     });
 

@@ -259,6 +259,23 @@ test.describe('mobile', () => {
             .toEqual([false, false, false]);
     });
 
+    test('the keyboard focus ring of a tab stays inside the screen', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        const first = page.getByTestId('tab-notes');
+        await expect(first).toBeVisible();
+        await page.keyboard.press('Tab');
+
+        // act
+        await first.focus();
+
+        // assert
+        await expect(first).toHaveCSS('outline-style', 'solid');
+        await expect(first).toHaveCSS('outline-offset', '-2px');
+        const box = await first.boundingBox();
+        expect(box.x >= 0 && box.y + box.height <= page.viewportSize().height).toBe(true);
+    });
+
     test.describe('the action of the tab bar', () => {
         const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
 
@@ -1497,6 +1514,20 @@ test.describe('mobile', () => {
             await stays(() => new URL(page.url()).pathname, routes.recent(), MOVE_WAIT_MS);
         });
 
+        test('Recent at an address with a trailing slash or capitals is the Recent tab too', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            const addresses = [`${routes.recent()}/`, routes.recent().replace('/recent', '/Recent')];
+
+            // act & assert
+            for (const address of addresses) {
+                await page.goto(address);
+                await expect(page.getByTestId('recent')).toBeVisible();
+                await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+                await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+            }
+        });
+
         test('the search page, no tab, keeps its way up', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -2214,21 +2245,26 @@ test.describe('mobile', () => {
             removeFixture(folder);
         });
 
-        test('the RUN of a table row takes a tap over the row\'s height and the press alone', async ({page}) => {
+        test('the RUN of a table row takes a tap over the row\'s height, none of its name, and the press alone', async ({page}) => {
             // arrange
             const folder = 'e2e-mobile/tablet/app';
-            writeFixture(`${folder}/index.html`, '<!doctype html><h1>Tablet app</h1>\n');
+            const file = `${'a-long-name-of-an-app-'.repeat(8)}index.html`;
+            writeFixture(`${folder}/${file}`, '<!doctype html><h1>Tablet app</h1>\n');
             await page.goto(MAIN.url.dir(folder));
-            const row = `[data-testid=dir-row][data-path="${folder}/index.html"]`;
+            const row = `[data-testid=dir-row][data-path="${folder}/${file}"]`;
             const run = page.locator(`${row} [data-testid=dir-row-run]`);
             await expect(run).toBeVisible();
             const pill = await run.boundingBox();
             const line = await page.locator(row).boundingBox();
+            const name = await page.locator(`${row} [data-testid=dir-row-name]`).boundingBox();
             const press = await forcePress(page);
             const rowBackground = () => page.locator(row).evaluate((el) => getComputedStyle(el).backgroundColor);
 
             // act & assert
             expect(await hitsDown(page, pill.x + pill.width / 2, line)).toEqual(['dir-row-run', 'dir-row-run', 'dir-row-run']);
+            expect(Math.round(pill.x - name.x - name.width)).toBe(6);
+            expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.dataset.testid,
+                [Math.ceil(name.x + name.width) - 1, line.y + line.height / 2])).toBe('dir-row-name');
             await press(row);
             await expect.poll(rowBackground).toBe(rgb(lightTheme.palette.pressed));
             await press(`${row} [data-testid=dir-row-run]`);

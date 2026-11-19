@@ -35,6 +35,10 @@
   color: var(--scrawl-accent);
 }
 
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
 .tab[aria-disabled='true'] {
   color: var(--scrawl-text-faint);
   cursor: default;

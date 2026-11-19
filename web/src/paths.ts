@@ -113,3 +113,7 @@ export function trimTrailingSlash(path: string): string {
 export function recentUrl(): string {
   return '/recent';
 }
+
+export function isRecentPath(pathname: string): boolean {
+  return trimTrailingSlash(pathname).toLowerCase() === recentUrl();
+}

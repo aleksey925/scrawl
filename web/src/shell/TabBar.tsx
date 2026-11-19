@@ -14,7 +14,7 @@ import {
   type Icon,
 } from '../icons';
 import { reducedMotion } from '../motion';
-import { isDirectoryPath, isEditPath, recentUrl } from '../paths';
+import { isDirectoryPath, isEditPath, isRecentPath, recentUrl } from '../paths';
 import { layout } from '../theme';
 
 import { useBarEdit, type BarEdit } from './BarEditProvider';
@@ -125,7 +125,7 @@ export function TabBar(): JSX.Element | null {
 
   const searching = search?.opened ?? false;
   const here = folderFor(currentPath, currentPath === '' || isDirectoryPath(location.pathname));
-  const atRecent = location.pathname === recentUrl();
+  const atRecent = isRecentPath(location.pathname);
   const atNotes = !searching && !atRecent;
   const go = (url: string): void => {
     if (!searching && location.pathname === url) {

@@ -36,12 +36,6 @@
   min-width: var(--scrawl-tap-target);
 }
 
-@media (hover: hover) {
-  .back:hover {
-    color: var(--scrawl-text);
-  }
-}
-
 .name {
   flex: 1 1 auto;
   min-width: 0;

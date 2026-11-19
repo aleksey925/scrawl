@@ -49,19 +49,21 @@ Colors, controls and type: how a note and the chrome are drawn.
   a plain button or link of the chrome takes it from one rule in `global.css`,
   where the browser drew a ring of its own that differed from control to
   control. A crumb of the topbar draws it 2px inside its edge, as the row of
-  crumbs clips what is outside it. The note's own controls in `markdown.css`
-  and the mini outline draw theirs to fit their box. The Save of a phone's
-  editor is the exception: a word and not a filled button, it is the faint gray
-  of a disabled tab while there is nothing to save, so the accent appears only
-  with a change ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light
-  theme spends it the way macOS does on two more things: a link in a note,
-  which the dark theme draws in the text's color, and the menu row under the
-  pointer, filled with the accent and lettered white, which in the dark is the
-  hover tint. A tap latches the hover, so a touch screen keeps the tint in
-  both. A menu has 10px corners and the theme's shadow, a dialog 12px; a
-  translucent menu ground blurs what is under it, as a menu of macOS does.
-  Icons are Phosphor's regular weight at 20px, 16px in menus, with two
-  exceptions: the current tab of a phone's bar draws its icon filled
+  crumbs clips what is outside it, and so does a tab of a phone's bar, as the
+  edge of the screen would clip the first, the last and the bottom of each. The
+  note's own controls in `markdown.css` and the mini outline draw theirs to fit
+  their box. The Save of a phone's editor is the exception: a word and not a
+  filled button, it is the faint gray of a disabled tab while there is nothing
+  to save, so the accent appears only with a change
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light theme spends it
+  the way macOS does on two more things: a link in a note, which the dark theme
+  draws in the text's color, and the menu row under the pointer, filled with
+  the accent and lettered white, which in the dark is the hover tint. A tap
+  latches the hover, so a touch screen keeps the tint in both. A menu has 10px
+  corners and the theme's shadow, a dialog 12px; a translucent menu ground
+  blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
+  weight at 20px, 16px in menus, with two exceptions: the current tab of a
+  phone's bar draws its icon filled
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)), and the formatting
   toolbar over a phone's keyboard draws 22px icons in 44px tools
   ([ADR 29](../adr/0029-the-phone-editor-bars.md)), and `web/src/icons.ts` is

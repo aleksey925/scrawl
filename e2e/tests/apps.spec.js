@@ -244,6 +244,20 @@ test.describe('html apps', () => {
         expect(openRight).toBe(backLeft);
     });
 
+    test('the way back of the run bar keeps its color under a mouse, as the reader\'s way up', async ({page}) => {
+        // arrange
+        await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
+        await run(page, PLAIN, COUNTER_FILE, 'Counter');
+        const back = page.getByTestId('run-back');
+        const color = await back.evaluate((el) => getComputedStyle(el).color);
+
+        // act
+        await back.hover();
+
+        // assert
+        await stays(() => back.evaluate((el) => getComputedStyle(el).color), color, 300);
+    });
+
     test('a folder list runs an html file from its Run button and its menu', async ({page}) => {
         // arrange
         await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.dir(COUNTER)});

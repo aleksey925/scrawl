@@ -124,6 +124,28 @@ test.describe.serial('upload', () => {
         await expect.poll(() => sourceText(page)).toContain('![](leave-uploading/e2e-leave-uploading.png)');
     });
 
+    test('a picture that lands while the source is hidden replaces its placeholder', async ({page}) => {
+        // arrange
+        const docPath = `${FOLDER}/preview-uploading.md`;
+        writeFixture(docPath, '# Предпросмотр\n\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toContain('Предпросмотр');
+        const {release, reached} = await holdRoute(page, '**/api/upload/**');
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await sendFile(page, 'paste', 'e2e-preview-uploading.png');
+        await reached;
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+
+        // act
+        release();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.imageUploaded);
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toContain('![](preview-uploading/e2e-preview-uploading.png)');
+        expect(await sourceText(page)).not.toContain('uploading-');
+    });
+
     test('Discard while a picture uploads stops the typing, the toolbar and the draft while the reader loads', async ({page}) => {
         // arrange
         const docPath = `${FOLDER}/discard-uploading.md`;

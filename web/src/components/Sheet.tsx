@@ -1,5 +1,5 @@
 import { Drawer } from '@mantine/core';
-import { useState, type ComponentPropsWithoutRef, type JSX, type MouseEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ComponentPropsWithoutRef, type JSX, type MouseEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 
 import { IconX, type Icon } from '../icons';
@@ -24,11 +24,20 @@ export interface SheetProps {
 
 export function Sheet({
   opened, onClose, title, subtitle, icon, testId, overlayTestId, tall = false, footer, returnFocus = true, children,
-}: SheetProps): JSX.Element {
+}: SheetProps): JSX.Element | null {
   const drag = useSheetDrag(opened, onClose);
+  const [used, setUsed] = useState(false);
+  useLayoutEffect(() => {
+    if (opened) {
+      setUsed(true);
+    }
+  }, [opened]);
+  if (!used && !opened) {
+    return null;
+  }
   return (
     <Drawer.Root
-      opened={opened}
+      opened={opened && used}
       onClose={onClose}
       returnFocus={returnFocus}
       position="bottom"

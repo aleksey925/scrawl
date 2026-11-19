@@ -168,7 +168,7 @@ export function useOutline(
     resized.observe(root);
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
-    mark();
+    schedule();
 
     return () => {
       window.cancelAnimationFrame(frame);

@@ -321,7 +321,11 @@ How the react app in `web/` is built, shipped and wired.
   teardown left the page taking no tap at all. The sheets of a phone are such
   drawers from the bottom: `Sheet` in `web/src/components/Sheet.tsx`, and the
   outline's own, and `useSheetDrag` beside it lets a finger drag either down
-  ([phone](../ui/phone.md)).
+  ([phone](../ui/phone.md)). A `Sheet` draws no drawer until it is first
+  opened, as every row of a folder's list has one: a hundred closed drawers
+  each kept a portal and listeners. It then draws the drawer closed and opens
+  it on the next render, since a drawer mounted open does not slide in
+  ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - A right click on a row of a folder's list, and on the free space of a
   folder's page and of the tree, opens its menu at the pointer, through
   `usePointerMenu` and `FixedAnchor` in `web/src/components/pointerMenu.tsx`. A

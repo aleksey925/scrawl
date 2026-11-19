@@ -99,6 +99,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   }, [query, settings]);
 
   const hits = useMemo(() => answer.response?.hits ?? [], [answer.response]);
+  const expand = useCallback((path: string): void => setExpanded((prev) => new Set(prev).add(path)), []);
   const targets = useMemo(() => targetsOf(hits, expanded), [hits, expanded]);
   const answered = searchTextOf(text, settings) === query && answer.query === query && answer.settings === settings;
 
@@ -253,7 +254,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
           hits={hits}
           active={active}
           expanded={expanded}
-          onExpand={(path) => setExpanded((prev) => new Set(prev).add(path))}
+          onExpand={expand}
           onOpen={onClose}
         />
       )}

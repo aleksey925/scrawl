@@ -8,7 +8,7 @@ import { useReaderExtensions } from '../shell/extensions';
 import { useAccount } from '../shell/NavContext';
 import { basenameOf } from '../shell/naming';
 import { chromeOf, usePageChrome } from '../shell/PageChrome';
-import { useRecentNotes } from '../shell/recentNotes';
+import { useRememberRecent } from '../shell/recentNotes';
 import { layout } from '../theme';
 
 import { DocumentHtml } from './DocumentHtml';
@@ -25,7 +25,7 @@ export function DocumentBody({ doc }: DocumentBodyProps): JSX.Element {
   const { canWrite } = useAccount();
   const { DocumentExtras } = useReaderExtensions();
   usePageChrome(chromeOf(doc.breadcrumbs, doc.title, leadingHeading.test(doc.html), basenameOf(doc.path)));
-  const { remember } = useRecentNotes();
+  const remember = useRememberRecent();
   useEffect(() => remember({ path: doc.path, title: doc.title }), [remember, doc.path, doc.title]);
   const placed = useRef(false);
 

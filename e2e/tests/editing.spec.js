@@ -281,6 +281,28 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('Restore in Preview puts the draft back into the text', async ({page}) => {
+        // arrange
+        const docPath = scratch('restore-in-preview');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed but not saved\n');
+        await page.getByTestId('editor-cancel').click();
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+
+        // act
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
+        removeFixture(docPath);
+    });
+
     test('a back of the browser with unsaved changes asks nothing and says the draft is kept', async ({page}) => {
         // arrange
         const docPath = scratch('dirty-back');

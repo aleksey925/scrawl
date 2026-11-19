@@ -130,6 +130,7 @@
     "file": "assets/SearchResults.js",
     "name": "SearchResults",
     "imports": [
+      "_rolldown-runtime.js",
       "_naming.js",
       "index.html",
       "_Picker.module.js"

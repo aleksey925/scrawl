@@ -212,6 +212,8 @@ words; the fact itself is written here.
   that is not set. [Look](ui/look.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
+- A mantine drawer mounted already open shows at once, with no slide: its
+  transition starts only when `opened` changes. [Frontend](design/frontend.md)
 - Mantine's `setColorScheme` turns every transition off for a moment with
   `* { transition: none !important }`, so the theme picker's indicator jumped
   while every other choice slid. [Look](ui/look.md)

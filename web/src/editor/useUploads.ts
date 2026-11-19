@@ -22,7 +22,11 @@ function token(): string {
   return `uploading-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function useUploads(path: string, getView: () => EditorView | undefined): UploadControl {
+export function useUploads(
+  path: string,
+  getView: () => EditorView | undefined,
+  editText: (edit: (text: string) => string) => void,
+): UploadControl {
   const jobs = useRef(new Set<Promise<void>>());
   const reportMutation = useMutationState();
   const [pending, setPending] = useState(0);
@@ -40,13 +44,21 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
     [],
   );
 
-  const swap = useCallback((view: EditorView, placeholder: string, text: string): void => {
-    const spot = view.state.doc.toString().indexOf(placeholder);
-    if (spot < 0) {
-      return;
-    }
-    view.dispatch({ changes: { from: spot, to: spot + placeholder.length, insert: text } });
-  }, []);
+  const swap = useCallback(
+    (placeholder: string, text: string): void => {
+      const view = getView();
+      if (view === undefined) {
+        editText((current) => current.replace(placeholder, () => text));
+        return;
+      }
+      const spot = view.state.doc.toString().indexOf(placeholder);
+      if (spot < 0) {
+        return;
+      }
+      view.dispatch({ changes: { from: spot, to: spot + placeholder.length, insert: text } });
+    },
+    [editText, getView],
+  );
 
   const upload = useCallback(
     (files: readonly File[], at?: number): void => {
@@ -61,17 +73,11 @@ export function useUploads(path: string, getView: () => EditorView | undefined):
         const job = api
           .upload(dirOf(path), file, path)
           .then((res) => {
-            const current = getView();
-            if (current !== undefined) {
-              swap(current, placeholder, res.markdown === '' ? `![](${res.path})` : res.markdown);
-            }
+            swap(placeholder, res.markdown === '' ? `![](${res.path})` : res.markdown);
             reportMutation(res, 'Image uploaded');
           })
           .catch((error: unknown) => {
-            const current = getView();
-            if (current !== undefined) {
-              swap(current, placeholder, '');
-            }
+            swap(placeholder, '');
             showToast('error', { message: errorText(error) });
           })
           .finally(() => {

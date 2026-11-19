@@ -23,9 +23,14 @@ import { useReaderLayout } from './ReaderLayout';
 import { MenuKeys } from './ShortcutHelp';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 
+let counted: { html: string; words: number } | undefined;
+
 function wordsOf(html: string): number {
-  const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
-  return text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+  if (counted?.html !== html) {
+    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+    counted = { html, words: text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length };
+  }
+  return counted.words;
 }
 
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {

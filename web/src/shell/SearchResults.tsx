@@ -1,4 +1,4 @@
-import type { JSX } from 'react';
+import { memo, type JSX } from 'react';
 import { Link } from 'react-router';
 
 import type { SearchHit, SearchSettings, SearchSpan } from '../api/types';
@@ -56,7 +56,7 @@ export interface SearchResultsProps {
   onOpen?: () => void;
 }
 
-export function SearchResults({ hits, active, expanded, onExpand, onOpen }: SearchResultsProps): JSX.Element {
+export const SearchResults = memo(function SearchResults({ hits, active, expanded, onExpand, onOpen }: SearchResultsProps): JSX.Element {
   return (
     <div data-testid="search-results">
       {hits.map((row) => {
@@ -124,4 +124,4 @@ export function SearchResults({ hits, active, expanded, onExpand, onOpen }: Sear
       })}
     </div>
   );
-}
+});

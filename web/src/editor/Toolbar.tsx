@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type ComponentType, type JSX, type ReactNode, type RefObject } from 'react';
+import { Fragment, memo, useEffect, useRef, useState, type ComponentType, type JSX, type ReactNode, type RefObject } from 'react';
 
 import {
   IconBold,
@@ -87,7 +87,7 @@ function useHiddenEnds(): [RefObject<HTMLDivElement | null>, HiddenEnds] {
   return [ref, ends];
 }
 
-export function Toolbar({
+export const Toolbar = memo(function Toolbar({
   onAction,
   onPickImage,
   onToc,
@@ -135,4 +135,4 @@ export function Toolbar({
       {children}
     </div>
   );
-}
+});

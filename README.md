@@ -394,7 +394,9 @@ machine, and set `APPS_URL` to it, such as
 no wildcard. With a password, open scrawl at the IP of the machine, such as
 `http://192.168.1.5:7272`, not at a name such as `notes.home.lan`: it is a
 neighbor of the names of mini apps, and a mini app there can sign you out, or
-into another account. scrawl logs a warning about this at start.
+into another account. scrawl logs a warning about this at start. Run opens the
+mini app in a new tab there, not inside scrawl: over http the browser does not
+keep the app's cookie inside scrawl.
 
 ### Cloudflare Tunnel
 

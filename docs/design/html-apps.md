@@ -230,12 +230,13 @@ the scheme and the port of the page. Chrome and Firefox send every
   `localhost` the frame is cross-site too; at `scrawl.localhost` it is
   same-site, as on a real domain. With auth on these are neighbors, which the
   warning at start names.
-- At any other address the run screen shows the 409: on this machine the
-  printed link, from another device https with `APPS_URL`. `[::1]` is one of
-  them, and with `APPS_URL` set any IPv6 address gets the 409 as well: a CSP
-  source cannot name an IPv6 address, so `frame-ancestors` could not let the
-  app in its frame. No code is added for a browser that does not open
-  `app-<id>.localhost`, nor for a LAN address on http; such a frame shows the
+- At any other address the ticket is a 409: on this machine the printed link,
+  from another device https with `APPS_URL`. Run shows it in a toast
+  ([plain http](#plain-http-on-a-network)), the run screen at its address in
+  place of the frame. `[::1]` is one of them, and with `APPS_URL` set any IPv6
+  address gets the 409 as well: a CSP source cannot name an IPv6 address, so
+  `frame-ancestors` could not let the app in its frame. No code is added for a
+  browser that does not open `app-<id>.localhost`; such a frame shows the
   browser's error page.
 
 ## Safari
@@ -258,6 +259,24 @@ the scheme and the port of the page. Chrome and Firefox send every
 - The run screen still answers at its address, with the frame. The Run of a
   folder's list comes from the `RunLink` reader extension, so a site imports
   none of this.
+
+## Plain http on a network
+
+- Over `http://` to a host other than `localhost` a browser sends no
+  `Sec-Fetch-*` ([quirks](../quirks.md#browsers)) and keeps no `Secure` cookie
+  ([the cookie](#the-ticket-and-the-cookie)). So with scrawl at
+  `http://192.168.1.5` and the apps at an `http` `APPS_URL` the enter request
+  looks like a first party and gets the `Lax` cookie, which the cross-site
+  frame drops, and every file of the app gets the 401.
+- So Run opens the app in a tab of its own, as in Safari, when the page is on
+  `http:` at a host other than `127.0.0.1`, `localhost` and `*.localhost`.
+  `framesLoseCookie` tells it by the page's address alone: the tab opens in the
+  tap, before the ticket names the app's host. The local mode at such an
+  address gets its 409 in the toast.
+- A same-site pair over http, `notes.home.lan` and `app-x.home.lan`, would keep
+  the `Lax` cookie in a frame, but takes the tab too: telling it from a
+  cross-site pair needs a public suffix list, and it is a pair of neighbors,
+  which the warning at start names.
 
 ## Offline
 

@@ -39,6 +39,11 @@ export function framesForgetStorage(): boolean {
   return /AppleWebKit\//.test(agent) && !/Chrome\/|Chromium\/|Android/.test(agent);
 }
 
+function framesLoseCookie(): boolean {
+  const { protocol, hostname } = window.location;
+  return protocol === 'http:' && hostname !== '127.0.0.1' && hostname !== 'localhost' && !hostname.endsWith('.localhost');
+}
+
 export function openBlankTab(): Window | null {
   const tab = window.open('', '_blank');
   if (tab === null) {
@@ -103,7 +108,7 @@ export function runInTab(path: string, offline: boolean): void {
 
 export function useRunInTab(): ((path: string) => void) | undefined {
   const connection = useConnection();
-  if (!framesForgetStorage()) {
+  if (!framesForgetStorage() && !framesLoseCookie()) {
     return undefined;
   }
   return (path) => runInTab(path, connection === 'offline');

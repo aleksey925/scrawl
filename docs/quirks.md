@@ -139,9 +139,14 @@ words; the fact itself is written here.
   open, and a `register()` of the same script from that page brings it back
   with no install, so the caches deleted with it stay empty.
   [Offline copy](design/offline.md#on-and-off)
-- HTML apps, checked in Chromium 153, the one Playwright drives; Firefox is not
-  checked yet, and Safari only for the storage of a frame, under WebKit above.
-  [HTML apps](design/html-apps.md)
+- HTML apps, checked in Chromium 153, the one Playwright drives; Firefox only
+  for a frame over plain http, and Safari only for the storage of a frame,
+  under WebKit above. [HTML apps](design/html-apps.md)
+  - A frame from `http://172.30.0.2` to `http://app-<id>.apps.home.lan`, in
+    Chromium and Firefox: its enter request carried no `Sec-Fetch-Site` or
+    `Sec-Fetch-Dest`, and the `Lax` cookie it set was dropped as cross-site,
+    which Firefox says in its console. In a tab of its own the same cookie was
+    kept. [HTML apps](design/html-apps.md#plain-http-on-a-network)
   - A page at `127.0.0.1` opens `app-<id>.localhost` and
     `app-<id>.scrawl.localhost`: Chromium sends every `*.localhost` name to the
     loopback itself.

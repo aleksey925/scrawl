@@ -32,6 +32,8 @@ function siteAt(base) {
 
 const PLAIN = siteAt(SHARED.baseURL);
 const SAME_SITE = siteAt(SHARED.baseURL.replace('127.0.0.1', 'scrawl.localhost'));
+const NETWORK_HOST = 'scrawl.lan';
+const NETWORK = siteAt(SHARED.baseURL.replace('127.0.0.1', NETWORK_HOST));
 
 function counterPage(title = 'Counter') {
     return [
@@ -407,6 +409,25 @@ test.describe('html apps', () => {
             await offline.close();
             await context.setOffline(false);
         });
+    });
+
+    test('runs an html file in a tab of its own at a network address over http', async ({playwright}) => {
+        // arrange
+        const browser = await playwright.chromium.launch({args: [`--host-resolver-rules=MAP ${NETWORK_HOST} 127.0.0.1`]});
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        await signIn(page, {baseURL: NETWORK.base, from: SHARED.routes.doc(COUNTER_FILE)});
+        await openFile(page, NETWORK, COUNTER_FILE);
+
+        // act
+        const [tab] = await Promise.all([context.waitForEvent('page', {timeout: 10_000}), page.getByTestId('file-run').click()]);
+
+        // assert
+        await expect.poll(() => tab.isClosed()).toBe(true);
+        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('HTML apps do not run at this address.');
+        await expect(page).toHaveURL(NETWORK.doc(COUNTER_FILE));
+        await expect(page.getByTestId('run-frame')).toHaveCount(0);
+        await browser.close();
     });
 
     test('keeps the frame and its input through a lost network', async ({page, context}) => {

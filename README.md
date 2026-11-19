@@ -331,6 +331,12 @@ Some limits:
   not inside scrawl. Inside scrawl, Safari keeps the app's `localStorage` only
   in memory, so everything the app saved there is lost once Safari closes. In a
   tab of its own the app keeps its data as on any site.
+- On plain http at an address of your network, such as
+  `http://192.168.1.5:7272`, Run opens the mini app in a new tab in every
+  browser. See the part for advanced users in [On server](#on-server).
+- Inside scrawl a mini app cannot read the clipboard by itself, for example
+  with a Paste button of its own. A paste you make with the keyboard or the
+  menu works. In a new tab the app can ask for the clipboard as on any site.
 - A mini app opens only from scrawl. If you open its address directly, you see
   `To use this app, sign in to scrawl and open it from there`. If you see this
   right after Run, your browser blocks the app inside scrawl. This can happen
@@ -394,9 +400,10 @@ machine, and set `APPS_URL` to it, such as
 no wildcard. With a password, open scrawl at the IP of the machine, such as
 `http://192.168.1.5:7272`, not at a name such as `notes.home.lan`: it is a
 neighbor of the names of mini apps, and a mini app there can sign you out, or
-into another account. scrawl logs a warning about this at start. Run opens the
-mini app in a new tab there, not inside scrawl: over http the browser does not
-keep the app's cookie inside scrawl.
+into another account. scrawl logs a warning about this at start. At any plain
+http address of the network, the IP or a name, Run opens the mini app in a new
+tab, not inside scrawl: over http the browser does not keep the app's cookie
+inside scrawl.
 
 ### Cloudflare Tunnel
 

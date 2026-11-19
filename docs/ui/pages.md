@@ -252,7 +252,8 @@ opens over them.
 
 - The page of a `.html` or `.htm` file has Run among its actions, a play icon
   after Edit and before Download, at any address: where Run cannot work the run
-  screen says why. See [HTML apps](../design/html-apps.md).
+  screen says why, or a toast when Run opens a tab of its own. See
+  [HTML apps](../design/html-apps.md).
 - In the list of a folder a `.html` or `.htm` file has a Run button in its row,
   an outlined RUN in capitals after the name, as Notion draws Open; on a phone
   it is a filled pill, `Run` in plain case, before the row's menu, its tap area
@@ -261,8 +262,8 @@ opens over them.
   row's height, as a taller one would take taps from the rows beside, and to
   the sides only the gap between it and the name, which keeps its own taps, and
   the row under them stays as it is, as for its menu button. The menu of such a
-  row has Run after Open. Both open the run screen. A site has neither, as it
-  has no run screen.
+  row has Run after Open. Both do what the Run of the file's page does. A site
+  has neither, as it has no run screen.
 - A folder whose own files include one named exactly `index.html` has the same
   Run in its row and Run after Open in its menu, on a desktop and a phone, and
   they run that `index.html`. Its name still opens the folder, and the rest of
@@ -285,15 +286,19 @@ opens over them.
 - In Safari, on a Mac and on an iPhone, every Run opens the app as Open in a
   new tab does, and the screen Run was tapped on stays under it; in an app from
   the home screen the tab is a browser view over scrawl, whose close goes back.
-  See [HTML apps](../design/html-apps.md#safari).
+  See [HTML apps](../design/html-apps.md#safari). Every browser does the same
+  when scrawl is on plain `http` at an address of the network, any host but
+  `127.0.0.1`, `localhost` and `*.localhost`; the 409 of such an address with
+  no `APPS_URL` comes in an error toast and the tab closes. See
+  [plain http](../design/html-apps.md#plain-http-on-a-network).
 - Open in a new tab asks a new ticket in the tap and opens the app in a tab of
   its own; a blocked popup shows an error toast. With no network it opens the
   address of a kept app, and is disabled when the app is not kept.
 - An error of the ticket shows its text under the bar with a link Back to where
   Run was tapped, the reason and the fix at an address with no `APPS_URL`
   included. A failure after the ticket shows inside the frame: the browser's
-  error page, or the text of a refused cookie, which says to open the app in a
-  new tab.
+  error page, or the text of a refused cookie,
+  `To use this app, sign in to scrawl and open it from there.`
 - The frame stays when the network goes and comes back, so the app keeps its
   state and what was typed in it.
 - With no network and the copy on, a kept app opens in the frame. Else the

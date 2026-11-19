@@ -84,8 +84,11 @@ at.
 
 `apps.spec.js` is the one spec that builds urls itself: it opens the shared
 instance at `127.0.0.1` and again at `scrawl.localhost`, the same server under
-a name whose app frames are same-site, and writes the run screen url,
-`/s/<name>/run/<path>`, from the space prefix.
+a name whose app frames are same-site, and at `localhost`, and writes the run
+screen url, `/s/<name>/run/<path>`, from the space prefix. For a plain http
+address of the network it opens the instance at `scrawl.lan` in a Chromium of
+its own, launched with `--host-resolver-rules` that send that name to
+`127.0.0.1`.
 
 `routes.contentHref()` is the href the renderer writes into note html. It
 carries the space prefix, because the browser would fetch it directly; the app

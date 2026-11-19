@@ -138,7 +138,8 @@ with `no-store`:
   reason and the fix.
 - It writes nothing, so read-only does not refuse it. The run screen is reached
   from every `.html` and `.htm` file: `writeFile` sets `run_url` in every
-  branch. Where Run cannot work, the run screen shows the 409.
+  branch. Where Run cannot work, the run screen shows the 409, and a Run in a
+  tab of its own shows it in a toast.
 - A folder's entry in `/api/dir/` names its `index.html` in `run_path` when one
   of its own children is a regular file with exactly that name, read from the
   listing `Store.Count` already makes, and the Run of a folder is the Run of
@@ -277,6 +278,13 @@ the scheme and the port of the page. Chrome and Firefox send every
   the `Lax` cookie in a frame, but takes the tab too: telling it from a
   cross-site pair needs a public suffix list, and it is a pair of neighbors,
   which the warning at start names.
+- Keyed on the page, the check misses both ways. A page at `127.0.0.1` or
+  `localhost` with an `http` `APPS_URL` at a name of the network takes the
+  frame, which gets the 401; an `http` page at a network address with an
+  `https` `APPS_URL` takes the tab, though its frame would keep the cookie.
+- The run screen opened by its address, from a bookmark or a reload, still
+  mounts the frame at such an address, and every file gets the 401, whose text
+  says to sign in, not to open the app in a tab.
 
 ## Offline
 

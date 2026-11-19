@@ -16,6 +16,7 @@ const APP_HOST = /^app-[a-z2-7]{12}\.(scrawl\.)?localhost$/;
 const NO_RECORD = 'Run this app once with a network to use it offline.';
 const NOT_KEPT = 'This browser does not keep this app for offline use.';
 const MISSING = 'This file is not on this device. Open the app once with a network.';
+const NOT_HERE = 'HTML apps do not run at this address.';
 const APP_CACHE = 'scrawl-htmlapp';
 const SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) '
     + 'Version/18.0 Safari/605.1.15';
@@ -32,6 +33,7 @@ function siteAt(base) {
 
 const PLAIN = siteAt(SHARED.baseURL);
 const SAME_SITE = siteAt(SHARED.baseURL.replace('127.0.0.1', 'scrawl.localhost'));
+const LOCALHOST = siteAt(SHARED.baseURL.replace('127.0.0.1', 'localhost'));
 const NETWORK_HOST = 'scrawl.lan';
 const NETWORK = siteAt(SHARED.baseURL.replace('127.0.0.1', NETWORK_HOST));
 
@@ -229,8 +231,7 @@ test.describe('html apps', () => {
         await tab.close();
     });
 
-    test('the frame lets an app write the clipboard but not read it', async ({page, browserName}) => {
-        test.skip(browserName !== 'chromium', 'document.featurePolicy is in Chromium only');
+    test('the frame lets an app write the clipboard but not read it', async ({page}) => {
         // arrange
         await signIn(page, {baseURL: PLAIN.base, from: SHARED.routes.doc(COUNTER_FILE)});
         const frame = await run(page, PLAIN, COUNTER_FILE, 'Counter');
@@ -414,20 +415,35 @@ test.describe('html apps', () => {
     test('runs an html file in a tab of its own at a network address over http', async ({playwright}) => {
         // arrange
         const browser = await playwright.chromium.launch({args: [`--host-resolver-rules=MAP ${NETWORK_HOST} 127.0.0.1`]});
-        const context = await browser.newContext();
-        const page = await context.newPage();
-        await signIn(page, {baseURL: NETWORK.base, from: SHARED.routes.doc(COUNTER_FILE)});
-        await openFile(page, NETWORK, COUNTER_FILE);
+        try {
+            const context = await browser.newContext();
+            const page = await context.newPage();
+            await signIn(page, {baseURL: NETWORK.base, from: SHARED.routes.doc(COUNTER_FILE)});
+            await openFile(page, NETWORK, COUNTER_FILE);
+
+            // act
+            const [tab] = await Promise.all([context.waitForEvent('page', {timeout: 10_000}), page.getByTestId('file-run').click()]);
+
+            // assert
+            await expect.poll(() => tab.isClosed()).toBe(true);
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(NOT_HERE);
+            await expect(page).toHaveURL(NETWORK.doc(COUNTER_FILE));
+            await expect(page.getByTestId('run-frame')).toHaveCount(0);
+        } finally {
+            await browser.close();
+        }
+    });
+
+    test('runs an html file in the frame at localhost over http', async ({page}) => {
+        // arrange
+        await signIn(page, {baseURL: LOCALHOST.base, from: SHARED.routes.doc(COUNTER_FILE)});
 
         // act
-        const [tab] = await Promise.all([context.waitForEvent('page', {timeout: 10_000}), page.getByTestId('file-run').click()]);
+        const frame = await run(page, LOCALHOST, COUNTER_FILE, 'Counter');
 
         // assert
-        await expect.poll(() => tab.isClosed()).toBe(true);
-        await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText('HTML apps do not run at this address.');
-        await expect(page).toHaveURL(NETWORK.doc(COUNTER_FILE));
-        await expect(page.getByTestId('run-frame')).toHaveCount(0);
-        await browser.close();
+        await expect(page).toHaveURL(LOCALHOST.run(COUNTER_FILE));
+        expect(new URL(frame.url()).hostname).toMatch(APP_HOST);
     });
 
     test('keeps the frame and its input through a lost network', async ({page, context}) => {

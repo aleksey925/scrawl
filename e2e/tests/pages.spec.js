@@ -494,7 +494,9 @@ test.describe('pages', () => {
 
     test('a slow page keeps the one on screen instead of blanking', async ({page}) => {
         await page.goto(routes.doc(docs.doc.path));
-        await expect(page.getByTestId('doc').locator('h1')).toBeVisible();
+        const title = page.getByTestId('doc').locator('h1');
+        await expect(title).toBeVisible();
+        const shown = await title.textContent();
 
         const slow = /\/api\/(page|dir|nav)\b/;
         await page.route(slow, async (route) => {
@@ -509,6 +511,7 @@ test.describe('pages', () => {
         await expect(page.locator('[data-testid=tree-row][data-current="true"]'))
             .toHaveAttribute('data-path', target);
         await expect(page.getByTestId('tree-row').first()).toBeVisible();
+        await expect(title).toHaveText(shown);
         await expect(page.getByTestId('doc-loading')).toHaveCount(0);
         await expect(page.getByTestId('dir-loading')).toHaveCount(0);
         await expect(page.getByTestId('sidebar-loading')).toHaveCount(0);

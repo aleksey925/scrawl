@@ -1,4 +1,4 @@
-import { useEffect, useState, type DependencyList } from 'react';
+import { useEffect, useRef, useState, type DependencyList } from 'react';
 
 import type { ScrawlApi } from './client';
 import type { DirListing } from './types';
@@ -33,9 +33,8 @@ function remember(key: string, data: unknown): void {
   }
 }
 
-function heldIfEqual<T>(key: string, data: T): T {
-  const held = responses.get(key);
-  return held !== undefined && (held === data || JSON.stringify(held) === JSON.stringify(data)) ? (held as T) : data;
+function heldIfEqual<T>(held: T | undefined, data: T): T {
+  return held !== undefined && (held === data || JSON.stringify(held) === JSON.stringify(data)) ? held : data;
 }
 
 export const answerKeys = {
@@ -95,6 +94,8 @@ export function useApi<T>(
     const cached = key === undefined ? undefined : (responses.get(key) as T | undefined);
     return { data: cached, dataKey: cached === undefined ? undefined : key, loading: true };
   });
+  const shown = useRef(state.data);
+  shown.current = state.data;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -107,7 +108,7 @@ export function useApi<T>(
         if (controller.signal.aborted) {
           return;
         }
-        const kept = key !== undefined && keepEqual ? heldIfEqual(key, data) : data;
+        const kept = keepEqual ? heldIfEqual(shown.current, data) : data;
         if (key !== undefined) {
           remember(key, kept);
         }

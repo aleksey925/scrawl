@@ -152,7 +152,9 @@ page), `cache: 'no-store'`, and carries the copy's header.
    When `state.owner` is another user, `scrawl-data` is deleted first.
 4. It stores `/api/spaces`, and deletes a stored space not in it.
 5. For each space it asks the versions list with the stored `etag`. A 304 means
-   every answer of that list is stored. Otherwise an entry is fetched when it
+   every answer of that list is stored. With no nav of the space stored it asks
+   the list in full: a tab of an older release still open may have stored the
+   nav under the URL that release used. Otherwise an entry is fetched when it
    is new, its version differs, or for its JSON answer its release differs; an
    entry gone from the list is deleted, and so are the answers of an entry
    whose kind changed, a file that became a folder.

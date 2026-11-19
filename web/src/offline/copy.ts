@@ -187,7 +187,8 @@ async function planSpace(cache: Cache, entry: SpaceEntry, signal: AbortSignal): 
   const base = spaceBase(entry.name);
   const record = await readSpace(entry.name);
   const plan: SpacePlan = { name: entry.name, base, record, fetch: [], etag: record.etag, complete: true, refused: false, dirty: false };
-  const response = await get(answerUrl.versions(base), signal, record.etag === '' ? {} : { 'If-None-Match': record.etag });
+  const navKept = (await cache.match(answerUrl.nav(base))) !== undefined;
+  const response = await get(answerUrl.versions(base), signal, record.etag === '' || !navKept ? {} : { 'If-None-Match': record.etag });
   if (response.status === 304) {
     return plan;
   }

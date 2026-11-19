@@ -571,6 +571,27 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('text kept as a draft while a save runs is shown as the draft once the save is done', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-typed-drafted');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        const {release, reached} = await holdSave(page);
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'written and more\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        release();
+
+        // assert
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'written and more\n'}]);
+        removeFixture(docPath);
+    });
+
     test('a Save the person left during does not bring them back when it ends', async ({page}) => {
         // arrange
         const docPath = scratch('save-left-midway');
@@ -608,6 +629,26 @@ test.describe('editing', () => {
         await expect(page).toHaveURL(MAIN.url.doc(docPath));
         await expect(page.getByTestId('doc-missing')).toHaveCount(0);
         expect(readFixture(docPath)).toBe('');
+        removeFixture(docPath);
+    });
+
+    test('Save on a note not created yet with nothing typed keeps the offered draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-new-draft-offered');
+        await page.goto(routes.edit(docPath));
+        await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+        // act
+        await page.getByTestId('editor-save').click();
+
+        // assert
+        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+        expect(readFixture(docPath)).toBe('');
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
         removeFixture(docPath);
     });
 

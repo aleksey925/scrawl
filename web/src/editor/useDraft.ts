@@ -111,7 +111,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     }
     const timer = window.setTimeout(flush, draftDelayMs);
     return () => window.clearTimeout(timer);
-  }, [content, dirty, offering, flush]);
+  }, [content, rev, dirty, offering, flush]);
 
   useEffect(() => {
     const onHidden = (): void => {

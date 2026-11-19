@@ -194,7 +194,7 @@ export function useEditSession({
   const markSaved = useCallback((stored: string, nextRev: string, shown: boolean): void => {
     setSaved(stored);
     setRev(nextRev);
-    if (shown) {
+    if (shown && draftRef.current.offered === undefined) {
       draftRef.current.clear();
     }
   }, [draftRef, setRev, setSaved]);

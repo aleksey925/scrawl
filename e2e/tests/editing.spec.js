@@ -630,6 +630,76 @@ test.describe('editing', () => {
         // assert
         expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
         await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await expect(editorStatus(page)).toHaveText(text.status.dirty);
+        removeFixture(docPath);
+    });
+
+    test('text typed after an offered draft is thrown away is kept as a draft again', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-discarded');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-draft-discard').click();
+
+        // act
+        await setSource(page, 'typed after the discard\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the discard\n'}]);
+        removeFixture(docPath);
+    });
+
+    test('a save that stays in the editor ends the offered draft, and text typed after it is kept as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-saved');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await setSource(page, 'saved over it\n');
+        await save(page);
+
+        // act
+        await setSource(page, 'typed after the save\n');
+
+        // assert
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed after the save\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(readFixture(docPath)).toBe('saved over it\n');
+        removeFixture(docPath);
+    });
+
+    test('a page hidden while a draft is offered keeps the typed text as the draft and takes the offer away', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-hidden');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        await setSource(page, 'typed over it\n');
+
+        // act
+        await page.evaluate(() => {
+            Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed over it\n'}]);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await expect(editorStatus(page)).toHaveText(text.status.drafted);
         removeFixture(docPath);
     });
 
@@ -640,6 +710,7 @@ test.describe('editing', () => {
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'typed just before the app went away\n');
+        const before = await storedDrafts(page);
 
         // act
         await page.evaluate(() => {
@@ -648,6 +719,7 @@ test.describe('editing', () => {
         });
 
         // assert
+        expect(before).toEqual([]);
         expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed just before the app went away\n'}]);
         removeFixture(docPath);
     });

@@ -91,19 +91,21 @@ The editor screen.
   Text typed there instead of Restore leaves the offered draft as it is while
   the editor stays open, and replaces it only when the editor is left, saved or
   put in the background: a new note takes the focus on a phone, and its first
-  keys wiped a draft whose row was easy to miss. A draft belongs to its space
-  and path, and follows the note when it or its folder is renamed or moved, an
-  Undo of the move included, the open note too: its text is written as the
-  editor goes and moved once the next page opens. A draft the browser refuses
-  under the new name stays under the old one. A leave while a save is on its
-  way shows no such toast, as the save's own follows. Only when the browser
-  refuses the draft, as a private window or a full storage does, or while a
-  picture is still uploading, whose link would never land, would the text be
-  lost, and then a dialog asks "Discard changes?" with Discard in red and Keep
-  editing. Discard drops any draft kept before and writes no new one, and the
-  text can no longer be changed either. Closing the tab asks the browser's own
-  question in those cases alone. A phone has no shortcut, so a save there
-  always leaves; the local draft keeps the text between saves.
+  keys wiped a draft whose row was easy to miss. A save that keeps the editor,
+  or the page put in the background with new text, also takes the row away, and
+  the text typed after it is kept as a draft again. A draft belongs to its
+  space and path, and follows the note when it or its folder is renamed or
+  moved, an Undo of the move included, the open note too: its text is written
+  as the editor goes and moved once the next page opens. A draft the browser
+  refuses under the new name stays under the old one. A leave while a save is
+  on its way shows no such toast, as the save's own follows. Only when the
+  browser refuses the draft, as a private window or a full storage does, or
+  while a picture is still uploading, whose link would never land, would the
+  text be lost, and then a dialog asks "Discard changes?" with Discard in red
+  and Keep editing. Discard drops any draft kept before and writes no new one,
+  and the text can no longer be changed either. Closing the tab asks the
+  browser's own question in those cases alone. A phone has no shortcut, so a
+  save there always leaves; the local draft keeps the text between saves.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or
   New file, and for unsaved changes Draft on device once the text is copied to
   the browser's storage, which happens 800ms after the last change, and not

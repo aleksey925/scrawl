@@ -61,7 +61,6 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const key = draftKey(storageScope, path);
 
   const [offered, setOffered] = useState<Draft | undefined>(undefined);
-  const [stale, setStale] = useState(false);
   const [written, setWritten] = useState<WrittenDraft | undefined>(undefined);
 
   const latest = useRef({ rev, content, dirty, key });
@@ -81,6 +80,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const clear = useCallback((): void => {
     removeKey(localStore(), latest.current.key);
     setWritten(undefined);
+    setOffered(undefined);
   }, []);
 
   useEffect(() => {
@@ -93,7 +93,6 @@ export function useDraft(options: UseDraftOptions): DraftControl {
       return;
     }
     setOffered(stored);
-    setStale(stored.rev !== latest.current.rev);
   }, [key, savedContent]);
 
   const offering = offered !== undefined;
@@ -107,15 +106,20 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   }, [content, dirty, offering, flush]);
 
   useEffect(() => {
-    const hidden = (): void => {
-      if (document.visibilityState === 'hidden') {
-        flush();
+    const putAway = (): void => {
+      if (latest.current.dirty && flush()) {
+        setOffered(undefined);
       }
     };
-    window.addEventListener('pagehide', flush);
+    const hidden = (): void => {
+      if (document.visibilityState === 'hidden') {
+        putAway();
+      }
+    };
+    window.addEventListener('pagehide', putAway);
     document.addEventListener('visibilitychange', hidden);
     return () => {
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', putAway);
       document.removeEventListener('visibilitychange', hidden);
     };
   }, [flush]);
@@ -131,6 +135,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     discard();
   }, [discard]);
 
+  const stale = offered !== undefined && offered.rev !== rev;
   const stored = written?.key === key && written.rev === rev && written.content === content;
 
   return { offered, stale, stored, dismiss, discard, abandon, flush, clear };

@@ -100,6 +100,21 @@ func TestAppShellLoadsTheBuiltBundle(t *testing.T) {
 	}
 }
 
+func TestAppShellPreloadsNoPageOfTheRoute(t *testing.T) {
+	// arrange
+	ts := newTestServer(t, testOpts{})
+	preloads := regexp.MustCompile(`<link rel="modulepreload"[^>]*>`)
+	_, root := ts.do(t, request{path: "/"})
+
+	// act
+	resp, body := ts.do(t, request{path: "/edit/guide.md"})
+
+	// assert
+	require.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, preloads.FindAllString(root, -1), preloads.FindAllString(body, -1))
+	assert.NotContains(t, body, "EditPage")
+}
+
 func TestShellCSSLinksTheImportedChunksAfterTheEntry(t *testing.T) {
 	// arrange
 	chunks := map[string]manifestChunk{

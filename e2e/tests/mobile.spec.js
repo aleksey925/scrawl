@@ -738,6 +738,78 @@ test.describe('mobile', () => {
             expect(drag).toEqual({entering: true, sliding: true, jump: 0, followed: 84});
         });
 
+        test('a short slow drag of a screen still sliding in puts the page back when let go', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await addTouchSender(page);
+            await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
+
+            // act
+            const entering = await page.evaluate(async () => {
+                const send = window.sendTouch;
+                const running = () => document.querySelector('[data-testid=doc]')?.closest('[data-screen]')?.getAnimations()
+                    .some((animation) => animation.playState === 'running') === true;
+                for (let frame = 0; frame < 300 && !running(); frame++) {
+                    await new Promise((resolve) => requestAnimationFrame(resolve));
+                }
+                const sliding = running();
+                send('touchstart', [4, 400]);
+                send('touchmove', [10, 400]);
+                send('touchmove', [20, 400]);
+                await new Promise((resolve) => setTimeout(resolve, 60));
+                send('touchmove', [24, 400]);
+                send('touchend');
+                return sliding;
+            });
+            await settled(page);
+
+            // assert
+            expect(entering).toBe(true);
+            await expect(page).toHaveURL(MAIN.url.doc(docs.folder.entry));
+            await expect(page.getByTestId('doc').locator('xpath=ancestor::*[@data-screen]')).toHaveCSS('opacity', '1');
+        });
+
+        test('a swipe let go goes back only after its copy has started to move', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(folder());
+            await page.locator(`[data-testid=dir-row][data-path="${docs.folder.entry}"]`).tap();
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await addTouchSender(page);
+            await page.evaluate(() => {
+                window.historyCalls = [];
+                for (const name of ['back', 'go', 'pushState']) {
+                    const original = history[name].bind(history);
+                    history[name] = (...args) => {
+                        window.historyCalls.push(name);
+                        return original(...args);
+                    };
+                }
+            });
+
+            // act
+            const seen = await page.evaluate(async () => {
+                const send = window.sendTouch;
+                send('touchstart', [4, 400]);
+                for (const x of [20, 60, 120, 200]) {
+                    await new Promise((resolve) => setTimeout(resolve, 16));
+                    send('touchmove', [x, 400]);
+                }
+                send('touchend');
+                const atEnd = [...window.historyCalls];
+                await new Promise((resolve) => requestAnimationFrame(resolve));
+                const moving = document.querySelector('[data-leaving]')?.getAnimations()
+                    .some((animation) => animation.playState === 'running') === true;
+                return {atEnd, inFrame: [...window.historyCalls], moving};
+            });
+
+            // assert
+            expect(seen).toEqual({atEnd: [], inFrame: [], moving: true});
+            await expect(page).toHaveURL(folder());
+        });
+
         test('the page let go leaves as a copy over the page gone back to, with no empty screen between', async ({page}) => {
             // arrange
             await asStandalone(page);

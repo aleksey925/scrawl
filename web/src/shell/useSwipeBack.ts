@@ -23,7 +23,6 @@ interface Track {
   x: number;
   y: number;
   dx: number;
-  offset: number;
   samples: Sample[];
   across: boolean;
   taken?: Drag;
@@ -136,7 +135,6 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
               x: touch.clientX,
               y: touch.clientY,
               dx: 0,
-              offset: 0,
               samples: [{ dx: 0, at: event.timeStamp }],
               across: false,
             }
@@ -154,7 +152,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         return;
       }
       const moved = touch.clientX - track.x;
-      const dx = Math.max(0, moved);
+      let dx = Math.max(0, moved);
       const dy = Math.abs(touch.clientY - track.y);
       if (!track.across) {
         const decided = Math.hypot(moved, dy) >= decidePx;
@@ -174,16 +172,18 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         if (dx < startPx) {
           return;
         }
-        track.offset = Math.max(0, new DOMMatrix(getComputedStyle(element).transform).m41 - dx);
+        const offset = Math.max(0, new DOMMatrix(getComputedStyle(element).transform).m41 - dx);
+        track.x -= offset;
+        track.samples = track.samples.map((point) => ({ dx: point.dx + offset, at: point.at }));
+        dx += offset;
         track.taken = takeScreen(element);
         element.style.willChange = 'transform';
         track.giveUp = prepareRef.current?.();
       }
-      const shift = track.offset + dx;
-      track.dx = shift;
+      track.dx = dx;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
-      track.samples = [...recent, { dx: shift, at: event.timeStamp }];
-      track.taken.element.style.transform = `translateX(${shift}px)`;
+      track.samples = [...recent, { dx, at: event.timeStamp }];
+      track.taken.element.style.transform = `translateX(${dx}px)`;
     };
 
     const onEnd = (event: TouchEvent): void => {
@@ -209,7 +209,11 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         window.setTimeout(ended.giveUp, prefetchKeepMs);
       }
       window.requestAnimationFrame(() => {
-        window.setTimeout(back);
+        window.setTimeout(() => {
+          if (entryRef.current === ended.entry) {
+            back();
+          }
+        });
       });
     };
 

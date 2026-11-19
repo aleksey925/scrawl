@@ -159,7 +159,10 @@ How the app works on a phone.
   visible area across it, and the card and the bar on top jumped on every
   scroll, by up to 70px ([quirks](../quirks.md#phones-and-touch-screens)).
   Opening and closing the card keep the line being read where it was, and a
-  wider screen keeps its find bar at the top and the page scrolling.
+  wider screen keeps its find bar at the top and the page scrolling. The steps
+  up and down and Aa, ab and .\* leave the focus in the field, so the keyboard
+  stays up as in the find of Safari and of the apps of the phone; a tap on a
+  button took the focus and the keyboard went down.
 - Profile is a page of its own at `/profile` on the gray ground of a sheet,
   since it holds the account, the spaces, the theme and the offline copy, a
   place and not a menu

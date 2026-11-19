@@ -4816,6 +4816,26 @@ test.describe('mobile', () => {
         expect({...after, bottom: card.bottom}).toEqual({card, pageY: 0, bottom: 120 + height - 300 - 8});
     });
 
+    test('the steps and the toggles of the find card leave the field focused, so the keyboard stays up', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await page.getByTestId('doc-find-input').fill('awk');
+        const counter = page.getByTestId('doc-find-count');
+        await expect(counter).toHaveAttribute('data-position', '1');
+
+        // act
+        await page.getByTestId('doc-find-next').tap();
+        await expect(counter).toHaveAttribute('data-position', '2');
+        const stepped = await page.evaluate(() => document.activeElement?.dataset.testid);
+        await page.getByTestId('doc-find-case').tap();
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        const toggled = await page.evaluate(() => document.activeElement?.dataset.testid);
+
+        // assert
+        expect({stepped, toggled}).toEqual({stepped: 'doc-find-input', toggled: 'doc-find-input'});
+    });
+
     test('closing Find with the keyboard up gives back the line being read, not one moved by the keyboard', async ({page}) => {
         // arrange
         await fakeVisibleArea(page);

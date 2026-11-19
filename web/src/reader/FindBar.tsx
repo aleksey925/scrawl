@@ -1,5 +1,5 @@
 import { ActionIcon } from '@mantine/core';
-import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useRef, type JSX, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { composing, ownsShortcuts } from '../shell/shortcuts';
@@ -26,6 +26,10 @@ function counterOf(find: FindOnPage): string {
 }
 
 type ToggleName = keyof Omit<FindQuery, 'text'>;
+
+function keepField(event: ReactMouseEvent): void {
+  event.preventDefault();
+}
 
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
@@ -152,11 +156,11 @@ export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: b
         .*
       </Toggle>
       <ActionIcon data-testid="doc-find-prev" className={classes.prev} variant="subtle" color="gray" aria-label="Previous match"
-        disabled={find.total === 0} onClick={() => find.step(-1)}>
+        disabled={find.total === 0} onMouseDown={keepField} onClick={() => find.step(-1)}>
         <IconChevronUp size={layout.iconSizeSmall} />
       </ActionIcon>
       <ActionIcon data-testid="doc-find-next" className={classes.next} variant="subtle" color="gray" aria-label="Next match"
-        disabled={find.total === 0} onClick={() => find.step(1)}>
+        disabled={find.total === 0} onMouseDown={keepField} onClick={() => find.step(1)}>
         <IconChevronDown size={layout.iconSizeSmall} />
       </ActionIcon>
       <ActionIcon data-testid="doc-find-close" className={classes.close} variant="subtle" color="gray" aria-label="Close the find" onClick={find.close}>
@@ -184,6 +188,7 @@ function Toggle({ testId, label, on, onClick, children }: ToggleProps): JSX.Elem
       aria-label={label}
       aria-pressed={on}
       title={label}
+      onMouseDown={keepField}
       onClick={onClick}
     >
       {children}

@@ -13,10 +13,6 @@ const PLAIN_NOTE = `${PLAIN_FOLDER}/note.md`;
 const OWN_WORKER = `${ROOT}/own-worker`;
 const WAITING_WORKER = `${ROOT}/waiting-worker`;
 const APP_HOST = /^app-[a-z2-7]{12}\.(scrawl\.)?localhost$/;
-const NO_RECORD = 'Run this app once with a network to use it offline.';
-const NOT_KEPT = 'This browser does not keep this app for offline use.';
-const MISSING = 'This file is not on this device. Open the app once with a network.';
-const NOT_HERE = 'Mini apps do not run at this address.';
 const APP_CACHE = 'scrawl-htmlapp';
 const SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) '
     + 'Version/18.0 Safari/605.1.15';
@@ -423,7 +419,7 @@ test.describe('html apps', () => {
 
             // assert
             await expect.poll(() => tab.isClosed()).toBe(true);
-            await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(NO_RECORD);
+            await expect(page.locator('[data-testid=toast][data-kind="warn"]')).toContainText(text.apps.noRecord);
             await context.setOffline(false);
         });
     });
@@ -442,7 +438,7 @@ test.describe('html apps', () => {
 
             // assert
             await expect.poll(() => tab.isClosed()).toBe(true);
-            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(NOT_HERE);
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.apps.notHere);
             await expect(page).toHaveURL(NETWORK.doc(COUNTER_FILE));
             await expect(page.getByTestId('run-frame')).toHaveCount(0);
         } finally {
@@ -503,7 +499,7 @@ test.describe('html apps', () => {
         await context.setOffline(true);
         await expect(page.getByTestId('run-open-outside')).toBeDisabled();
         await page.reload();
-        await expect(page.getByTestId('run-needs-network')).toContainText(NOT_KEPT);
+        await expect(page.getByTestId('run-needs-network')).toContainText(text.apps.notKept);
         await expect(page.getByTestId('run-open-outside')).toBeDisabled();
         await context.setOffline(false);
     });
@@ -536,7 +532,7 @@ test.describe('html apps', () => {
         await expect(appFrame(page).locator('#count')).toHaveText(String(before + 3));
 
         await page.goto(SAME_SITE.run(OTHER_FILE));
-        await expect(page.getByTestId('run-needs-network')).toContainText(NO_RECORD);
+        await expect(page.getByTestId('run-needs-network')).toContainText(text.apps.noRecord);
 
         await context.setOffline(false);
         writeFixture(COUNTER_FILE, counterPage('Counter changed'), SHARED);
@@ -551,7 +547,7 @@ test.describe('html apps', () => {
         expect((await frameFetch(frame, '/page2.html')).status).toBe(404);
         await expect.poll(() => kept(frame, '/page2.html')).toBe(false);
         await context.setOffline(true);
-        expect(await frameFetch(frame, '/page2.html?x=1')).toMatchObject({status: 504, text: MISSING});
+        expect(await frameFetch(frame, '/page2.html?x=1')).toMatchObject({status: 504, text: text.apps.missing});
         await context.setOffline(false);
 
         await openFile(page, SAME_SITE, COUNTER_FILE);

@@ -62,6 +62,7 @@ module.exports = {
         folderName: 'Folder name',
         untitled: 'untitled.md',
         shortcut: 'New note in the folder on screen',
+        folderShortcut: 'New folder in the folder on screen',
     },
 
     sidebar: {
@@ -78,6 +79,8 @@ module.exports = {
         draftStale: 'file changed',
         changesTooLarge: 'This document is too large to compare. Editing and saving still work.',
         changesFailed: 'Could not compare',
+        saveAndClose: 'Save and close the editor',
+        closeKeepingDraft: 'Close the editor, keeping the changes as a draft',
     },
 
     login: {
@@ -99,5 +102,12 @@ module.exports = {
         downloading: 'Downloading',
         notUpdated: 'Could not update',
         updated: 'updated at',
+    },
+
+    apps: {
+        noRecord: 'Run this app once with a network to use it offline.',
+        notKept: 'This browser does not keep this app for offline use.',
+        missing: 'This file is not on this device. Open the app once with a network.',
+        notHere: 'Mini apps do not run at this address.',
     },
 };

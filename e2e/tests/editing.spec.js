@@ -40,7 +40,10 @@ async function typeInSource(page, typed) {
 function storedDrafts(page) {
     return page.evaluate(() => Object.keys(localStorage)
         .filter((key) => key.startsWith('scrawl.draft:'))
-        .map((key) => ({path: key.slice(key.lastIndexOf(':') + 1), content: JSON.parse(localStorage.getItem(key)).content})));
+        .map((key) => {
+            const {content, name} = JSON.parse(localStorage.getItem(key));
+            return {path: key.slice(key.lastIndexOf(':') + 1), content, name};
+        }));
 }
 
 async function offerDraft(page, docPath, draft) {
@@ -630,8 +633,122 @@ test.describe('editing', () => {
 
         // assert
         await expect(filter).toHaveValue('');
-        await expect(page).toHaveURL(MAIN.url.edit(docPath));
+        await stays(() => page.url(), MAIN.url.edit(docPath), 500);
         removeFixture(docPath);
+    });
+
+    test('Cmd+Enter with nothing focused saves and opens the reader', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-cmd-enter-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'written\n');
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('ControlOrMeta+Enter');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect.poll(() => readFixture(docPath)).toBe('written\n');
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc with nothing focused leaves the editor and keeps the changes as a draft', async ({page}) => {
+        // arrange
+        const docPath = scratch('leave-esc-blurred');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
+            await page.evaluate(() => document.activeElement.blur());
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            await expect(okToast(page)).toHaveText(text.toast.draftKept);
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('the first Esc over an open list of completions closes only the list', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-completions');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            await typeInSource(page, '\n<di');
+            await expect(page.locator('.cm-tooltip-autocomplete')).toBeVisible();
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page.locator('.cm-tooltip-autocomplete')).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc in the search panel of the text, on its buttons or back in the text closes the panel and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-search-panel');
+        try {
+            await editFromReader(page, docPath, 'kept\n');
+            const content = page.locator('[data-testid=editor-source] .cm-content');
+            const panel = page.locator('[data-testid=editor-source] .cm-search');
+
+            // act & assert
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await expect(panel.locator('input[name=search]')).toBeFocused();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await panel.locator('button[name=next]').focus();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+
+            await content.click();
+            await page.keyboard.press('ControlOrMeta+f');
+            await content.click();
+            await page.keyboard.press('Escape');
+            await expect(panel).toHaveCount(0);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 300);
+        } finally {
+            removeFixture(docPath);
+        }
+    });
+
+    test('Esc with several cursors keeps one and leaves the editor open', async ({page}) => {
+        // arrange
+        const docPath = scratch('esc-cursors');
+        try {
+            await editFromReader(page, docPath, 'word word\n');
+            await page.locator('[data-testid=editor-source] .cm-content').click();
+            await page.keyboard.press('ControlOrMeta+Home');
+            await page.keyboard.press('ControlOrMeta+d');
+            await page.keyboard.press('ControlOrMeta+d');
+            await expect(page.locator('[data-testid=editor-source] .cm-selectionBackground')).toHaveCount(2);
+
+            // act
+            await page.keyboard.press('Escape');
+
+            // assert
+            await expect(page.locator('[data-testid=editor-source] .cm-selectionBackground')).toHaveCount(1);
+            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+        } finally {
+            removeFixture(docPath);
+        }
     });
 
     test('Save stays in the editor when the text changed while the save ran', async ({page}) => {
@@ -750,16 +867,44 @@ test.describe('editing', () => {
         await reached;
         await setSource(page, '# Plan\n\nmore\n');
 
-        // act
+        // act & assert
         release();
         await expect(page).toHaveURL(MAIN.url.edit(created));
         await expect(page.getByTestId('editor-draft')).toBeVisible();
-
-        // assert
+        await expect(page.getByTestId('editor-draft')).not.toContainText(text.editor.draftStale);
         expect(await storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+
         await page.getByTestId('editor-draft-restore').click();
         await expect.poll(() => sourceText(page)).toBe('# Plan\n\nmore\n');
         removeFixture(folder);
+    });
+
+    test('text typed while Save creates a new note is kept as a draft of the note created when the editor is left before the save ends', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-typed-left';
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
+            expect(readFixture(created)).toBe('# Plan\n');
+            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        } finally {
+            removeFixture(folder);
+        }
     });
 
     test('text typed while Save creates a new note is kept as a draft of the note created once the editor is left', async ({page}) => {
@@ -837,6 +982,32 @@ test.describe('editing', () => {
         expect(readFixture(docPath)).toBe('');
         expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
         removeFixture(docPath);
+    });
+
+    test('Save of a New note with nothing typed keeps the draft it offers', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-draft-offered';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, 'the offered draft\n');
+            await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+            await page.getByTestId('editor-cancel').click();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.goto(routes.draft(untitled));
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(untitled));
+            expect(readFixture(untitled)).toBe('');
+            expect(await storedDrafts(page)).toEqual([{path: untitled, content: 'the offered draft\n'}]);
+        } finally {
+            removeFixture(folder);
+        }
     });
 
     test('a draft can be thrown away instead of restored', async ({page}) => {
@@ -1129,15 +1300,19 @@ test.describe('editing', () => {
         const docPath = scratch('draft-moved');
         const into = 'e2e-scratch/draft-moved-into';
         fs.mkdirSync(fixtureFile(into), {recursive: true});
-        await leaveDraft(page, docPath, 'typed before the move\n');
+        try {
+            await leaveDraft(page, docPath, 'typed before the move\n');
 
-        // act
-        await moveTo(page, into);
+            // act
+            await moveTo(page, into);
 
-        // assert
-        await expect.poll(() => storedDrafts(page))
-            .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the move\n'}]);
-        removeFixture(into);
+            // assert
+            await expect.poll(() => storedDrafts(page))
+                .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the move\n'}]);
+        } finally {
+            removeFixture(docPath);
+            removeFixture(into);
+        }
     });
 
     test('Undo of a move brings the draft back to the note\'s old place', async ({page}) => {
@@ -1145,19 +1320,22 @@ test.describe('editing', () => {
         const docPath = scratch('draft-undone');
         const into = 'e2e-scratch/draft-undone-into';
         fs.mkdirSync(fixtureFile(into), {recursive: true});
-        await leaveDraft(page, docPath, 'typed before the undo\n');
-        await moveTo(page, into);
-        await expect.poll(() => storedDrafts(page))
-            .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the undo\n'}]);
+        try {
+            await leaveDraft(page, docPath, 'typed before the undo\n');
+            await moveTo(page, into);
+            await expect.poll(() => storedDrafts(page))
+                .toEqual([{path: `${into}/${nameOf(docPath)}`, content: 'typed before the undo\n'}]);
 
-        // act
-        await page.getByTestId('toast-action').click();
-        await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            // act
+            await page.getByTestId('toast-action').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
 
-        // assert
-        await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the undo\n'}]);
-        removeFixture(docPath);
-        removeFixture(into);
+            // assert
+            await expect.poll(() => storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the undo\n'}]);
+        } finally {
+            removeFixture(docPath);
+            removeFixture(into);
+        }
     });
 
     test('a draft offer names the time it was written, and says when the file changed since', async ({page}) => {

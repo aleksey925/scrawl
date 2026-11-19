@@ -37,26 +37,6 @@ How the react app in `web/` is built, shipped and wired.
 
 ## Build and release
 
-- `npm run build` in `web/` runs `tsc --noEmit` for the app and the workers,
-  then a vite build for the app, the workers and the pages. The app goes to
-  `server/assets/app/` (`index.html`, `manifest.json`, `assets/*.js` and
-  `assets/*.css`), the offline copy's worker to `server/assets/sw/sw.js`, and
-  the two scripts of an HTML app's host to `server/assets/htmlapp/`. The pages
-  of `render`, `diff` and `site` get their scripts and stylesheets in
-  `page/assets/`, built by `vite.page.config.ts`, one classic script per entry,
-  because a page opened from disk can load no module. The pages are one vite
-  build per entry, because rolldown splits chunks whenever a build has more
-  than one input, and a script inlined into a page cannot load a chunk. A chunk
-  name never starts with `_` or `.`, which `go:embed` skips.
-- `build.manifest` is the plain name `manifest.json` rather than Vite's default
-  `.vite/manifest.json`. `go:embed` on a directory skips dot-prefixed entries,
-  so the default would embed the bundle and none of its index. The Go side
-  parses `server/assets/app/manifest.json` to find the entry chunk plus the CSS
-  it needs. `base` is `./` for a build and `/` for the dev server.
-- `build.assetsInlineLimit` is `0`. The CSP allows `img-src 'self' data:` but
-  not fonts from `data:`, and an inlined font would fail at runtime with
-  nothing in the build output hinting at why.
-
 - The frontend is a react and mantine app in `web/`. It owns the whole origin:
   every page route boots the same shell and the client router decides what it
   is, so the shell preloads no page of a route: the page's chunk comes after
@@ -98,6 +78,24 @@ How the react app in `web/` is built, shipped and wired.
   keep building. A file stored compressed is read through `gzassets` and goes
   out as stored to a client that accepts gzip, so the server spends nothing
   compressing it.
+- `npm run build` in `web/` runs `tsc --noEmit` for the app and the workers,
+  then a vite build for the app, the workers and the pages. The app goes to
+  `server/assets/app/` (`index.html`, `manifest.json`, `assets/*.js` and
+  `assets/*.css`), and the workers where the bullets below say. The pages of
+  `render`, `diff` and `site` get their scripts and stylesheets in
+  `page/assets/`, built by `vite.page.config.ts`, one classic script per entry,
+  because a page opened from disk can load no module. The pages are one vite
+  build per entry, because rolldown splits chunks whenever a build has more
+  than one input, and a script inlined into a page cannot load a chunk. A chunk
+  name never starts with `_` or `.`, which `go:embed` skips.
+- `build.manifest` is the plain name `manifest.json` rather than Vite's default
+  `.vite/manifest.json`. `go:embed` on a directory skips dot-prefixed entries,
+  so the default would embed the bundle and none of its index. The Go side
+  parses `server/assets/app/manifest.json` to find the entry chunk plus the CSS
+  it needs. `base` is `./` for a build and `/` for the dev server.
+- `build.assetsInlineLimit` is `0`. The CSP allows `img-src 'self' data:` but
+  not fonts from `data:`, and an inlined font would fail at runtime with
+  nothing in the build output hinting at why.
 - The offline copy's worker is a classic script of its own, built from
   `web/src/sw/` by `vite.sw.config.ts` into `server/assets/sw/sw.js` and
   checked by `tsconfig.sw.json` with the worker's types. It imports only
@@ -120,22 +118,29 @@ How the react app in `web/` is built, shipped and wired.
   idle the same way, in `web/src/pagePreloads.ts`, so the first tap on a note
   or on Edit does not wait for its code. A load on idle that fails does nothing
   on its own (`loadQuietly` in `staleBundle.ts`): it reloaded the page under a
-  person who was only reading. Chromium keeps the failed import, so the way to
-  that page, or the dialog opened, then loads the app again as a stale chunk
-  does, at the address the click was going to. A dialog whose chunk is there
-  draws in the same render as the click that opened it, with no `Suspense`: one
-  that waited for its chunk let the keys typed after Cmd+K go to the page, and
-  on a phone its field took the focus outside the tap, so no keyboard opened
-  ([quirks](../quirks.md#ios-and-safari)). A dialog opened before the idle load
-  is done draws nothing until its chunk comes, and has those two faults. That
-  window, from the page's load until the browser is idle and the chunks have
-  come, is short and is left open: holding the keys and the tap would take a
-  second field drawn in the main bundle. A chunk that does not load as the
-  dialog opens loads the page again as a stale chunk does, when the editor
-  holds no unsaved text. When it does, a dialog that was opening closes with a
-  toast that asks to load the page again: Chromium keeps a failed import of a
-  module for the life of the page ([quirks](../quirks.md#browsers)), so asking
-  again would fail the same way.
+  person who was only reading. The load is marked failed instead, and the way
+  to that page, or the dialog opened, then loads the app again as a stale chunk
+  does, at the address the click was going to. Waiting for the import to fail
+  again was not enough: when only a stylesheet failed, the page opened with no
+  style ([quirks](../quirks.md#browsers)). The error does not name the import,
+  so while a load on idle is on its way no failed chunk reloads from
+  `vite:preloadError`. A chunk the app waits for, a page, a dialog opened or a
+  diagram engine, goes through `loadChunk`, which then loads the page again
+  itself: a note with math opened at the start lost its KaTeX that way. The
+  formatter's chunks do not, and a failed one only fails that format. A dialog
+  whose chunk is there draws in the same render as the click that opened it,
+  with no `Suspense`: one that waited for its chunk let the keys typed after
+  Cmd+K go to the page, and on a phone its field took the focus outside the
+  tap, so no keyboard opened ([quirks](../quirks.md#ios-and-safari)). A dialog
+  opened before the idle load is done draws nothing until its chunk comes, and
+  has those two faults. That window, from the page's load until the browser is
+  idle and the chunks have come, is short and is left open: holding the keys
+  and the tap would take a second field drawn in the main bundle. A chunk that
+  does not load as the dialog opens loads the page again as a stale chunk does,
+  when the editor holds no unsaved text. When it does, a dialog that was
+  opening closes with a toast that asks to load the page again: Chromium keeps
+  a failed import of a module for the life of the page
+  ([quirks](../quirks.md#browsers)), so asking again would fail the same way.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for
@@ -273,7 +278,11 @@ How the react app in `web/` is built, shipped and wired.
   unhandled, bold inside a code block, and the sidebar must not toggle while
   typing. Every shortcut is a row of the one table in `ShortcutHelp`, which
   shows only the rows the place offers. A shortcut with Alt is matched on the
-  key's `code`, never its `key`: on a Mac Option+C types `ç`.
+  key's `code`, never its `key`: on a Mac Option+C types `ç`. The editor's own
+  `Ctrl`/`Cmd` + `Enter` and `Esc` are the exception: they listen in the
+  capture phase, before codemirror, and act only from the text or with nothing
+  focused ([editor](../ui/editor.md),
+  [quirks](../quirks.md#react-mantine-and-the-editor)).
 - Every copy goes through `copyText` in `web/src/reader/clipboard.ts`, never
   `navigator.clipboard` alone: a phone that opens the server by its address on
   the network is on plain http, where the page has no clipboard api, and Copy

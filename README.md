@@ -52,15 +52,16 @@ open them in a browser, so there is nothing to install on each device.
 
 **Compared to Obsidian.** Obsidian is built around the files on one device, and
 sync between devices comes on top of it. scrawl is built around sync: one copy
-on a server, opened from any browser. Each device also keeps a copy, so the
-notes still open with no network, read-only. With a remote repository every
-change is also pushed to your git host, so there is always a second copy with
-the whole history. Out of the box, Obsidian syncs between devices only through
-its paid Sync service. The free way is to research community plugins and pick
-one, and each comes at a cost: some need infrastructure of their own, such as a
-database server or a storage bucket, and the git plugin warns that it is very
-unstable on mobile. scrawl is one small binary: run it on any server, point it
-at a repository, and nothing else is needed.
+on a server, opened from any browser. A device can also keep a copy, so the
+notes still open with no network, read-only: see [Offline](#offline). With a
+remote repository every change is also pushed to your git host, which keeps a
+second copy with the whole history. Out of the box, Obsidian syncs between
+devices only through its paid Sync service. The free way is to research
+community plugins and pick one, and each comes at a cost: some need
+infrastructure of their own, such as a database server or a storage bucket, and
+the git plugin warns that it is very unstable on mobile. scrawl is one small
+binary: run it on any server, point it at a repository, and nothing else is
+needed.
 
 **When something else fits better.** If you want to edit notes with no network
 at all, or a plugin for every need, Obsidian is the better tool. Offline,
@@ -385,7 +386,9 @@ the proxy needs:
    [Server settings](#server-settings).
 
 Then set `MINI_APPS_URL=https://app-{id}.example.com` and `TRUSTED_PROXY=true`.
-With Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel).
+With Cloudflare Tunnel, see [Cloudflare Tunnel](#cloudflare-tunnel). Up to
+v0.6.0-dev16 this setting was `APPS_URL`: scrawl no longer reads that name, so
+rename it.
 
 What can go wrong:
 

@@ -913,12 +913,17 @@ test.describe('reading', () => {
         ]);
     });
 
-    test('the shortcuts name N for a new note', async ({page}) => {
+    test('the shortcuts name N for a new note, Shift+N for a new folder, and the keys that close the editor', async ({page}) => {
         // act
         await pressShortcut(page, '?');
 
         // assert
-        await expect(page.getByTestId('shortcuts-group').filter({hasText: /^General/})).toContainText(text.create.shortcut);
+        const general = page.getByTestId('shortcuts-group').filter({hasText: /^General/});
+        await expect(general).toContainText(`${text.create.shortcut}N`);
+        await expect(general).toContainText(`${text.create.folderShortcut}ShiftN`);
+        const editor = page.getByTestId('shortcuts-group').filter({hasText: /^Editor/});
+        await expect(editor).toContainText(new RegExp(`${text.editor.saveAndClose}(⌘|Ctrl)↵`));
+        await expect(editor).toContainText(`${text.editor.closeKeepingDraft}Esc`);
     });
 
     test('the title of the shortcuts, with its close button and the room under it, is as tall as a title alone', async ({page}) => {

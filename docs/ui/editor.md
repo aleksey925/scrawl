@@ -80,14 +80,19 @@ The editor screen.
   created. On a phone Save is disabled while there is nothing to save, and the
   back arrow opens the reader. The editor stays when the save fails, when it
   meets a conflict, whatever the conflict dialog then does, and when the text
-  changed while the save ran. A person who went elsewhere while the save ran
-  stays there. Once the save is done and the reader is on its way, the text can
-  no longer be changed: the guard on leaving is asked only as the move starts,
-  and the reader may still be loading. A save midway that keeps the editor is
-  `Ctrl`/`Cmd` + `S`. `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is Cancel, from
-  the text or with nothing focused; in a field, a menu, a dialog or the sidebar
-  `Esc` closes what it closed before, and the first `Esc` over an open list of
-  completions closes that list. Both are taken before the text
+  changed while the save ran. Save as copy in the conflict dialog writes the
+  text to a copy beside the file, `.conflict-<time>` before its extension, and
+  opens the copy's editor in the editor's place in the history, so Back goes
+  where the editor was opened from. A person who went elsewhere while the save
+  ran stays there. Once the save is done and the reader is on its way, the text
+  can no longer be changed: the guard on leaving is asked only as the move
+  starts, and the reader may still be loading. A save midway that keeps the
+  editor is `Ctrl`/`Cmd` + `S`. `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is
+  Cancel, from the text or with nothing focused; in a field, a menu, a dialog
+  or the sidebar `Esc` closes what it closed before. In the text `Esc` first
+  closes what codemirror has open: a list of completions, the search panel,
+  from its field, its buttons or the text, and several cursors, which it makes
+  one. Both are taken before the text
   ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
   and any other way out leave without saving and ask nothing: the unsaved text
   is written to the draft on the device as the editor goes, neither the text
@@ -161,12 +166,14 @@ The editor screen.
   it has then and reports Created instead of Saved; Save opens the reader of
   the new file, and `Cmd+S` replaces the address with the editor of the new
   file and keeps the place in the text. From that save on the draft is the new
-  file's: text typed while the first save ran is kept under the new name, and
-  the editor of the new file offers it, where under the draft's own address it
-  was never offered again. A note not created yet reads New note only until its
-  first save, then Saved. Cancel goes back, as nothing of the draft is a page
-  to go back to. The name field is the draft's own and not a rename: nothing on
-  disk is moved.
+  file's: text typed while the first save ran is kept under the new name, the
+  editor left before the save answered too, and the editor of the new file
+  offers it, where under the draft's own address it was never offered again. An
+  offered draft that was not restored stays under the draft's address. A draft
+  equal to the text on screen is never offered. A note not created yet reads
+  New note only until its first save, then Saved. Cancel goes back, as nothing
+  of the draft is a page to go back to. The name field is the draft's own and
+  not a rename: nothing on disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide
@@ -186,11 +193,10 @@ The editor screen.
   upload, none of which means anything for it. It is the same editor screen
   with the markdown parts left out, not a second one: the save, the draft, the
   conflict and the guard on leaving stay one flow. A copy kept from a conflict
-  takes the place of the editor in the history, so Back goes where the editor
-  was opened from, and keeps the file's extension, and a file that is text by
-  its whole name, a `Makefile` or `go.mod`, gets a `.txt` copy, which the
-  editor still opens. The language comes from the name: codemirror's set, and
-  for what it lacks or guesses wrong the closest language it holds, in
+  keeps the file's extension, and a file that is text by its whole name, a
+  `Makefile` or `go.mod`, gets a `.txt` copy, which the editor still opens. The
+  language comes from the name: codemirror's set, and for what it lacks or
+  guesses wrong the closest language it holds, in
   `web/src/editor/codeLanguages.ts` (a svelte component as html, elixir as
   ruby, a makefile as shell). No new grammar is a dependency of ours, so a name
   with nothing close (terraform, graphql, zig) stays plain.

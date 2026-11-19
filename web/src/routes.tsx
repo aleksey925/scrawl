@@ -4,7 +4,7 @@ import { RouteError } from './components/RouteError';
 import { noteEntry } from './historyTrail';
 import { mountBase } from './mount';
 import { documentPage, editPage } from './pagePreloads';
-import { loadChunk } from './staleBundle';
+import { loadChunk, reloadIfFailedQuietly } from './staleBundle';
 import { AppLayout } from './shell/AppLayout';
 
 function Blank(): null {
@@ -12,7 +12,13 @@ function Blank(): null {
 }
 
 function lazyPage<T>(load: () => Promise<T>): () => Promise<T> {
-  return () => loadChunk(load());
+  return () =>
+    loadChunk(
+      load().then((module) => {
+        reloadIfFailedQuietly(load);
+        return module;
+      }),
+    );
 }
 
 const routes: RouteObject[] = [

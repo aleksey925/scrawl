@@ -15,14 +15,16 @@ Creating, naming, moving and deleting files and folders.
   faint row in its folder, since the draft is the page on screen. Save looks at
   the folder and takes `-2`, `-3` for a name already there, writes the file
   with `Created "weekly-plan.md"` and opens it in the reader; `Cmd+S` stays in
-  the editor at the new address. Cancel goes back to the screen the draft was
-  started on. A click on the faint crumb, or on the faint name in the bar of a
-  phone, opens a field with the name: the name typed there stops following the
-  heading and keeps its case, and goes by the rules of a typed name below, so
-  `todo.txt` turns the draft into that file and the editor into the one of a
-  text file, dropping a `# ` that was all the text. A name taken by the time of
-  Save is refused with a toast, as a name with a slash or a leading dot is at
-  once. The draft is the one way to make a file that is not a note.
+  the editor at the new address. A draft saved as it opened, with nothing
+  typed, writes an empty `untitled.md`: no `# `, and format on save leaves it
+  empty. Cancel goes back to the screen the draft was started on. A click on
+  the faint crumb, or on the faint name in the bar of a phone, opens a field
+  with the name: the name typed there stops following the heading and keeps its
+  case, and goes by the rules of a typed name below, so `todo.txt` turns the
+  draft into that file and the editor into the one of a text file, dropping a
+  `# ` that was all the text. A name taken by the time of Save is refused with
+  a toast, as a name with a slash or a leading dot is at once. The draft is the
+  one way to make a file that is not a note.
 - A note is made in the folder on screen, or in the folder the action came
   from: the sidebar's compose icon, `+` on a folder of the tree, `N` where no
   field has the focus outside the editor, the blue New of a folder's page, the

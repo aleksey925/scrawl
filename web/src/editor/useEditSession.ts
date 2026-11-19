@@ -59,8 +59,7 @@ export interface EditSession {
 
 interface SaveResult {
   shownStored: boolean;
-  savedTo?: string;
-  rev?: string;
+  created?: string;
 }
 
 const dottedTextNames: ReadonlySet<string> = new Set(['go.mod', 'go.sum']);
@@ -289,11 +288,15 @@ export function useEditSession({
           showToast('warn', { title: 'Could not update the contents', message: tocFailure });
         }
         if (first) {
-          draftRef.current.forget(path);
+          const draft = draftRef.current;
+          if (draft.offered === undefined) {
+            draft.forget(path);
+          }
+          const kept = shown || draft.keepAs(dest, res.rev, bufferText());
           savedAsRef.current = dest;
           setSavedAs(dest);
           reportMutation(res, `Created "${basenameOf(dest)}"`);
-          return { shownStored: shown, savedTo: dest, rev: res.rev };
+          return { shownStored: shown, created: kept ? dest : undefined };
         }
         reportMutation(res, 'Saved');
         return { shownStored: shown };
@@ -375,17 +378,14 @@ export function useEditSession({
       }
       event.preventDefault();
       void save().then((res) => {
-        if (res.savedTo !== undefined && mountedRef.current) {
-          if (!res.shownStored) {
-            draftRef.current.keepAs(res.savedTo, res.rev ?? '');
-          }
-          reopenAt(res.savedTo);
+        if (res.created !== undefined && mountedRef.current && !leavingRef.current) {
+          reopenAt(res.created);
         }
       });
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [draftRef, reopenAt, save]);
+  }, [reopenAt, save]);
 
   const openReader = useCallback((target?: string): void => {
     rememberReadingPosition();
@@ -411,46 +411,43 @@ export function useEditSession({
     if (mountedRef.current) {
       leavingRef.current = true;
       setLeaving(true);
-      openReader(res.savedTo);
+      openReader(res.created);
     }
   }, [dirty, exists, openReader, save]);
 
   useEffect(() => {
-    const inText = (event: KeyboardEvent): boolean => {
-      const { target } = event;
-      if (target === document.body) {
-        return true;
-      }
-      return target instanceof HTMLElement && target.tagName !== 'INPUT' && target.closest('.cm-editor') !== null;
+    const inText = (target: EventTarget | null): boolean =>
+      target === document.body ||
+      (target instanceof HTMLElement && target.closest('.cm-editor') !== null && target.closest('.cm-panels') === null);
+    const textHoldsEscape = (): boolean => {
+      const current = liveView();
+      return (
+        document.querySelector('.cm-tooltip-autocomplete') !== null ||
+        (current !== undefined && (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-search') !== null))
+      );
     };
-    const onChord = (event: KeyboardEvent): void => {
-      if (!modChord(event, 'enter') || !inText(event) || composing(event)) {
+    const onKey = (event: KeyboardEvent): void => {
+      const saving = modChord(event, 'enter');
+      const closing = event.key === 'Escape' && !textHoldsEscape();
+      if ((!saving && !closing) || !inText(event.target) || composing(event)) {
         return;
       }
-      event.preventDefault();
-      event.stopPropagation();
-      if (!savingRef.current && !leavingRef.current) {
+      if (saving) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (savingRef.current || leavingRef.current) {
+        return;
+      }
+      if (saving) {
         void saveAndLeave();
-      }
-    };
-    const onEscape = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented || !inText(event) || composing(event)) {
-        return;
-      }
-      if (document.querySelector('.cm-tooltip-autocomplete') !== null) {
-        return;
-      }
-      if (!savingRef.current && !leavingRef.current) {
+      } else {
         cancel();
       }
     };
-    document.addEventListener('keydown', onChord, true);
-    document.addEventListener('keydown', onEscape, true);
-    return () => {
-      document.removeEventListener('keydown', onChord, true);
-      document.removeEventListener('keydown', onEscape, true);
-    };
-  }, [cancel, saveAndLeave]);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [cancel, liveView, saveAndLeave]);
 
   return { leaving, cancel, saveAndLeave };
 }

@@ -244,6 +244,47 @@ test.describe('pages', () => {
         }
     });
 
+    test('a chunk a note asks for that is gone while a load on idle is on its way still reloads the note', async ({page}) => {
+        // arrange
+        writeFixture(MATH, '# Math\n\n$$\n\\frac{a}{b}\n$$\n');
+        let release = () => {};
+        const held = new Promise((resolve) => {
+            release = resolve;
+        });
+        try {
+            let idle = 0;
+            await page.route('**/assets/EditPage.js', async (route) => {
+                idle += 1;
+                if (idle === 1) {
+                    await held;
+                }
+                await route.continue();
+            });
+            await page.goto(routes.doc(docs.doc.path));
+            await expect.poll(() => idle).toBe(1);
+            let asked = 0;
+            await page.route('**/assets/katex.js', async (route) => {
+                asked += 1;
+                if (asked === 1) {
+                    await route.fulfill({status: 404, body: 'gone'});
+                    return;
+                }
+                await route.continue();
+            });
+
+            // act
+            await page.locator(`[data-testid=tree-row][data-path="${MATH}"]`).getByTestId('tree-link').click();
+
+            // assert
+            await expect.poll(() => asked).toBe(2);
+            await expect(page.getByTestId('doc').locator('.katex')).toBeVisible();
+            await expect(page).toHaveURL(MAIN.url.doc(MATH));
+        } finally {
+            release();
+            removeFixture(MATH);
+        }
+    });
+
     test('a page\'s chunk that is gone while the browser is idle leaves the note on screen as it is', async ({page}) => {
         // arrange
         let asked = 0;
@@ -263,6 +304,35 @@ test.describe('pages', () => {
         // assert
         await stays(() => loads, 1, 1000);
         await expect(page.getByTestId('doc')).toBeVisible();
+    });
+
+    test('a page\'s stylesheet that fails while the browser is idle loads the app again on the way to that page', async ({page}) => {
+        // arrange
+        let asked = 0;
+        await page.route('**/assets/EditPage.css', async (route) => {
+            asked += 1;
+            if (asked === 1) {
+                await route.fulfill({status: 404, body: 'gone'});
+                return;
+            }
+            await route.continue();
+        });
+        let loads = 0;
+        page.on('load', () => {
+            loads += 1;
+        });
+        await page.goto(routes.doc(docs.doc.path));
+        await expect.poll(() => asked).toBe(1);
+        await stays(() => loads, 1, 500);
+
+        // act
+        await page.getByTestId('doc-edit').click();
+
+        // assert
+        await expect.poll(() => loads).toBe(2);
+        await expect(page).toHaveURL(MAIN.url.edit(docs.doc.path));
+        await expect(page.getByTestId('editor-source')).toBeVisible();
+        await expect.poll(() => asked).toBe(2);
     });
 
     test('a dialog\'s chunk that is gone while the browser is idle leaves the page as it is, and opening the dialog loads the page again', async ({page}) => {

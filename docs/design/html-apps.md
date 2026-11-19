@@ -3,7 +3,9 @@
 How a `.html` file of a space runs as a small app: on a host of its own, in a
 frame under one bar of scrawl, with its own storage, and offline. In the docs
 and the code "the app" is scrawl's own frontend and "an HTML app" is a user's
-file run this way; the code says `htmlapp`. Why it is built this way:
+file run this way; the code says `htmlapp`. A person reads "mini app"
+everywhere, on the screens and in the README, so the setting a person writes is
+`MINI_APPS_URL`. Why it is built this way:
 [ADR 25](../adr/0025-html-apps-on-their-own-origin.md).
 
 ## The threat

@@ -2,7 +2,8 @@
 
 Status: accepted. Where it applies: [HTML apps](../design/html-apps.md),
 [server](../design/server.md), [offline copy](../design/offline.md#html-apps),
-[pages](../ui/pages.md#an-html-app).
+[pages](../ui/pages.md#an-html-app). `APPS_URL` below is named `MINI_APPS_URL`
+now ([HTML apps](../design/html-apps.md#the-setting)).
 
 ## Context
 
@@ -18,8 +19,8 @@ nothing new to set for a local run.
 ## Decision
 
 - An HTML app is the folder of the file run, and it runs on a host of its own,
-  `app-<id>.<domain>` from `MINI_APPS_URL` or `app-<id>.localhost` by default,
-  in a frame under one bar of scrawl. The browser isolates it and gives it real
+  `app-<id>.<domain>` from `APPS_URL` or `app-<id>.localhost` by default, in a
+  frame under one bar of scrawl. The browser isolates it and gives it real
   storage.
 - In Safari, on a Mac and on an iPhone, Run opens the app in a tab of its own,
   not in the frame. WebKit keeps the `localStorage` of a frame from another
@@ -37,9 +38,9 @@ nothing new to set for a local run.
   `Cross-Origin-Resource-Policy: same-origin`.
 - The cookie threat, an app on a neighbor host planting a cookie for scrawl, is
   met by `__Host-` cookies on https, for the session and the sign-in name, an
-  error at start when an `https` `MINI_APPS_URL` meets a session cookie that
-  can never be `Secure`, and a warning at start on http. The local link scrawl
-  logs is `127.0.0.1`, which is never a neighbor of an app host.
+  error at start when an `https` `APPS_URL` meets a session cookie that can
+  never be `Secure`, and a warning at start on http. The local link scrawl logs
+  is `127.0.0.1`, which is never a neighbor of an app host.
 - Offline, an app is kept by a second worker of scrawl on the apps host, only
   while scrawl's offline copy is on and only in a same-site frame or a tab of
   its own: in a cross-site frame Chromium's worker sends no cookie, so the

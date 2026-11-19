@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentType, type JSX } from 'react';
 
 import { whenIdle } from '../idle';
-import { loadChunk, loadQuietly } from '../staleBundle';
+import { loadChunk, loadQuietly, reloadIfFailedQuietly } from '../staleBundle';
 import { showToast } from '../toast';
 
 type DialogProps = { onClose: () => void };
@@ -26,7 +26,11 @@ function chunkDialog<P extends DialogProps>(
     );
     return pending;
   };
-  preloads.push(fetchDialog);
+  const preload = (): Promise<unknown> =>
+    load().then((component) => {
+      loaded ??= component;
+    });
+  preloads.push(preload);
 
   return function ChunkDialog(props: P): JSX.Element | null {
     const [Dialog, setDialog] = useState(() => loaded);
@@ -36,6 +40,7 @@ function chunkDialog<P extends DialogProps>(
         return undefined;
       }
       let live = true;
+      reloadIfFailedQuietly(preload);
       fetchDialog().then(
         (component) => {
           if (live) {
@@ -68,8 +73,8 @@ export const ResetDialog = chunkDialog(
 
 export function preloadDialogs(): void {
   whenIdle(() => {
-    for (const fetchDialog of preloads) {
-      loadQuietly(fetchDialog);
+    for (const entry of preloads) {
+      loadQuietly(entry);
     }
   });
 }

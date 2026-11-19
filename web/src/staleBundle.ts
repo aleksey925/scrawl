@@ -8,6 +8,8 @@ let reloading = false;
 
 let quietLoads = 0;
 
+const failedQuietly = new Set<() => Promise<unknown>>();
+
 let recover: () => boolean = () => false;
 
 const holds = new Set<() => boolean>();
@@ -64,7 +66,7 @@ export function loadChunk<T>(load: Promise<T>): Promise<T> {
   return load.then(
     (module) => (reloading ? never() : module),
     (error: unknown) => {
-      if (reloading) {
+      if (reloading || recover()) {
         return never();
       }
       throw error;
@@ -75,8 +77,16 @@ export function loadChunk<T>(load: Promise<T>): Promise<T> {
 export function loadQuietly(load: () => Promise<unknown>): void {
   quietLoads += 1;
   void load()
-    .catch(() => undefined)
+    .catch(() => {
+      failedQuietly.add(load);
+    })
     .finally(() => {
       quietLoads -= 1;
     });
+}
+
+export function reloadIfFailedQuietly(load: () => Promise<unknown>): void {
+  if (failedQuietly.delete(load)) {
+    reloadForStaleBundle();
+  }
 }

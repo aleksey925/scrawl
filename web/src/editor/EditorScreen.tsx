@@ -155,7 +155,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     content,
     dirty,
     savedContent: editorText,
-    name: drafting && manual !== undefined ? basenameOf(manual) : undefined,
+    name: drafting && savedAs === undefined && manual !== undefined ? basenameOf(manual) : undefined,
   });
 
   const draftRef = useRef(draft);
@@ -584,7 +584,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
             const current = viewRef.current;
             const text = draft.offered?.content ?? '';
             const name = draft.offered?.name;
-            if (drafting && savedAsRef.current === undefined && name !== undefined) {
+            if (drafting && name !== undefined) {
               setManual(joinPath(folder, name));
             }
             if (current !== undefined) {

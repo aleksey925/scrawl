@@ -272,22 +272,49 @@ test.describe.serial('file management', () => {
         const folder = 'e2e-scratch/draft-named';
         const created = `${folder}/${text.create.untitled}`;
         fs.mkdirSync(fixtureFile(folder), {recursive: true});
-        await page.goto(routes.draft(created));
-        await nameDraft(page, 'shopping.md');
-        await setSource(page, 'milk\n');
-        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        await page.getByTestId('editor-cancel').click();
-        await expect(page).toHaveURL(MAIN.url.dir(folder));
-        await page.goto(routes.draft(created));
+        try {
+            await page.goto(routes.draft(created));
+            await nameDraft(page, 'shopping.md');
+            await setSource(page, 'milk\n');
+            await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+            await page.getByTestId('editor-cancel').click();
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            await page.goto(routes.draft(created));
 
-        // act
-        await page.getByTestId('editor-draft-restore').click();
-        await page.getByTestId('editor-save').click();
+            // act
+            await page.getByTestId('editor-draft-restore').click();
+            await page.getByTestId('editor-save').click();
 
-        // assert
-        await expect(page).toHaveURL(MAIN.url.doc(`${folder}/shopping.md`));
-        expect(readFixture(`${folder}/shopping.md`)).toBe('milk\n');
-        removeFixture(folder);
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(`${folder}/shopping.md`));
+            expect(readFixture(`${folder}/shopping.md`)).toBe('milk\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a name typed for a new note after its draft is written goes into the draft without leaving', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/draft-named-later';
+        const untitled = `${folder}/${text.create.untitled}`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        const storedName = () => page.evaluate(() => {
+            const key = Object.keys(localStorage).find((entry) => entry.startsWith('scrawl.draft:'));
+            return key === undefined ? undefined : JSON.parse(localStorage.getItem(key)).name ?? null;
+        });
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, 'milk\n');
+            await expect.poll(storedName).toBe(null);
+
+            // act
+            await nameDraft(page, 'shopping.md');
+
+            // assert
+            await expect.poll(storedName).toBe('shopping.md');
+        } finally {
+            removeFixture(folder);
+        }
     });
 
     test('the name field of a draft refuses a slash and a leading dot and keeps the name typed', async ({page}) => {
@@ -1819,7 +1846,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect.poll(() => fs.existsSync(fixtureFile(made))).toBe(true);
-        await expect(page).toHaveURL(MAIN.url.dir(BLANK_FOLDER));
+        await expect(page).toHaveURL(MAIN.url.dir(made));
         removeFixture(made);
     });
 
@@ -1836,6 +1863,44 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page).toHaveURL(MAIN.url.dir(BLANK_FOLDER));
+    });
+
+    test('Shift+N typed into a field or the editor is a letter and opens no folder row', async ({page}) => {
+        // arrange
+        await page.goto(routes.dir(BLANK_FOLDER));
+        const filter = page.getByTestId('sidebar-filter');
+
+        // act & assert
+        await filter.press('Shift+N');
+        await expect(filter).toHaveValue('N');
+        await expect(page.getByTestId('tree-draft-input')).toHaveCount(0);
+
+        await page.goto(routes.edit(docs.doc.path));
+        await page.locator('[data-testid=editor-source] .cm-content').click();
+        await page.keyboard.press('ControlOrMeta+End');
+        await page.keyboard.press('Shift+N');
+        await expect.poll(() => sourceText(page)).toMatch(/N\n?$/);
+        await expect(page.getByTestId('tree-draft-input')).toHaveCount(0);
+    });
+
+    test('Shift+N on a note\'s page makes a folder in the note\'s folder', async ({page}) => {
+        // arrange
+        const made = `${docs.doc.folder}/e2e-shift-n-note`;
+        await page.goto(routes.doc(docs.doc.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        try {
+            // act
+            await pressShortcut(page, 'Shift+N');
+            await expect(page.getByTestId('tree-draft-input')).toBeFocused();
+            await page.getByTestId('tree-draft-input').fill(nameOf(made));
+            await page.getByTestId('tree-draft-input').press('Enter');
+
+            // assert
+            await expect.poll(() => fs.existsSync(fixtureFile(made))).toBe(true);
+            await expect(page).toHaveURL(MAIN.url.dir(made));
+        } finally {
+            removeFixture(made);
+        }
     });
 
     test('a right click on a row of a folder list opens its menu at the pointer, and Rename names the row in place', async ({page}) => {

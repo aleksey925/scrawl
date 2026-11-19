@@ -26,7 +26,7 @@ export interface DraftControl {
   dismiss: () => void;
   abandon: () => void;
   flush: () => boolean;
-  keepAs: (path: string, rev: string) => boolean;
+  keepAs: (path: string, rev: string, content: string) => boolean;
   forget: (path: string) => void;
   replace: () => boolean;
   clear: () => void;
@@ -42,6 +42,10 @@ function isDraft(value: unknown): value is Draft {
     typeof candidate.rev === 'string' &&
     (candidate.name === undefined || typeof candidate.name === 'string')
   );
+}
+
+function writeDraft(key: string, rev: string, content: string, name?: string): boolean {
+  return writeJson(localStore(), key, { rev, content, at: Date.now(), name });
 }
 
 function prune(): void {
@@ -80,18 +84,13 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     if (!now.dirty || abandonedRef.current) {
       return true;
     }
-    const stored = writeJson(localStore(), now.key, { rev: now.rev, content: now.content, at: Date.now(), name: now.name });
+    const stored = writeDraft(now.key, now.rev, now.content, now.name);
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
     return stored;
   }, []);
 
   const keepAs = useCallback(
-    (target: string, targetRev: string): boolean =>
-      writeJson(localStore(), draftKey(storageScope, target), {
-        rev: targetRev,
-        content: latest.current.content,
-        at: Date.now(),
-      }),
+    (target: string, targetRev: string, text: string): boolean => writeDraft(draftKey(storageScope, target), targetRev, text),
     [storageScope],
   );
 
@@ -120,7 +119,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   useEffect(() => {
     const stored = readJson<unknown>(localStore(), key);
-    if (!isDraft(stored) || stored.content === savedContent) {
+    if (!isDraft(stored) || stored.content === savedContent || stored.content === latest.current.content) {
       return;
     }
     setOffered(stored);

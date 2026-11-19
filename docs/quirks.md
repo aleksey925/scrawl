@@ -110,6 +110,10 @@ words; the fact itself is written here.
 - Chromium keeps a failed `import()` of a module for the life of the page:
   importing it again fails at once and sends no request.
   [Frontend](design/frontend.md)
+- Vite asks for a stylesheet a dynamic import needs once per page: when it
+  failed, the next import of the same chunk loads the script without it. And
+  `vite:preloadError` carries only the error, not the import it came from.
+  [Frontend](design/frontend.md)
 - `overflow-x: hidden` makes an element a scroll container, and every sticky
   bar inside it stops sticking; `clip` does not. [Phone](ui/phone.md)
 - A fixed element inside a scaled element is placed in that element.

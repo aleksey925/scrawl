@@ -332,10 +332,11 @@ needs.
 - With no network the run screen reads that record. `offline: true` frames
   `url` with no ticket, and the worker of the app answers. `offline: false`
   shows `Needs a network` and
-  `This browser does not keep this app for offline use.`, which is what a
+  `This browser does not keep this mini app for offline use.`, which is what a
   cross-site frame, the local run at `127.0.0.1` and at `localhost`, always
-  gets. No record shows `Run this app once with a network to use it offline.`.
-  With the copy off the screen shows `Needs a network` as any other.
+  gets. No record shows
+  `Run this mini app once with a network to use it offline.`. With the copy off
+  the screen shows `Needs a network` as any other.
 - A frame, from a ticket or from the record, stays mounted when the network
   goes or comes back, so the app keeps its state and unsaved input, as
   `NetworkGate` keeps an open editor. With no network Open outside opens the

@@ -218,9 +218,9 @@ export function useEditSession({
         await api.saveFile(copyPath, { content: withLineBreak(sent, lineBreak), rev: '' }),
         'Saved as a copy',
       );
-      setSaved(sent);
       const unchanged = bufferText() === sent;
       if (unchanged) {
+        setSaved(sent);
         draftRef.current.clear();
       }
       if (stays()) {

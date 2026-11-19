@@ -303,9 +303,9 @@ opens over them.
   state and what was typed in it.
 - With no network and the copy on, a kept app opens in the frame. Else the
   screen shows `Needs a network` with one of
-  `This browser does not keep this app for offline use.`,
-  `Run this app once with a network to use it offline.`, or, with the copy off,
-  the text every page has.
+  `This browser does not keep this mini app for offline use.`,
+  `Run this mini app once with a network to use it offline.`, or, with the copy
+  off, the text every page has.
 
 ## Start
 

@@ -56,16 +56,17 @@ cloud drive to sync on time, and without running extra infrastructure just to
 move text between devices.
 
 So it keeps the notes in a git repository. Any git host will do, most of them
-give you a private repository for free, and every change you make is a commit:
-the notes are backed up and versioned by the same thing that syncs them. You
-open them in a browser, so there is nothing to install on each device.
+give you a private repository for free, and every change to your notes is a
+commit: the notes are backed up and versioned by the same thing that syncs
+them. You open them in a browser, so there is nothing to install on each
+device.
 
 **Compared to Obsidian.** Obsidian is built around the files on one device, and
 sync between devices comes on top of it. scrawl is built around sync: one copy
 on a server, opened from any browser. A device can also keep a copy, so the
 notes still open with no network, read-only: see [Offline](#offline). With a
-remote repository every change you make in scrawl is also pushed to your git
-host, which keeps a second copy with the whole history. Out of the box,
+remote repository every change to your notes in scrawl is also pushed to your
+git host, which keeps a second copy with the whole history. Out of the box,
 Obsidian syncs between devices only through its paid Sync service. The free
 ways are to keep the notes in a folder another tool syncs, such as iCloud or
 Syncthing, or to pick a community plugin, and each comes at a cost: the other
@@ -460,9 +461,9 @@ and keeps the data it saved in the browser.
   with a password is a neighbor name, see [On your machine](#on-your-machine).
   At `127.0.0.1` and `localhost` the mini app runs inside scrawl but is not
   kept there, and with no network Run shows
-  `This browser does not keep this app for offline use.`: there the browser
-  treats the mini app as another site and gives scrawl's worker no cookie. In a
-  new tab it is kept.
+  `This browser does not keep this mini app for offline use.`: there the
+  browser treats the mini app as another site and gives scrawl's worker no
+  cookie. In a new tab it is kept.
 - A mini app with a service worker of its own keeps its files its own way.
 
 ## Configuration

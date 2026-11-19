@@ -105,8 +105,8 @@ module.exports = {
     },
 
     apps: {
-        noRecord: 'Run this app once with a network to use it offline.',
-        notKept: 'This browser does not keep this app for offline use.',
+        noRecord: 'Run this mini app once with a network to use it offline.',
+        notKept: 'This browser does not keep this mini app for offline use.',
         missing: 'This file is not on this device. Open the app once with a network.',
         notHere: 'Mini apps do not run at this address.',
     },

@@ -1272,6 +1272,40 @@ test.describe('editing', () => {
         }
     });
 
+    test('a first save whose newer text stays at the draft\'s address drops it there once the created note is saved', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-left-behind';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await setSource(page, '# Plan\n\nmore\n');
+            await page.evaluate((target) => {
+                const key = Object.keys(localStorage).find((name) => name.startsWith('scrawl.draft:'));
+                const draft = {rev: '', content: '# Elsewhere\n', at: Date.now(), by: 'another-tab'};
+                localStorage.setItem(`${key.slice(0, key.lastIndexOf(':') + 1)}${target}`, JSON.stringify(draft));
+            }, created);
+            release();
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+            // act
+            await page.getByTestId('editor-save').click();
+
+            // assert
+            await expect(page).toHaveURL(MAIN.url.doc(created));
+            await stays(() => storedDrafts(page), [], 500);
+            expect(readFixture(created)).toBe('# Plan\n\nmore\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
     test('Save leaves the person on the page they went to while it ran, also while that page still loads', async ({page}) => {
         // arrange
         const docPath = scratch('save-went-elsewhere');
@@ -1934,6 +1968,42 @@ test.describe('editing', () => {
             // assert
             await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
             await stays(() => storedDrafts(page), [{path: docPath, content: 'mine to keep\n\nmore\n'}], 500);
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('Keep editing after Save as copy could not keep the newer text leaves the file unsaved, also undone back to the copy\'s text', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/conflict-copy-keep-editing';
+        const docPath = `${folder}/note.md`;
+        writeFixture(docPath, 'original\n');
+        await refuseDrafts(page, false);
+        try {
+            await page.goto(routes.edit(docPath));
+            await expect.poll(() => sourceText(page)).toBe('original\n');
+            writeFixture(docPath, 'disk wins\n');
+            await setSource(page, 'mine to keep\n');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-conflict-copy').click();
+            await reached;
+            await setSource(page, 'mine to keep\n\nmore\n');
+            await setRefusingDrafts(page, true);
+            release();
+            await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
+            await page.getByTestId('modal-cancel').click();
+            await expect(page).toHaveURL(MAIN.url.edit(docPath));
+
+            // act
+            await setSource(page, 'mine to keep\n');
+
+            // assert
+            await expect(editorStatus(page)).toHaveAttribute('data-state', 'dirty');
+            await page.getByTestId('editor-save').click();
+            await expect(page.locator('[data-testid=modal][data-variant="conflict"]')).toBeVisible();
+            expect(readFixture(docPath)).toBe('disk wins\n');
         } finally {
             removeFixture(folder);
         }

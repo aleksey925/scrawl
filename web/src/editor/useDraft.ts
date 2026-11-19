@@ -76,6 +76,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const abandonedRef = useRef(false);
   const [writer] = useState(() => Math.random().toString(36).slice(2));
   const openedAtRef = useRef(0);
+  const leftBehindRef = useRef<string | undefined>(undefined);
 
   const writeDraft = useCallback(
     (target: string, draftRev: string, text: string, draftName?: string): boolean =>
@@ -88,6 +89,17 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     return stored === undefined || stored.by === writer || (stored.at ?? 0) <= openedAtRef.current;
   }, [writer]);
 
+  const dropLeftBehind = useCallback((): void => {
+    const stray = leftBehindRef.current;
+    if (stray === undefined || stray === latest.current.key) {
+      return;
+    }
+    leftBehindRef.current = undefined;
+    if (owns(stray)) {
+      removeKey(localStore(), stray);
+    }
+  }, [owns]);
+
   const flush = useCallback((): boolean => {
     const now = latest.current;
     if (!now.dirty || abandonedRef.current) {
@@ -95,8 +107,11 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     }
     const stored = writeDraft(now.key, now.rev, now.content, now.name);
     setWritten(stored ? { key: now.key, rev: now.rev, content: now.content } : undefined);
+    if (stored) {
+      dropLeftBehind();
+    }
     return stored;
-  }, [writeDraft]);
+  }, [dropLeftBehind, writeDraft]);
 
   const moveTo = useCallback(
     (target: string, targetRev: string, text: string): boolean => {
@@ -111,8 +126,8 @@ export function useDraft(options: UseDraftOptions): DraftControl {
       }
       if (moved) {
         removeKey(localStore(), from);
-      } else {
-        writeDraft(from, latest.current.rev, text, latest.current.name);
+      } else if (writeDraft(from, latest.current.rev, text, latest.current.name)) {
+        leftBehindRef.current = from;
       }
       return moved;
     },
@@ -132,9 +147,10 @@ export function useDraft(options: UseDraftOptions): DraftControl {
     if (owns(current)) {
       removeKey(localStore(), current);
     }
+    dropLeftBehind();
     setWritten(undefined);
     setOffered(undefined);
-  }, [owns]);
+  }, [dropLeftBehind, owns]);
 
   useEffect(() => {
     openedAtRef.current = Date.now();

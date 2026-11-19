@@ -312,11 +312,11 @@ the apps host keeps the files.
   `data-offline="false"` for a `cross-site` enter request of a frame: the local
   run at `127.0.0.1` and at `localhost` works online and is never kept in the
   frame, and offline its run screen says
-  `This browser does not keep this app for offline use.`. Open in a new tab is
-  a first party there, so it keeps the app in that tab. It writes no record of
-  the run, unlike `runInTab`: the record is what the run screen opens with no
-  network, in its frame, and a record with `offline: true` sent the frame to an
-  app the frame never kept.
+  `This browser does not keep this mini app for offline use.`. Open in a new
+  tab is a first party there, so it keeps the app in that tab. It writes no
+  record of the run, unlike `runInTab`: the record is what the run screen opens
+  with no network, in its frame, and a record with `offline: true` sent the
+  frame to an app the frame never kept.
 - The worker is `/__scrawl/sw.js` with the scope `/`, so it sees every request
   of the app. A worker's scope is no wider than its script's folder without
   `Service-Worker-Allowed`, so that script alone gets the header; a file of the

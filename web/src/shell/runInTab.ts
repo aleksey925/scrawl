@@ -7,8 +7,8 @@ import { showToast } from '../toast';
 
 import { needsNetworkTitle, noNetworkText } from './NeedsNetwork';
 
-const noRunRecordText = 'Run this app once with a network to use it offline.';
-const notKeptText = 'This browser does not keep this app for offline use.';
+const noRunRecordText = 'Run this mini app once with a network to use it offline.';
+const notKeptText = 'This browser does not keep this mini app for offline use.';
 
 export type KeptApp = { kind: 'kept'; url: string } | { kind: 'missing'; message: string };
 

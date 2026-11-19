@@ -123,6 +123,11 @@ one page - onto a path in that tree, and the specs ask for roles. A new spec
 that needs something new adds the role there instead of hard coding another
 path.
 
+The sample notes are also what `make run` shows and what the screenshots are
+taken from, so they change. A test that needs exact content writes its own
+files, as a spec does with `writeFixture` and the PlantUML test of Go with
+`plantuml/testdata/examples`.
+
 ## The editor
 
 The editor is codemirror, so there is no field with a value to set or read.

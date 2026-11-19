@@ -113,10 +113,10 @@ test.describe('pages', () => {
         await expect.poll(() => asked.length).toBe(1);
 
         // act
-        await page.locator(`[data-testid=tree-row][data-path="${docs.folder.entry}"] [data-testid=tree-link]`).click();
+        await page.locator(`[data-testid=tree-row][data-path="${docs.doc.sibling}"] [data-testid=tree-link]`).click();
 
         // assert
-        const current = page.locator(`[data-testid=tree-row][data-path="${docs.folder.entry}"]`);
+        const current = page.locator(`[data-testid=tree-row][data-path="${docs.doc.sibling}"]`);
         await expect(current).toHaveAttribute('data-current', 'true');
         await expect.poll(() => asked.length).toBe(2);
         const [first, second] = asked;
@@ -543,7 +543,7 @@ test.describe('pages', () => {
         await page.goto(routes.recent());
         await chunk.reached;
         await expect.poll(() => asked).toBe(1);
-        await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+        await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
 
         // act
         fail();
@@ -552,7 +552,7 @@ test.describe('pages', () => {
 
         // assert
         await expect(page.getByTestId('doc')).toBeVisible();
-        await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
         expect(loads).toBe(1);
     });
 

@@ -93,20 +93,31 @@ export function useDraft(options: UseDraftOptions): DraftControl {
       return;
     }
     setOffered(stored);
-    setStale(stored.rev !== rev);
-  }, [key, savedContent, rev]);
+    setStale(stored.rev !== latest.current.rev);
+  }, [key, savedContent]);
+
+  const offering = offered !== undefined;
 
   useEffect(() => {
-    if (!dirty) {
+    if (!dirty || offering) {
       return;
     }
     const timer = window.setTimeout(flush, draftDelayMs);
     return () => window.clearTimeout(timer);
-  }, [content, dirty, flush]);
+  }, [content, dirty, offering, flush]);
 
   useEffect(() => {
+    const hidden = (): void => {
+      if (document.visibilityState === 'hidden') {
+        flush();
+      }
+    };
     window.addEventListener('pagehide', flush);
-    return () => window.removeEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', hidden);
+    };
   }, [flush]);
 
   const dismiss = useCallback((): void => setOffered(undefined), []);

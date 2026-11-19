@@ -87,8 +87,11 @@ The editor screen.
   this device", and the editor offers the draft back the next time
   ([ADR 32](../adr/0032-leaving-keeps-the-draft.md)). The toast has no button:
   the way back is the note itself, and for a note not created yet the next New
-  note in its folder, which opens at the same address and offers the draft;
-  text typed there instead of Restore replaces it. A draft belongs to its space
+  note in its folder, which opens at the same address and offers the draft.
+  Text typed there instead of Restore leaves the offered draft as it is while
+  the editor stays open, and replaces it only when the editor is left, saved or
+  put in the background: a new note takes the focus on a phone, and its first
+  keys wiped a draft whose row was easy to miss. A draft belongs to its space
   and path, and follows the note when it or its folder is renamed or moved, an
   Undo of the move included, the open note too: its text is written as the
   editor goes and moved once the next page opens. A draft the browser refuses
@@ -103,10 +106,11 @@ The editor screen.
   always leaves; the local draft keeps the text between saves.
 - The state of the save is Saved, Saving, Waiting for the upload, New note or
   New file, and for unsaved changes Draft on device once the text is copied to
-  the browser's storage, which happens 800ms after the last change. Before
-  that, or when the storage refused the copy, as a private window or a full
-  storage does, it is Unsaved changes. "Draft saved" read as saved to the
-  server. On a phone an orange dot stands before both unsaved states.
+  the browser's storage, which happens 800ms after the last change, and not
+  while an earlier draft is offered. Before that, or when the storage refused
+  the copy, as a private window or a full storage does, it is Unsaved changes.
+  "Draft saved" read as saved to the server. On a phone an orange dot stands
+  before both unsaved states.
 - A draft left in the browser from an earlier visit is offered in a row right
   under the topbar, across the whole screen
   ([ADR 31](../adr/0031-the-draft-offer-is-a-row.md)): the orange dot of the

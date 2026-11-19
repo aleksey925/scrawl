@@ -160,11 +160,11 @@ Before changing a part, read its doc:
   [storage](docs/design/storage.md)
 - spaces, settings, routes, the two kinds of URL, guards, CSP, `/raw/`, a
   file's page, background goroutines: [server](docs/design/server.md)
-- the build, the bundle, gzassets, the dialogs and the pages loaded on idle,
-  the route's page preloaded by the shell, mantine's styles, the icon weights,
-  breakpoints, `useApi`, the contexts, the one tree and its `ETag`, the route
-  as the file on screen, ids of a note against the chrome, shortcuts, the
-  clipboard, drawers: [frontend](docs/design/frontend.md)
+- the build, the bundle, gzassets, the dialogs and the pages loaded on idle, no
+  page preloaded by the shell, mantine's styles, the icon weights, breakpoints,
+  `useApi`, the contexts, the one tree and its `ETag`, the route as the file on
+  screen, ids of a note against the chrome, shortcuts, the clipboard, drawers:
+  [frontend](docs/design/frontend.md)
 - how the browser draws mermaid and PlantUML, the lazy engines, a diagram's
   ids, the viewer's copy: [frontend](docs/design/frontend.md#diagrams)
 - theme files, `data-scrawl-theme`, `--scrawl-*`, chroma styles:

@@ -170,7 +170,7 @@ let drag: Drag | undefined;
 
 export function takeScreen(element: HTMLElement): Drag {
   for (const animation of element.getAnimations()) {
-    animation.finish();
+    animation.cancel();
   }
   const held = holdScreen();
   const taken: Drag = {

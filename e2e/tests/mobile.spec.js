@@ -703,7 +703,7 @@ test.describe('mobile', () => {
             await expect.poll(() => page.locator('[data-screen]').evaluate((el) => el.style.willChange)).toBe('');
         });
 
-        test('a drag that starts while the next screen still slides in moves the page with the finger', async ({page}) => {
+        test('a drag that starts while the next screen still slides in takes it where it is and moves it with the finger', async ({page}) => {
             // arrange
             await asStandalone(page);
             await page.goto(folder());
@@ -719,18 +719,23 @@ test.describe('mobile', () => {
                     await new Promise((resolve) => requestAnimationFrame(resolve));
                 }
                 const entering = running();
+                const shift = () => new DOMMatrix(getComputedStyle(document.querySelector('[data-screen]')).transform).m41;
                 send('touchstart', [4, 400]);
-                for (const x of [10, 20, 40, 70, 104]) {
-                    send('touchmove', [x, 400]);
+                send('touchmove', [10, 400]);
+                const before = shift();
+                send('touchmove', [20, 400]);
+                const taken = shift();
+                for (const x of [40, 70, 104]) {
                     await new Promise((resolve) => setTimeout(resolve, 16));
+                    send('touchmove', [x, 400]);
                 }
-                const moved = new DOMMatrix(getComputedStyle(document.querySelector('[data-screen]')).transform).m41;
+                const moved = shift();
                 send('touchcancel');
-                return {entering, shift: Math.round(moved)};
+                return {entering, sliding: before > 0, jump: Math.round(taken - before), followed: Math.round(moved - taken)};
             });
 
             // assert
-            expect(drag).toEqual({entering: true, shift: 100});
+            expect(drag).toEqual({entering: true, sliding: true, jump: 0, followed: 84});
         });
 
         test('the page let go leaves as a copy over the page gone back to, with no empty screen between', async ({page}) => {
@@ -4344,8 +4349,10 @@ test.describe('mobile sync state', () => {
         fs.writeFileSync(`${wiki.dir}/${SYNC_DOC}`, `# ${'A rather long title for a narrow phone '.repeat(3)}\n\n${'text\n\n'.repeat(80)}`, 'utf8');
         await mockMe(page, {unpublished: true, retrying: true, sync_error: 'push: the remote is down'});
 
-        // act
         await page.goto(WIKI.doc(SYNC_DOC));
+        await expect(page.getByTestId('doc')).toBeVisible();
+
+        // act
         await page.mouse.wheel(0, 2000);
 
         // assert

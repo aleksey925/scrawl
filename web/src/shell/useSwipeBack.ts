@@ -23,6 +23,7 @@ interface Track {
   x: number;
   y: number;
   dx: number;
+  offset: number;
   samples: Sample[];
   across: boolean;
   taken?: Drag;
@@ -135,6 +136,7 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
               x: touch.clientX,
               y: touch.clientY,
               dx: 0,
+              offset: 0,
               samples: [{ dx: 0, at: event.timeStamp }],
               across: false,
             }
@@ -172,14 +174,16 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
         if (dx < startPx) {
           return;
         }
+        track.offset = Math.max(0, new DOMMatrix(getComputedStyle(element).transform).m41 - dx);
         track.taken = takeScreen(element);
         element.style.willChange = 'transform';
         track.giveUp = prepareRef.current?.();
       }
-      track.dx = dx;
+      const shift = track.offset + dx;
+      track.dx = shift;
       const recent = track.samples.filter((point) => event.timeStamp - point.at <= flickWindowMs);
-      track.samples = [...recent, { dx, at: event.timeStamp }];
-      track.taken.element.style.transform = `translateX(${dx}px)`;
+      track.samples = [...recent, { dx: shift, at: event.timeStamp }];
+      track.taken.element.style.transform = `translateX(${shift}px)`;
     };
 
     const onEnd = (event: TouchEvent): void => {
@@ -204,7 +208,9 @@ export function useSwipeBack(goBack: (() => void) | null, prepare?: () => () => 
       if (ended.giveUp !== undefined) {
         window.setTimeout(ended.giveUp, prefetchKeepMs);
       }
-      back();
+      window.requestAnimationFrame(() => {
+        window.setTimeout(back);
+      });
     };
 
     const onLostMove = detached(onMove);

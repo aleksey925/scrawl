@@ -6,12 +6,11 @@ How the react app in `web/` is built, shipped and wired.
 
 - The frontend is a react and mantine app in `web/`. It owns the whole origin:
   every page route boots the same shell and the client router decides what it
-  is. The one difference is a `modulepreload` of the chunks of the route's
-  page, `routePages` in `server/shell.go`, so the browser fetches the page's
-  code with the entry and not after it; a cold start on a slow network waited
-  for the entry, then the page, then its data. The offline shell serves every
-  route and preloads no page. `server/templates/` holds one page, the sign-in
-  form, because it has to work before the bundle loads and with javascript off.
+  is, so the shell preloads no page of a route: the page's chunk comes after
+  the entry. Preloading it by route saved one round trip only on the first open
+  after a release, for a second table of the routes in Go. `server/templates/`
+  holds one page, the sign-in form, because it has to work before the bundle
+  loads and with javascript off.
 - Nothing is fetched from a CDN at runtime, and the build stays out of the
   release path: vite writes into `server/assets/app/` and `page/assets/`, which
   are committed and picked up by `//go:embed`

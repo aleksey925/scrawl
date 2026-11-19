@@ -38,6 +38,12 @@ async function typeInSource(page, typed) {
     await page.keyboard.type(typed);
 }
 
+function storedDrafts(page) {
+    return page.evaluate(() => Object.keys(localStorage)
+        .filter((key) => key.startsWith('scrawl.draft:'))
+        .map((key) => ({path: key.slice(key.lastIndexOf(':') + 1), content: JSON.parse(localStorage.getItem(key)).content})));
+}
+
 function holdSave(page) {
     return holdRoute(page, '**/api/file/**', (req) => req.method() === 'PUT');
 }
@@ -526,6 +532,27 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('text typed while a save runs offers no draft once the save is done', async ({page}) => {
+        // arrange
+        const docPath = scratch('save-typed-no-offer');
+        await editFromReader(page, docPath, 'kept\n');
+        await setSource(page, 'written\n');
+        const {release, reached} = await holdSave(page);
+
+        // act
+        await page.getByTestId('editor-save').click();
+        await reached;
+        await setSource(page, 'written and more\n');
+        release();
+
+        // assert
+        await expect(okToast(page)).toContainText(text.toast.saved);
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        expect(await sourceText(page)).toBe('written and more\n');
+        removeFixture(docPath);
+    });
+
     test('a Save the person left during does not bring them back when it ends', async ({page}) => {
         // arrange
         const docPath = scratch('save-left-midway');
@@ -582,6 +609,46 @@ test.describe('editing', () => {
 
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        removeFixture(docPath);
+    });
+
+    test('text typed instead of Restore keeps the offered draft while the editor stays open', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-kept');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'the offered draft\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+        await page.goto(routes.edit(docPath));
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+
+        // act
+        await setSource(page, 'typed over it\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'the offered draft\n'}]);
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        removeFixture(docPath);
+    });
+
+    test('a page hidden before the draft delay writes the draft at once', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-hidden');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed just before the app went away\n');
+
+        // act
+        await page.evaluate(() => {
+            Object.defineProperty(document, 'visibilityState', {value: 'hidden', configurable: true});
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+
+        // assert
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed just before the app went away\n'}]);
         removeFixture(docPath);
     });
 
@@ -665,10 +732,7 @@ test.describe('editing', () => {
         await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
 
         // assert
-        const drafts = await page.evaluate(() => Object.keys(localStorage)
-            .filter((key) => key.startsWith('scrawl.draft:'))
-            .map((key) => ({path: key.slice(key.lastIndexOf(':') + 1), content: JSON.parse(localStorage.getItem(key)).content})));
-        expect(drafts).toEqual([{path: docPath, content: 'typed before the rename\n'}]);
+        expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed before the rename\n'}]);
         removeFixture(renamed);
     });
 

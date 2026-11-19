@@ -332,10 +332,11 @@ Some limits:
   in memory, so everything the app saved there is lost once Safari closes. In a
   tab of its own the app keeps its data as on any site.
 - A mini app opens only from scrawl. If you open its address directly, you see
-  `Open this app from scrawl`. If you see this right after Run, your browser
-  blocks the app inside scrawl. This can happen when scrawl runs on your
-  computer and the browser has strict privacy settings. Press "Open in a new
-  tab" at the top: the app opens in a new tab and works there.
+  `To use this app, sign in to scrawl and open it from there`. If you see this
+  right after Run, your browser blocks the app inside scrawl. This can happen
+  when scrawl runs on your computer and the browser has strict privacy
+  settings. Press "Open in a new tab" at the top: the app opens in a new tab
+  and works there.
 - A service worker of the mini app itself replaces scrawl's, and keeps serving
   the files it stored after the app's cookie ended, as on any site.
 - A renamed or moved folder is a new mini app: the data the old one saved stays

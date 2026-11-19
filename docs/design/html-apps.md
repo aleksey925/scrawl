@@ -171,15 +171,15 @@ with `no-store`:
   reaches them. A folder gone is an empty list.
 - Any other path is a file. No cookie, or the cookie of another app, is a 401
   as plain text with no `frame-ancestors`, so the person reads it in the frame:
-  `Open this app from scrawl. If you just did, this browser did not keep the app's cookie inside the frame: open it in a new tab.`
-  Every other answer carries `frame-ancestors <parent>` and nothing else in the
-  policy: apps use inline scripts and CDNs. The path is cleaned as a rooted
-  path, so `..` cannot climb, and joined to the folder; a path under
-  `/__scrawl/` that is not a route is a 404. A path ending in `/` serves its
-  `index.html`, a folder without the slash is a 301, and no folder is listed.
-  `Store.Open` refuses a dot name, an excluded name and a symlink as
-  everywhere. `private, no-cache` and the `/raw/` ETag, so an edit shows on the
-  next load and the check is cheap.
+  `To use this app, sign in to scrawl and open it from there.` Every other
+  answer carries `frame-ancestors <parent>` and nothing else in the policy:
+  apps use inline scripts and CDNs. The path is cleaned as a rooted path, so
+  `..` cannot climb, and joined to the folder; a path under `/__scrawl/` that
+  is not a route is a 404. A path ending in `/` serves its `index.html`, a
+  folder without the slash is a 301, and no folder is listed. `Store.Open`
+  refuses a dot name, an excluded name and a symlink as everywhere.
+  `private, no-cache` and the `/raw/` ETag, so an edit shows on the next load
+  and the check is cheap.
 - The types come from `htmlapp.ContentType`, not `rawContentType`, which serves
   `.js` as text, which `nosniff` would refuse: html, js, mjs, css, json, map,
   webmanifest, wasm, txt, csv, xml, pictures, svg, fonts, mp3, wav, ogg, mp4

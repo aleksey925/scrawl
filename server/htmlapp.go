@@ -36,9 +36,8 @@ const (
 	maxRunBody     = 1 << 10
 
 	appsExpired  = "This link has expired. Open the app from scrawl again."
-	appsNoCookie = "Open this app from scrawl. If you just did, this browser did not keep " +
-		"the app's cookie inside the frame: open it in a new tab."
-	appsNotHere = "HTML apps do not run at this address. On this machine, open scrawl at %s, " +
+	appsNoCookie = "To use this app, sign in to scrawl and open it from there."
+	appsNotHere  = "HTML apps do not run at this address. On this machine, open scrawl at %s, " +
 		"the link it prints at start. From a phone or another device, open scrawl over https with APPS_URL set."
 	appsSameHost    = "HTML apps cannot run on the address of scrawl itself. Set APPS_URL to a name of its own."
 	appsNeedBrowser = "HTML apps open only in a browser"

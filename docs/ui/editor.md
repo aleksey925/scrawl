@@ -83,43 +83,47 @@ The editor screen.
   changed while the save ran. Save as copy in the conflict dialog writes the
   text to a copy beside the file, `.conflict-<time>` before its extension, and
   opens the copy's editor in the editor's place in the history, so Back goes
-  where the editor was opened from. A person who went elsewhere while the save
-  ran stays there. Once the save is done and the reader is on its way, the text
-  can no longer be changed: the guard on leaving is asked only as the move
-  starts, and the reader may still be loading. A save midway that keeps the
-  editor is `Ctrl`/`Cmd` + `S`, from anywhere on the screen, a field too.
-  `Ctrl`/`Cmd` + `Enter` is Save and `Esc` is Cancel, from the text or with
-  nothing focused; in a field, a menu, a dialog or the sidebar `Esc` closes
-  what it closed before. In the text `Esc` first closes what codemirror has
-  open: a list of completions, the search panel, from its field, its buttons or
-  the text, and several cursors, which it makes one, and with nothing focused
-  it closes them the same way, as codemirror does not get that key there. Both
-  are taken before the text
-  ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
-  and any other way out leave without saving and ask nothing: the unsaved text
-  is written to the draft on the device as the editor goes, neither the text
-  nor an offered draft can be changed while the next page loads, a toast says
-  "Changes kept as a draft on this device", and the editor offers the draft
-  back the next time ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The
-  toast has no button: the way back is the note itself, and for a note not
-  created yet the next New note in its folder, which opens at the same address
-  and offers the draft. Text typed there instead of Restore leaves the offered
-  draft as it is while the editor stays open, and replaces it only when the
-  editor is left, saved or put in the background: a new note takes the focus on
-  a phone, and its first keys wiped a draft whose row was easy to miss. A save
-  that keeps the editor, one the server refuses too, the page put in the
-  background with new text, or a preview or Changes refused as the session
-  ended, also takes the row away, and the text typed after it is kept as a
-  draft again: the save writes its text over the offered draft before it is
-  sent, and a row left after a refused save held back the drafts after it, and
-  its Discard dropped the newer text. A save with no new text, as a note not
-  created yet saved as it opened, keeps the offered draft, as nothing has
-  replaced it. A save or a Discard drops only a draft the editor wrote or found
-  as it opened: one written later at the same address by another editor, as a
-  second New note in the folder while the first one's save is on its way,
-  stays. A draft belongs to its space and path, and follows the note when it or
-  its folder is renamed or moved, an Undo of the move included, the open note
-  too: its text is written as the editor goes and moved once the next page
+  where the editor was opened from. Text typed while the copy was written is
+  not in the copy: it stays the file's draft, kept as the editor goes to the
+  copy with the toast below, and a person who left before the copy was written
+  keeps it the same way. A person who went elsewhere while the save ran stays
+  there. Once the save is done and the reader is on its way, the text can no
+  longer be changed: the guard on leaving is asked only as the move starts, and
+  the reader may still be loading. A save midway that keeps the editor is
+  `Ctrl`/`Cmd` + `S`, from anywhere on the screen, a field too. `Ctrl`/`Cmd` +
+  `Enter` is Save and `Esc` is Cancel, from the text or with nothing focused;
+  in a field, a menu, a dialog or the sidebar `Esc` closes what it closed
+  before. In the text `Esc` first closes what codemirror has open: a list of
+  completions, the search panel, from its field, its buttons or the text, and
+  several cursors, which it makes one, and with nothing focused it closes them
+  the same way, as codemirror does not get that key there. Both are taken
+  before the text ([quirks](../quirks.md#react-mantine-and-the-editor)).
+  Cancel, the back arrow and any other way out leave without saving and ask
+  nothing: the unsaved text is written to the draft on the device as the editor
+  goes, neither the text nor an offered draft can be changed while the next
+  page loads, a toast says "Changes kept as a draft on this device", and the
+  editor offers the draft back the next time
+  ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The toast has no button:
+  the way back is the note itself, and for a note not created yet the next New
+  note in its folder, which opens at the same address and offers the draft.
+  Text typed there instead of Restore leaves the offered draft as it is while
+  the editor stays open, and replaces it only when the editor is left, saved or
+  put in the background: a new note takes the focus on a phone, and its first
+  keys wiped a draft whose row was easy to miss. A save that keeps the editor,
+  one the server refuses too, the page put in the background with new text, or
+  a preview or Changes refused as the session ended, also takes the row away,
+  and the text typed after it is kept as a draft again: the save writes its
+  text over the offered draft before it is sent, and a row left after a refused
+  save held back the drafts after it, and its Discard dropped the newer text. A
+  save with no new text, as a note not created yet saved as it opened, keeps
+  the offered draft, as nothing has replaced it. A save or a Discard drops only
+  a draft the editor wrote or found as it opened: one written later at the same
+  address by another editor, as a second New note in the folder while the first
+  one's save is on its way, stays, and the text typed during a first save is
+  not written over it. A draft the editor wrote is never offered back to the
+  same editor. A draft belongs to its space and path, and follows the note when
+  it or its folder is renamed or moved, an Undo of the move included, the open
+  note too: its text is written as the editor goes and moved once the next page
   opens. A draft the browser refuses under the new name stays under the old
   one. A leave while a save is on its way shows no such toast, as the save's
   own follows. Only when the browser refuses the draft, as a private window or
@@ -171,16 +175,19 @@ The editor screen.
   toolbar and the preview at once. Its first save writes to the name it has
   then and reports Created instead of Saved; Save opens the reader of the new
   file, and `Cmd+S` replaces the address with the editor of the new file and
-  keeps the place in the text. From that save on the draft is the new file's:
-  text typed while the first save ran is kept under the new name, the editor
-  left before the save answered too, and the editor of the new file offers it,
-  where under the draft's own address it was never offered again. When the
-  browser refuses that text under the new name, it stays under the draft's
-  address. An offered draft that was not restored stays under the draft's
-  address. A draft equal to the text on screen is never offered. A note not
-  created yet reads New note only until its first save, then Saved. Cancel goes
-  back, as nothing of the draft is a page to go back to. The name field is the
-  draft's own and not a rename: nothing on disk is moved.
+  keeps the place in the text; a note created at the draft's own address, as
+  `untitled.md`, keeps the same editor, and the address only loses its
+  `?draft`. From that save on the draft is the new file's: text typed while the
+  first save ran is kept under the new name, the editor left before the save
+  answered too, and the editor of the new file offers it, where under the
+  draft's own address it was never offered again. When the browser refuses that
+  text under the new name, it stays under the draft's address. An offered draft
+  that was not restored stays under the draft's address. After Discard nothing
+  of that text is kept, even when the save answers later. A draft equal to the
+  text on screen is never offered. A note not created yet reads New note only
+  until its first save, then Saved. Cancel goes back, as nothing of the draft
+  is a page to go back to. The name field is the draft's own and not a rename:
+  nothing on disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

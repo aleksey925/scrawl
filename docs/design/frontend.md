@@ -152,7 +152,12 @@ How the react app in `web/` is built, shipped and wired.
   asking again would fail the same way. Under unsaved text a dialog whose load
   on idle failed closes with that toast too and keeps its mark for the next
   time: vite does not ask for a failed stylesheet again, and the dialog would
-  open with no style.
+  open with no style. The mark is the import's, not its stylesheet's: the
+  Search page shares the stylesheet of the Search dialog, so when only that
+  stylesheet failed on idle, the Search page, reached from a missing note,
+  opens with no style until the page is loaded again. It is rare and loses
+  nothing, and a mark per stylesheet would need the chunks' lists of
+  stylesheets at run time.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

@@ -17,7 +17,7 @@ export function keepsApps(): boolean {
 }
 
 export function runFailedText(error: unknown): string {
-  return error instanceof ApiError ? error.message : 'The app could not be started.';
+  return error instanceof ApiError ? error.message : 'The mini app could not be started.';
 }
 
 export async function keptApp(path: string): Promise<KeptApp> {
@@ -47,7 +47,7 @@ function framesLoseCookie(): boolean {
 export function openBlankTab(): Window | null {
   const tab = window.open('', '_blank');
   if (tab === null) {
-    showToast('error', { title: 'The new tab was blocked', message: 'Allow pop-ups for this site to open the app in a new tab.' });
+    showToast('error', { title: 'The new tab was blocked', message: 'Allow pop-ups for this site to open the mini app in a new tab.' });
     return null;
   }
   tab.opener = null;
@@ -56,7 +56,7 @@ export function openBlankTab(): Window | null {
 
 function failTab(tab: Window, error: unknown): void {
   tab.close();
-  showToast('error', { title: 'The app did not open', message: runFailedText(error) });
+  showToast('error', { title: 'The mini app did not open', message: runFailedText(error) });
 }
 
 export function enterInTab(tab: Window, path: string): void {

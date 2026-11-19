@@ -100,9 +100,12 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const moveTo = useCallback(
     (target: string, targetRev: string, text: string): boolean => {
+      if (abandonedRef.current) {
+        return true;
+      }
       const from = latest.current.key;
       const to = draftKey(storageScope, target);
-      const moved = writeDraft(to, targetRev, text);
+      const moved = owns(to) && writeDraft(to, targetRev, text);
       if (to === from || offered !== undefined || !owns(from)) {
         return moved;
       }
@@ -140,11 +143,16 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   useEffect(() => {
     const stored = readJson<unknown>(localStore(), key);
-    if (!isDraft(stored) || stored.content === savedContent || stored.content === latest.current.content) {
+    if (
+      !isDraft(stored) ||
+      stored.by === writer ||
+      stored.content === savedContent ||
+      stored.content === latest.current.content
+    ) {
       return;
     }
     setOffered(stored);
-  }, [key, savedContent]);
+  }, [key, savedContent, writer]);
 
   const offering = offered !== undefined;
 

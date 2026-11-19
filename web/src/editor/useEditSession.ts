@@ -219,15 +219,18 @@ export function useEditSession({
         'Saved as a copy',
       );
       setSaved(sent);
-      draftRef.current.clear();
+      const unchanged = bufferText() === sent;
+      if (unchanged) {
+        draftRef.current.clear();
+      }
       if (stays()) {
-        leavingRef.current = true;
+        leavingRef.current = unchanged;
         await navigate(editUrl(copyPath), { replace: true });
       }
     } catch (error: unknown) {
       showToast('error', { message: errorText(error) });
     }
-  }, [contentRef, draftRef, lineBreak, navigate, path, reportMutation, setSaved, stays]);
+  }, [bufferText, contentRef, draftRef, lineBreak, navigate, path, reportMutation, setSaved, stays]);
 
   const draftTarget = useCallback(async (sent: string): Promise<string | undefined> => {
     const chosen = manualRef.current;
@@ -282,14 +285,15 @@ export function useEditSession({
           }
           dest = target;
         }
+        const body = untouched ? '' : sent;
         const res = await api.saveFile(dest, {
-          content: withLineBreak(untouched ? '' : sent, lineBreak),
+          content: withLineBreak(body, lineBreak),
           rev: withRev ?? revRef.current,
           formatted,
         });
-        const stored = res.content === undefined ? undefined : toEditorText(res.content);
-        const shown = stored === undefined ? bufferText() === sent : putIfUnchanged(sent, stored);
-        markSaved(stored ?? sent, res.rev, shown);
+        const stored = res.content === undefined ? body : toEditorText(res.content);
+        const shown = putIfUnchanged(sent, stored);
+        markSaved(stored, res.rev, shown);
         if (res.format_failed === true) {
           showToast('warn', {
             title: 'Saved without formatting',
@@ -373,10 +377,10 @@ export function useEditSession({
     (target: string): void => {
       const current = liveView();
       const anchor = current === undefined ? undefined : captureFromSource(current, target, revRef.current);
-      leavingRef.current = true;
+      leavingRef.current = target !== path;
       void navigate(editUrl(target), { replace: true, state: anchor });
     },
-    [liveView, navigate, revRef],
+    [liveView, navigate, path, revRef],
   );
 
   useEffect(() => {

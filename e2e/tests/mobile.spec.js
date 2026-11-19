@@ -4122,7 +4122,9 @@ test.describe('mobile', () => {
         const copied = await page.evaluate(() => window.copied);
         const toast = await page.getByTestId('toast').boundingBox();
         expect(Math.abs(toast.x + toast.width / 2 - page.viewportSize().width / 2)).toBeLessThan(2);
-        expect(toast.y).toBeLessThan(40);
+        const bar = await page.getByTestId('tab-bar').boundingBox();
+        expect(toast.y + toast.height).toBeLessThan(bar.y);
+        expect(toast.y).toBeGreaterThan(page.viewportSize().height / 2);
         await expect(page.getByTestId('toast').locator('.mantine-Notification-closeButton')).toHaveCount(0);
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
     });
@@ -4233,7 +4235,31 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
         });
 
-        test('goes at a flick up', async ({page}) => {
+        test('stands over the keyboard while one is up, in the same event', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => {
+                const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+                Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+            });
+            await copied(page);
+            const keyboard = 300;
+            const pan = 40;
+
+            // act
+            const placed = await page.evaluate(({keyboard, pan}) => {
+                window.visualViewport.height = window.innerHeight - keyboard;
+                window.visualViewport.offsetTop = pan;
+                window.visualViewport.dispatchEvent(new Event('resize'));
+                const box = document.querySelector('[data-testid="toast-box"]').getBoundingClientRect();
+                return {bottom: box.bottom, visible: pan + window.innerHeight - keyboard};
+            }, {keyboard, pan});
+
+            // assert
+            expect(placed.bottom).toBeLessThan(placed.visible);
+            expect(placed.bottom).toBeGreaterThan(placed.visible - 150);
+        });
+
+        test('goes at a flick down', async ({page}) => {
             // arrange
             await copied(page);
             const box = await page.getByTestId('toast-box').boundingBox();
@@ -4241,9 +4267,9 @@ test.describe('mobile', () => {
             const cdp = await page.context().newCDPSession(page);
 
             // act
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y: box.y + 20}]});
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 5}]});
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y - 20}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y: box.y + 10}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 25}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 50}]});
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 
             // assert

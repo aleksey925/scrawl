@@ -1,5 +1,5 @@
 import { Notifications, notifications, type NotificationData } from '@mantine/notifications';
-import { useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 
 import { IconAlertTriangle, IconCheck } from '../icons';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
@@ -36,7 +36,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
     <div
       data-testid="toast-box"
       className={phone ? `${classes.toast} ${classes.pill}` : classes.toast}
-      style={pulled < 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
+      style={pulled > 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
       onClick={(event: MouseEvent<HTMLDivElement>) => {
         if (!phone && !onButton(event) && !selectsText()) {
           dismiss();
@@ -51,7 +51,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
       }}
       onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
         if (startY.current !== undefined) {
-          setPulled(Math.min(0, event.clientY - startY.current));
+          setPulled(Math.max(0, event.clientY - startY.current));
         }
       }}
       onPointerUp={() => {
@@ -75,15 +75,46 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
   );
 }
 
+function useKeyboardRoom(active: boolean): void {
+  useEffect(() => {
+    const view = window.visualViewport;
+    if (!active || view === null) {
+      return undefined;
+    }
+    const root = document.documentElement.style;
+    const release = (): void => {
+      root.removeProperty('--scrawl-toast-view-top');
+      root.removeProperty('--scrawl-toast-view-height');
+    };
+    const follow = (): void => {
+      if (window.innerHeight - view.offsetTop - view.height <= 1) {
+        release();
+        return;
+      }
+      root.setProperty('--scrawl-toast-view-top', `${view.offsetTop}px`);
+      root.setProperty('--scrawl-toast-view-height', `${view.height}px`);
+    };
+    follow();
+    view.addEventListener('resize', follow);
+    view.addEventListener('scroll', follow);
+    return () => {
+      view.removeEventListener('resize', follow);
+      view.removeEventListener('scroll', follow);
+      release();
+    };
+  }, [active]);
+}
+
 export function Toasts(): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
+  useKeyboardRoom(phone);
   return (
     <Notifications
-      position={phone ? 'top-center' : 'bottom-center'}
+      position="bottom-center"
       containerWidth={phone ? '100%' : desktopWidth}
       {...(phone ? { autoClose: phoneToastMs, transitionDuration: phoneTransitionMs } : {})}
       allowDragDismiss={false}
-      classNames={{ root: classes.root }}
+      classNames={{ root: phone ? `${classes.root} ${classes.phone}` : classes.root }}
       renderNotification={(data) => <Toast data={data} phone={phone} />}
     />
   );

@@ -2,12 +2,15 @@
   pointer-events: none;
 }
 
-.root[data-position='top-center'] {
-  top: calc(env(safe-area-inset-top, 0px) + 8px);
-}
-
 .root[data-position='bottom-center'] {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.root.phone[data-position='bottom-center'] {
+  bottom: calc(
+    100% - var(--scrawl-toast-view-top, 0px) - var(--scrawl-toast-view-height, 100%) +
+      max(var(--scrawl-tabbar-space), calc(env(safe-area-inset-bottom, 0px) + 16px))
+  );
 }
 
 .toast {

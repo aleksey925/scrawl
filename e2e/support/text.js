@@ -36,7 +36,6 @@ module.exports = {
         contentsNoAnswer: 'The server did not answer in 3 seconds',
     },
 
-    folderExists: 'That folder already exists',
     renameSlash: 'A name cannot hold a slash, use Move to instead',
     renameDot: 'A name cannot start with a dot',
     renameFailed: 'Nothing was renamed',
@@ -97,6 +96,8 @@ module.exports = {
     },
 
     offline: {
+        downloading: 'Downloading',
+        notUpdated: 'Could not update',
         updated: 'updated at',
     },
 };

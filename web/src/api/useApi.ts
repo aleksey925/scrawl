@@ -33,6 +33,11 @@ function remember(key: string, data: unknown): void {
   }
 }
 
+function heldIfEqual<T>(key: string, data: T): T {
+  const held = responses.get(key);
+  return held !== undefined && (held === data || JSON.stringify(held) === JSON.stringify(data)) ? (held as T) : data;
+}
+
 export const answerKeys = {
   page: (path: string): string => `page:${path}`,
   dir: (path: string): string => `dir:${path}`,
@@ -84,6 +89,7 @@ export function useApi<T>(
   run: (signal: AbortSignal) => Promise<T>,
   deps: DependencyList,
   key?: string,
+  { keepEqual = false }: { keepEqual?: boolean } = {},
 ): AsyncState<T> {
   const [state, setState] = useState<Answer<T>>(() => {
     const cached = key === undefined ? undefined : (responses.get(key) as T | undefined);
@@ -101,10 +107,7 @@ export function useApi<T>(
         if (controller.signal.aborted) {
           return;
         }
-        const before = key === answerKeys.nav ? responses.get(key) : undefined;
-        const kept = before !== undefined && (before === data || JSON.stringify(before) === JSON.stringify(data))
-          ? (before as T)
-          : data;
+        const kept = key !== undefined && keepEqual ? heldIfEqual(key, data) : data;
         if (key !== undefined) {
           remember(key, kept);
         }

@@ -194,7 +194,7 @@ test.describe('offline access', () => {
         await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('Downloading');
+        await expect(status(page)).toContainText(text.offline.downloading);
         await expect(status(page)).toContainText(/MB, updated at \d\d:\d\d/, {timeout: 60_000});
         await expect.poll(() => workerState(page), {timeout: 60_000}).toBe('activated');
         const names = await cacheNames(page);
@@ -1089,7 +1089,7 @@ test.describe('offline access', () => {
         await context.route(/\/api\/page\/db\//, (route) => route.fulfill({status: 500, body: 'down'}));
         await page.goto(routes.home());
         await switchCopy(page, true);
-        await expect(status(page)).toContainText('Could not update', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 60_000});
         expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
         await context.unroute(/\/api\/page\/db\//);
         const asked = copyRequests(page);
@@ -1247,8 +1247,7 @@ test.describe('offline access', () => {
         // arrange
         await copyOn(page);
         const [appCache] = (await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'));
-        await openSpaceMenu(page);
-        await page.getByTestId('space-menu-offline').click();
+        await switchCopy(page, false);
         await expect.poll(() => cacheNames(page)).toEqual([]);
         await page.evaluate((name) => caches.open(name), appCache);
         await page.evaluate(() => fetch(document.querySelector('script[src^="/static/"]').src));
@@ -1280,10 +1279,8 @@ test.describe('offline access', () => {
             };
         });
         await page.reload();
-        await openSpaceMenu(page);
+        await switchCopy(page, false);
         const row = page.getByTestId('space-menu-offline');
-        await row.click();
-        await expect(row).toHaveAttribute('data-on', 'false');
 
         // act
         await row.click();
@@ -1309,7 +1306,7 @@ test.describe('offline access', () => {
         await openSpaceMenu(page);
 
         // assert
-        await expect(status(page)).toContainText('Could not update', {timeout: 30_000});
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 30_000});
     });
 
     test('off in another tab waits for the round and leaves nothing behind', async ({page, context}) => {
@@ -1341,7 +1338,7 @@ test.describe('offline access', () => {
         await switchCopy(page, true);
 
         // assert
-        await expect(status(page)).toContainText('Could not update', {timeout: 60_000});
+        await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 60_000});
         expect((await cacheNames(page)).filter((name) => name.startsWith('scrawl-app-'))).toEqual([]);
     });
 

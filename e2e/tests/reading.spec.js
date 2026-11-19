@@ -179,29 +179,29 @@ test.describe('reading', () => {
 
     test('a folder opened by its address opens its row and the rows above it', async ({page}) => {
         // act
-        await page.goto(routes.dir('notes/deep'));
+        await page.goto(routes.dir(docs.deep.folder));
 
         // assert
         await expect(page.getByTestId('dir')).toBeVisible();
-        await expect(page.locator('[data-testid=tree-row][data-path="notes"] [data-testid=tree-twisty]'))
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.deep.above}"] [data-testid=tree-twisty]`))
             .toHaveAttribute('data-open', 'true');
-        await expect(page.locator('[data-testid=tree-row][data-path="notes/deep"] [data-testid=tree-twisty]'))
+        await expect(page.locator(`[data-testid=tree-row][data-path="${docs.deep.folder}"] [data-testid=tree-twisty]`))
             .toHaveAttribute('data-open', 'true');
     });
 
     test('a link to a note in a closed folder low in the tree scrolls the tree to its row', async ({page}) => {
         // arrange
         await page.setViewportSize({width: 1280, height: 360});
-        await page.goto(routes.doc('index.md'));
+        await page.goto(routes.doc(docs.home.path));
         await expect(page.getByTestId('doc')).toBeVisible();
-        const target = page.locator('[data-testid=tree-row][data-path="showcase/plantuml/index.md"]');
+        const target = page.locator(`[data-testid=tree-row][data-path="${docs.lowInTree.path}"]`);
         await expect(target).toHaveCount(0);
 
         // act
-        await page.getByTestId('doc').getByRole('link', {name: 'PlantUML', exact: true}).click();
+        await page.getByTestId('doc').getByRole('link', {name: docs.lowInTree.link, exact: true}).click();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.doc('showcase/plantuml/index.md'));
+        await expect(page).toHaveURL(MAIN.url.doc(docs.lowInTree.path));
         await expect(target).toHaveAttribute('data-current', 'true');
         await expect(target).toBeInViewport({ratio: 1});
     });

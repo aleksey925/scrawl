@@ -1,8 +1,9 @@
 .screen {
+  --run-bar-height: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  padding-top: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
+  padding-top: var(--run-bar-height);
   background: var(--scrawl-bg);
 }
 
@@ -13,13 +14,19 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: calc(var(--scrawl-topbar-height) + env(safe-area-inset-top, 0px));
+  height: var(--run-bar-height);
   padding-top: env(safe-area-inset-top, 0px);
   padding-inline: max(calc(var(--mantine-spacing-lg) - 12px), env(safe-area-inset-left, 0px))
     max(calc(var(--mantine-spacing-lg) - 12px), env(safe-area-inset-right, 0px));
   background: var(--scrawl-bg);
   box-shadow: inset 0 -1px var(--scrawl-border-light);
   color: var(--scrawl-text);
+}
+
+@media (pointer: fine) {
+  .bar {
+    padding-inline-end: max(calc(var(--mantine-spacing-lg) - 7px), env(safe-area-inset-right, 0px));
+  }
 }
 
 .back {
@@ -72,11 +79,7 @@
 
 @mixin smaller-than $mantine-breakpoint-sm {
   .screen {
-    padding-top: calc(var(--scrawl-topbar-height-compact) + env(safe-area-inset-top, 0px));
-  }
-
-  .bar {
-    height: calc(var(--scrawl-topbar-height-compact) + env(safe-area-inset-top, 0px));
+    --run-bar-height: calc(var(--scrawl-topbar-height-compact) + env(safe-area-inset-top, 0px));
   }
 
   .name {

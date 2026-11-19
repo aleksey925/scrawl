@@ -108,7 +108,6 @@
   align-content: center;
   align-items: center;
   row-gap: 1px;
-  padding-inline: 4px;
   box-shadow: inset 0 -1px var(--scrawl-border-light);
 }
 
@@ -130,13 +129,18 @@
 }
 
 .draftName {
-  margin-block: calc((1.3em - var(--scrawl-tap-target)) / 2);
-  padding: calc((var(--scrawl-tap-target) - 1.3em) / 2) 0;
+  padding: 0;
   border: 0;
   background: none;
   color: var(--scrawl-text-tertiary);
   font-family: inherit;
   transition: var(--scrawl-press-out);
+}
+
+.draftName::after {
+  position: absolute;
+  inset: 0 calc(var(--mantine-spacing-lg) - 12px + 64px);
+  content: '';
 }
 
 .draftName:active {

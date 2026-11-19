@@ -112,6 +112,7 @@
 }
 
 .run {
+  position: relative;
   flex: none;
   margin-inline-start: auto;
   padding: 0 8px;
@@ -235,13 +236,9 @@
     transition: var(--scrawl-press-in);
   }
 
-  .run {
-    position: relative;
-  }
-
   .run::after {
     position: absolute;
-    inset: calc((20px - var(--scrawl-tap-target)) / 2) -9px;
+    inset: -7px -9px;
     content: '';
   }
 

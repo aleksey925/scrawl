@@ -4,9 +4,10 @@ const fs = require('fs');
 
 const {
     MAIN, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, readFixture, recordPrompts, refuseDrafts,
-    removeFixture, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, writeFixture,
+    removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const lightTheme = require('../../theme/themes/light.json');
 
 const PAST_DRAFT_DELAY_MS = 1000;
 
@@ -812,6 +813,27 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('the keyboard focus on a button of the draft offer and on a link of the chrome is one ring of the accent', async ({page}) => {
+        // arrange
+        const docPath = scratch('draft-offer-focus');
+        await offerDraft(page, docPath, 'the offered draft\n');
+        const ring = (locator) => locator.evaluate((el) => {
+            const style = getComputedStyle(el);
+            return [style.outlineStyle, style.outlineWidth, style.outlineColor, style.outlineOffset];
+        });
+        const expected = ['solid', '2px', rgb(lightTheme.palette.accent), '2px'];
+        const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+
+        // act & assert
+        await page.getByTestId('editor-draft-discard').focus();
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('editor-draft-restore')).toBeFocused();
+        expect(await ring(page.getByTestId('editor-draft-restore'))).toEqual(expected);
+        await space.focus();
+        expect(await ring(space)).toEqual(expected);
+        removeFixture(docPath);
+    });
+
     test('a page hidden before the draft delay writes the draft at once', async ({page}) => {
         // arrange
         const docPath = scratch('draft-hidden');
@@ -849,6 +871,8 @@ test.describe('editing', () => {
         await page.getByTestId('editor-cancel').click();
         await expect(page.getByTestId('editor-draft-discard')).toBeDisabled();
         await expect(page.getByTestId('editor-draft-restore')).toBeDisabled();
+        await expect(page.getByTestId('editor-draft-discard')).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
+        await expect(page.getByTestId('editor-draft-restore')).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
         release();
         await expect(page).toHaveURL(MAIN.url.doc(docPath));
         await page.goto(routes.edit(docPath));

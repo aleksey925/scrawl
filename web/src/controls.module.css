@@ -20,12 +20,10 @@
   --ai-color: var(--scrawl-icon-secondary);
   --ai-hover: var(--scrawl-hover);
   --ai-hover-color: var(--scrawl-icon);
-  transition: var(--scrawl-press-out);
 }
 
 .actionIcon[data-variant='subtle']:active {
   background: var(--scrawl-pressed);
-  transition: var(--scrawl-press-in);
 }
 
 .button:is(:not([data-variant]), [data-variant='filled']):is(:disabled, [data-disabled]) {
@@ -68,13 +66,8 @@
   --button-hover: var(--scrawl-hover);
 }
 
-.button:is([data-variant='default'], [data-variant='subtle']) {
-  transition: var(--scrawl-press-out);
-}
-
 .button:is([data-variant='default'], [data-variant='subtle']):active {
   background: var(--scrawl-pressed);
-  transition: var(--scrawl-press-in);
 }
 
 .input {
@@ -126,10 +119,17 @@
 @media (hover: none) {
   .menuItem {
     --menu-item-hover: var(--scrawl-hover);
+  }
+
+  .menuItem,
+  .actionIcon[data-variant='subtle'],
+  .button:is([data-variant='default'], [data-variant='subtle']) {
     transition: var(--scrawl-press-out);
   }
 
-  .menuItem:active {
+  .menuItem:active,
+  .actionIcon[data-variant='subtle']:active,
+  .button:is([data-variant='default'], [data-variant='subtle']):active {
     background: var(--scrawl-pressed);
     transition: var(--scrawl-press-in);
   }

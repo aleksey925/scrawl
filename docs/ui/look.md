@@ -45,12 +45,13 @@ Colors, controls and type: how a note and the chrome are drawn.
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)); the search field has
   no ring, the back link and Cancel are plain text, and a main button that
   cannot be pressed yet fades in its color. The focus of the keyboard is one
-  ring everywhere, 2px of the accent 2px off the edge, as Mantine draws it: a
-  plain button or link of the chrome takes it from one rule in `global.css`,
+  ring on the chrome, 2px of the accent 2px off the edge, as Mantine draws it:
+  a plain button or link of the chrome takes it from one rule in `global.css`,
   where the browser drew a ring of its own that differed from control to
-  control. The Save of a phone's editor is the exception: a word and not a
-  filled button, it is the faint gray of a disabled tab while there is nothing
-  to save, so the accent appears only with a change
+  control. The note's own controls in `markdown.css` and the mini outline draw
+  theirs to fit their box. The Save of a phone's editor is the exception: a
+  word and not a filled button, it is the faint gray of a disabled tab while
+  there is nothing to save, so the accent appears only with a change
   ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light theme spends it
   the way macOS does on two more things: a link in a note, which the dark theme
   draws in the text's color, and the menu row under the pointer, filled with

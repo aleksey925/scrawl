@@ -256,10 +256,12 @@ opens over them.
 - In the list of a folder a `.html` or `.htm` file has a Run button in its row,
   an outlined RUN in capitals after the name, as Notion draws Open; on a phone
   it is a filled pill, `Run` in plain case, before the row's menu, its tap area
-  the 44px of a tap. On a touch screen both take the 44px tap area and the
-  pressed tone of their own, and the row under them stays as it is, as for its
-  menu button. The menu of such a row has Run after Open. Both open the run
-  screen. A site has neither, as it has no run screen.
+  the 44px of a tap. On a touch screen both take a tap area and the pressed
+  tone of their own, the pill the 44px and the RUN of a tablet's table the
+  row's height, as a taller one would take taps from the rows beside, and the
+  row under them stays as it is, as for its menu button. The menu of such a row
+  has Run after Open. Both open the run screen. A site has neither, as it has
+  no run screen.
 - A folder whose own files include one named exactly `index.html` has the same
   Run in its row and Run after Open in its menu, on a desktop and a phone, and
   they run that `index.html`. Its name still opens the folder, and the rest of

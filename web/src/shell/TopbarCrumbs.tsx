@@ -1,5 +1,5 @@
 import { Popover, UnstyledButton } from '@mantine/core';
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { EntryIcon } from '../components/EntryIcon';
@@ -38,6 +38,7 @@ export function TopbarCrumbs(): JSX.Element {
   const { renaming, commit } = usePageRenaming();
   const draft = chrome.draft;
   const [naming, setNaming] = useState(false);
+  const draftCommit = useRef<(() => void) | undefined>(undefined);
   const editing = renaming !== undefined || (naming && draft !== undefined);
   useEffect(() => setNaming(false), [location.pathname]);
   const icon = (
@@ -108,11 +109,17 @@ export function TopbarCrumbs(): JSX.Element {
                 <RenameField session={renaming} testId="page-rename" icon={icon} className={classes.field} />
               )}
               {renaming === undefined && naming && draft !== undefined && (
-                <DraftNameField draft={draft} icon={icon} className={classes.field} onDone={() => setNaming(false)} />
+                <DraftNameField
+                  draft={draft}
+                  icon={icon}
+                  className={classes.field}
+                  commitRef={draftCommit}
+                  onDone={() => setNaming(false)}
+                />
               )}
             </Popover.Dropdown>
           </Popover>
-          <TapGuard active={editing} onClose={renaming !== undefined ? commit : () => setNaming(false)} />
+          <TapGuard active={editing} onClose={renaming !== undefined ? commit : () => draftCommit.current?.()} />
         </span>
       )}
     </nav>

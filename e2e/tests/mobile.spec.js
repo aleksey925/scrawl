@@ -15,6 +15,7 @@ const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
 const CHOICE_HEIGHT = 36;
 const ROW_HEIGHT = 48;
+const PAST_DRAFT_DELAY_MS = 1000;
 const NO_LINE = 'rgba(0, 0, 0, 0)';
 const PNG_BASE64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -128,6 +129,15 @@ function wayBack(page, testId) {
     return page.getByTestId(testId).evaluate((el) => {
         const arrow = el.querySelector('svg').getBoundingClientRect();
         return {left: Math.round(arrow.left), size: Math.round(arrow.width), color: getComputedStyle(el).color};
+    });
+}
+
+function textEdges(page, testId) {
+    return page.getByTestId(testId).evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const box = range.getBoundingClientRect();
+        return {left: Math.round(box.left), right: Math.round(box.right)};
     });
 }
 
@@ -377,6 +387,7 @@ test.describe('mobile', () => {
             await page.goto(routes.doc('e2e-mobile/app/index.html'));
             const reader = await wayBack(page, 'topbar-up');
             const topbar = await page.getByTestId('topbar').boundingBox();
+            const titleSize = await page.getByTestId('topbar-title').evaluate((el) => getComputedStyle(el).fontSize);
 
             // act
             await page.getByTestId('file-run').tap();
@@ -385,7 +396,9 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('run-bar')).toBeVisible();
             expect(await wayBack(page, 'run-back')).toEqual(reader);
             expect((await page.getByTestId('run-bar').boundingBox()).height).toBe(topbar.height);
-            await expect(page.getByTestId('run-name')).toHaveCSS('font-size', '16px');
+            await expect(page.getByTestId('run-name')).toHaveCSS('font-size', titleSize);
+            expect(await page.getByTestId('run-open-outside').evaluate((el) => Math.round(el.querySelector('svg').getBoundingClientRect().right)))
+                .toBe(page.viewportSize().width - reader.left);
         });
     });
 
@@ -418,16 +431,19 @@ test.describe('mobile', () => {
         await cdp.send('DOM.enable');
         await cdp.send('CSS.enable');
         const {root} = await cdp.send('DOM.getDocument');
-
-        // act
-        for (const selector of [row, run]) {
+        const press = async (selector) => {
             const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
             await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
-        }
+        };
+        const band = () => page.locator(row).evaluate((el) => getComputedStyle(el, '::before').opacity);
 
-        // assert
+        // act & assert
+        await press(row);
+        await expect.poll(band).toBe('1');
+        await press(run);
         await expect(page.locator(run)).toHaveCSS('background-color', rgb(lightTheme.palette.pressed));
-        await stays(() => page.locator(row).evaluate((el) => getComputedStyle(el, '::before').opacity), '0', 300);
+        await expect.poll(band).toBe('0');
+        await stays(band, '0', 300);
     });
 
     test('a folder with an index.html has a Run button and a Run in its long press menu on an iPhone', async ({page, context}) => {
@@ -1477,6 +1493,17 @@ test.describe('mobile', () => {
             await stays(() => new URL(page.url()).pathname, routes.recent(), MOVE_WAIT_MS);
         });
 
+        test('the search page, no tab, keeps its way up', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+
+            // act
+            await page.goto(routes.search(docs.search.word));
+
+            // assert
+            await expect(page.getByTestId('topbar-up')).toBeVisible();
+        });
+
         test('a part of the page scrolled sideways keeps its place on the copy', async ({page}) => {
             // arrange
             const note = 'e2e-mobile/copy-scrolled.md';
@@ -2146,6 +2173,75 @@ test.describe('mobile', () => {
             });
         }
 
+        test('the name field of a new note saves a name on a tap beside it, and keeps a refused one until the next tap', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/tablet/new-note';
+            fs.mkdirSync(fixtureFile(folder), {recursive: true});
+            await page.goto(routes.draft(`${folder}/${text.create.untitled}`));
+            const crumb = page.locator('[data-testid=crumb][data-draft="true"]');
+            const input = page.getByTestId('draft-name-input');
+            const space = page.getByTestId('topbar-crumbs').getByTestId('crumb').first();
+            const tapSpace = async () => {
+                const box = await space.boundingBox();
+                await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+            };
+            const start = async (typed) => {
+                await crumb.tap();
+                await expect(input).toBeFocused();
+                await input.fill(typed);
+            };
+
+            // act & assert
+            await start('a/b.md');
+            await tapSpace();
+            await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.renameSlash);
+            await stays(() => input.inputValue(), 'a/b.md', MOVE_WAIT_MS);
+            await expect(page.getByTestId('tap-guard')).toBeVisible();
+            await tapSpace();
+            await expect(page.getByTestId('draft-name-field')).toHaveCount(0);
+            await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+            await expect(crumb).toHaveText(text.create.untitled);
+
+            await start('tablet-plan.md');
+            await tapSpace();
+            await expect(page.getByTestId('draft-name-field')).toHaveCount(0);
+            await expect(page.getByTestId('tap-guard')).toHaveCount(0);
+            await expect(crumb).toHaveText('tablet-plan.md');
+            removeFixture(folder);
+        });
+
+        test('the RUN of a table row takes a tap over the row\'s height and the press alone', async ({page}) => {
+            // arrange
+            const folder = 'e2e-mobile/tablet/app';
+            writeFixture(`${folder}/index.html`, '<!doctype html><h1>Tablet app</h1>\n');
+            await page.goto(MAIN.url.dir(folder));
+            const row = `[data-testid=dir-row][data-path="${folder}/index.html"]`;
+            const run = page.locator(`${row} [data-testid=dir-row-run]`);
+            await expect(run).toBeVisible();
+            const pill = await run.boundingBox();
+            const line = await page.locator(row).boundingBox();
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('DOM.enable');
+            await cdp.send('CSS.enable');
+            const {root} = await cdp.send('DOM.getDocument');
+            const press = async (selector) => {
+                const {nodeId} = await cdp.send('DOM.querySelector', {nodeId: root.nodeId, selector});
+                await cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: ['active']});
+            };
+            const rowBackground = () => page.locator(row).evaluate((el) => getComputedStyle(el).backgroundColor);
+
+            // act & assert
+            const reached = await page.evaluate(([x, heights]) => heights.map((y) => document.elementFromPoint(x, y)?.dataset.testid),
+                [pill.x + pill.width / 2, [line.y + 2, pill.y + pill.height / 2, line.y + line.height - 2]]);
+            expect(reached).toEqual(['dir-row-run', 'dir-row-run', 'dir-row-run']);
+            await press(row);
+            await expect.poll(rowBackground).toBe(rgb(lightTheme.palette.pressed));
+            await press(`${row} [data-testid=dir-row-run]`);
+            await expect(run).toHaveCSS('background-color', rgb(lightTheme.palette.pressed));
+            await expect.poll(rowBackground).toBe(NO_LINE);
+            removeFixture(folder);
+        });
+
         test('a tap outside the new row of a folder list keeps a typed name, as a click does', async ({page}) => {
             // arrange
             const folder = 'e2e-mobile/tablet/draft';
@@ -2612,7 +2708,11 @@ test.describe('mobile', () => {
 
         // assert
         await expect(page.getByTestId('topbar-draft-name')).toHaveText(text.create.untitled);
-        expect(await tooSmall(page, '[data-testid=topbar-draft-name]')).toEqual([]);
+        const bar = await page.getByTestId('topbar').boundingBox();
+        const reached = await page.evaluate(([x, heights]) => heights.map((y) => document.elementFromPoint(x, y)?.dataset.testid),
+            [bar.x + bar.width / 2, [bar.y + 2, bar.y + bar.height / 2, bar.y + bar.height - 2]]);
+        expect(reached).toEqual(['topbar-draft-name', 'topbar-draft-name', 'topbar-draft-name']);
+        removeFixture(folder);
     });
 
     test('New offers a note and a folder, and New note opens a draft named in the bar', async ({page}) => {
@@ -2964,7 +3064,33 @@ test.describe('mobile', () => {
 
         // assert
         expect(await wayBack(page, 'editor-cancel')).toEqual(reader);
-        expect((await page.getByTestId('editor-strip').boundingBox()).height).toBe(tabBar.height);
+        expect((await textEdges(page, 'editor-save')).right).toBe(page.viewportSize().width - reader.left);
+        const strip = await boxOf(page, 'editor-strip');
+        const tabs = await boxOf(page, 'editor-tabs');
+        expect(strip.bottom - strip.top).toBe(Math.round(tabBar.height));
+        expect(tabs.top - strip.top).toBe(strip.bottom - tabs.bottom);
+    });
+
+    test('the draft offer of the editor starts and ends on the line of the reader\'s way back', async ({page}) => {
+        // arrange
+        const note = 'e2e-mobile/draft-line.md';
+        writeFixture(note, '# Черновик\n');
+        await page.goto(routes.doc(note));
+        const reader = await wayBack(page, 'topbar-up');
+        await page.goto(routes.edit(note));
+        await expect.poll(() => sourceText(page)).toBe('# Черновик\n');
+        await setSource(page, '# Черновик\n\nне сохранено\n');
+        await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
+
+        // act
+        await page.goto(routes.edit(note));
+
+        // assert
+        await expect(page.getByTestId('editor-draft')).toBeVisible();
+        const offer = await page.getByTestId('editor-draft').evaluate((el) => Math.round(el.firstElementChild.getBoundingClientRect().left));
+        expect(offer).toBe(reader.left);
+        expect((await textEdges(page, 'editor-draft-restore')).right).toBe(page.viewportSize().width - reader.left);
+        removeFixture(note);
     });
 
     test('the editor bar holds the back arrow, the name over the state, and a Save that is gray until there is a change', async ({page}) => {

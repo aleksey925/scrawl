@@ -41,8 +41,9 @@ The editor screen.
   there either: the cells beside the name are 64px wide and have no room for it
   without moving the name off the middle, the draft keeps the text on the
   device, and a save with no network shows its toast. The bottom of the screen
-  is one strip, as tall as the tab bar, so the edge does not move when the
-  editor opens. While no text is typed it is the layouts as a choice of three,
+  is one strip. With the layouts in it, it is as tall as the tab bar, so the
+  edge does not move when the editor opens; with the toolbar over the keyboard
+  it is 50px. While no text is typed it is the layouts as a choice of three,
   Text, Preview and Changes, as Split has no room there, at the bottom, under
   the thumb, with the home indicator's room under it; Changes carries an orange
   dot while there are unsaved changes. A dot and not a count: a count needs a

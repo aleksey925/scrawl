@@ -44,8 +44,10 @@ How the app works on a phone.
   editor of a note is placed the same way: the whole screen, its bar on top
   included, takes the visible area, so its toolbar is over the keyboard and no
   text is under it.
-- On a phone everything starts on a 16px line: the page text and the first and
-  last icon of the bar on top.
+- On a phone everything starts on a 16px line: the page text, the first and
+  last icon of the bar on top, the way back and Save of the editor's bar, the
+  way back and the last icon of the run screen's bar, and the text and buttons
+  of the draft offer.
 - On a phone a dialog stands in the middle of the screen, where the system's
   own alerts stand: at the top it hung from the edge like a page sliding down.
   A desktop keeps mantine's place near the top, where the search, a dialog too,

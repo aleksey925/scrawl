@@ -186,6 +186,7 @@ test.describe.serial('file management', () => {
         await page.keyboard.type('E2E Root Page');
         await expect(draftCrumb(page)).toHaveText(ROOT_PAGE);
         await expect(page.getByTestId('tree-ghost')).toHaveText(ROOT_PAGE);
+        await expect(page.getByTestId('tree-ghost')).toHaveCSS('font-style', 'normal');
         expect(fs.existsSync(fixtureFile(ROOT_PAGE))).toBe(false);
         await shot(page, 'files-root-draft');
 

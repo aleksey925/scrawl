@@ -85,7 +85,7 @@ func Parse(raw string) (Hosts, error) {
 	}
 	if prefix == "" && suffix == "" {
 		return Hosts{}, errors.New("must have more than {id} in its first label, such as https://app-{id}.example.com: " +
-			"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app")
+			"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for a mini app")
 	}
 	return Hosts{scheme: u.Scheme, prefix: prefix, suffix: suffix, rest: rest, port: u.Port()}, nil
 }

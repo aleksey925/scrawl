@@ -97,9 +97,9 @@ The editor screen.
   nothing focused; in a field, a menu, a dialog or the sidebar `Esc` closes
   what it closed before. In the text `Esc` first closes what codemirror has
   open: a list of completions, the search panel, from its field, its buttons or
-  the text, and several cursors, which it makes one, and with nothing focused
-  it closes them the same way, as codemirror does not get that key there. Both
-  are taken before the text
+  the text, and several cursors, which it makes one. With nothing focused `Esc`
+  is Cancel even while these are open, as codemirror does not get the key
+  there. Both are taken before the text
   ([quirks](../quirks.md#react-mantine-and-the-editor)). Cancel, the back arrow
   and any other way out leave without saving and ask nothing: the unsaved text
   is written to the draft on the device as the editor goes, neither the text
@@ -186,15 +186,20 @@ The editor screen.
   first save ran is kept under the new name, the editor left before the save
   answered too, and the editor of the new file offers it, where under the
   draft's own address it was never offered again. When that text cannot be kept
-  under the new name, as the browser refuses it or another editor's draft is
-  there, it stays under the draft's address, and an editor still open drops
-  that copy once it writes its draft under the new name, saves or is discarded.
-  An offered draft that was not restored stays under the draft's address. After
-  Discard nothing of that text is kept, even when the save answers later. A
-  draft equal to the text on screen is never offered. A note not created yet
-  reads New note only until its first save, then Saved. Cancel goes back, as
-  nothing of the draft is a page to go back to. The name field is the draft's
-  own and not a rename: nothing on disk is moved.
+  under the new name, as the browser refuses it or a draft the editor did not
+  write is there, another editor's or one left by a deleted note of that name,
+  it stays under the draft's address, an editor still open offers the draft it
+  found, and it drops that copy once it writes its draft under the new name,
+  saves or is discarded. An offered draft that was not restored stays under the
+  draft's address. After Discard nothing of that text is kept, even when the
+  save answers later. A draft equal to the text on screen is never offered. A
+  first save that finds the file just written with the same text elsewhere,
+  between the look at the folder and the write, says Saved and leaves the note
+  not created yet: the next save takes another free name, or with a typed name
+  says the name is taken, and nothing typed is lost. It is rare and is left so.
+  A note not created yet reads New note only until its first save, then Saved.
+  Cancel goes back, as nothing of the draft is a page to go back to. The name
+  field is the draft's own and not a rename: nothing on disk is moved.
 - Changes shows the unsaved edits: the text in the editor against the text last
   saved, drawn as the history draws a version
   ([history](../design/history.md#comparing-versions)), side by side on a wide

@@ -76,6 +76,7 @@ export function useDraft(options: UseDraftOptions): DraftControl {
   const abandonedRef = useRef(false);
   const [writer] = useState(() => Math.random().toString(36).slice(2));
   const openedAtRef = useRef(0);
+  const openedKeyRef = useRef(key);
   const leftBehindRef = useRef<string | undefined>(undefined);
 
   const writeDraft = useCallback(
@@ -86,7 +87,11 @@ export function useDraft(options: UseDraftOptions): DraftControl {
 
   const owns = useCallback((target: string): boolean => {
     const stored = readJson<Draft>(localStore(), target);
-    return stored === undefined || stored.by === writer || (stored.at ?? 0) <= openedAtRef.current;
+    return (
+      stored === undefined ||
+      stored.by === writer ||
+      (target === openedKeyRef.current && (stored.at ?? 0) <= openedAtRef.current)
+    );
   }, [writer]);
 
   const dropLeftBehind = useCallback((): void => {

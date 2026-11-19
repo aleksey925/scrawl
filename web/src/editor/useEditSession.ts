@@ -1,4 +1,4 @@
-import { runScopeHandlers, type EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 import { useCallback, useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { useBlocker, useNavigate, useNavigation } from 'react-router';
 
@@ -431,23 +431,19 @@ export function useEditSession({
     const inText = (target: EventTarget | null): boolean =>
       target === document.body ||
       (target instanceof HTMLElement && target.closest('.cm-editor') !== null && target.closest('.cm-panels') === null);
-    const holdingEscape = (): EditorView | undefined => {
+    const holdingEscape = (): boolean => {
       const current = liveView();
-      const holds =
+      return (
         current !== undefined &&
-        (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-tooltip-autocomplete, .cm-search') !== null);
-      return holds ? current : undefined;
+        (current.state.selection.ranges.length > 1 || current.dom.querySelector('.cm-tooltip-autocomplete, .cm-search') !== null)
+      );
     };
     const onKey = (event: KeyboardEvent): void => {
       const saveChord = modChord(event, 'enter');
       if ((!saveChord && event.key !== 'Escape') || !inText(event.target) || composing(event)) {
         return;
       }
-      const holder = saveChord ? undefined : holdingEscape();
-      if (holder !== undefined) {
-        if (event.target === document.body && runScopeHandlers(holder, event, 'editor')) {
-          event.preventDefault();
-        }
+      if (!saveChord && event.target !== document.body && holdingEscape()) {
         return;
       }
       if (saveChord) {

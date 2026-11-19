@@ -157,7 +157,13 @@ How the react app in `web/` is built, shipped and wired.
   stylesheet failed on idle, the Search page, reached from a missing note,
   opens with no style until the page is loaded again. It is rare and loses
   nothing, and a mark per stylesheet would need the chunks' lists of
-  stylesheets at run time.
+  stylesheets at run time. Two more cases are left open for the same reason.
+  When the app's frame is left, as for the run screen of a mini app, and opened
+  again, the dialogs load on idle once more; vite skips the stylesheet that
+  failed, the import comes, and the dialog then opens with no style without
+  looking at its mark. A page whose import comes after the person went
+  elsewhere still loads the app again, at the address they went to or the one
+  on screen; unsaved text holds that reload as it holds any other.
 - Mantine's styles come in one file per component, listed in
   `web/src/mantine.css`, which the app and a site import, in the order of
   mantine's own `styles.css`. The full file was 277 KB, most of it for

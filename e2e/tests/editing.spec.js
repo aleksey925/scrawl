@@ -730,11 +730,12 @@ test.describe('editing', () => {
         }
     });
 
-    test('Esc with nothing focused closes the search panel of the text first and leaves the editor open', async ({page}) => {
+    test('Esc with nothing focused leaves the editor even with the search panel of the text open', async ({page}) => {
         // arrange
         const docPath = scratch('esc-search-blurred');
         try {
             await editFromReader(page, docPath, 'kept\n');
+            await setSource(page, 'typed and left\n');
             const panel = page.locator('[data-testid=editor-source] .cm-search');
             await page.locator('[data-testid=editor-source] .cm-content').click();
             await page.keyboard.press('ControlOrMeta+f');
@@ -745,8 +746,8 @@ test.describe('editing', () => {
             await page.keyboard.press('Escape');
 
             // assert
-            await expect(panel).toHaveCount(0);
-            await stays(() => page.url(), MAIN.url.edit(docPath), 500);
+            await expect(page).toHaveURL(MAIN.url.doc(docPath));
+            expect(await storedDrafts(page)).toEqual([{path: docPath, content: 'typed and left\n'}]);
         } finally {
             removeFixture(docPath);
         }
@@ -1301,6 +1302,42 @@ test.describe('editing', () => {
             await expect(page).toHaveURL(MAIN.url.doc(created));
             await stays(() => storedDrafts(page), [], 500);
             expect(readFixture(created)).toBe('# Plan\n\nmore\n');
+        } finally {
+            removeFixture(folder);
+        }
+    });
+
+    test('a first save with text typed while it ran offers a draft left from before at the name created instead of writing over it', async ({page}) => {
+        // arrange
+        const folder = 'e2e-scratch/new-old-draft-there';
+        const untitled = `${folder}/${text.create.untitled}`;
+        const created = `${folder}/plan.md`;
+        fs.mkdirSync(fixtureFile(folder), {recursive: true});
+        try {
+            await page.goto(routes.draft(untitled));
+            await setSource(page, '# Plan\n');
+            const {release, reached} = await holdSave(page);
+            await page.getByTestId('editor-save').click();
+            await reached;
+            await page.evaluate((target) => {
+                const key = Object.keys(localStorage).find((name) => name.startsWith('scrawl.draft:'));
+                const draft = {rev: 'gone', content: '# Old plan\n', at: Date.now() - 60_000};
+                localStorage.setItem(`${key.slice(0, key.lastIndexOf(':') + 1)}${target}`, JSON.stringify(draft));
+            }, created);
+            await setSource(page, '# Plan\n\nmore\n');
+
+            // act
+            release();
+
+            // assert
+            await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
+            await expect(page.getByTestId('editor-draft')).toBeVisible();
+            const kept = await storedDrafts(page);
+            expect(kept.sort((left, right) => left.path.localeCompare(right.path))).toEqual([
+                {path: created, content: '# Old plan\n'},
+                {path: untitled, content: '# Plan\n\nmore\n'},
+            ]);
+            expect(readFixture(created)).toBe('# Plan\n');
         } finally {
             removeFixture(folder);
         }

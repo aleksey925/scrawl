@@ -53,7 +53,7 @@ func TestParseRefuses(t *testing.T) {
 		{name: "a bad character", raw: "https://app_{id}.example.com", want: "may have only letters, digits and - beside {id}"},
 		{name: "the id alone in its label", raw: "https://{id}.example.com",
 			want: "must have more than {id} in its first label, such as https://app-{id}.example.com: " +
-				"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for an app"},
+				"with {id} alone, scrawl at a name such as personalwiki.example.com is taken for a mini app"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

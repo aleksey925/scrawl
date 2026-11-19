@@ -12,9 +12,9 @@ How the app works on a phone.
   drawn around it, as iOS draws its tab bar; a dark current tab looked heavy on
   white and did not stand out. Only Notes, Search and Recent are ever current:
   New and Profile open something and are actions, not places
-  ([ADR 29](../adr/0029-the-current-tab-is-the-accent.md)). A note has no New:
-  a note is made from a list. A round Edit button over the page covered the
-  text under it and was one more thing on the screen
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). A note has no New: a
+  note is made from a list. A round Edit button over the page covered the text
+  under it and was one more thing on the screen
   ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). Profile opens the
   space's menu, the one the sidebar's foot opens: in the bar on top it was on
   the root alone. Its "Offline access" row is the same as in the sidebar's
@@ -154,7 +154,7 @@ How the app works on a phone.
   start a frame later and end after the copy. On its own 300ms it fell behind a
   copy that left in 200ms, and a strip of empty screen showed between them, and
   a curve of its own started again changed speed against the copy
-  ([ADR 33](../adr/0033-a-swiped-page-leaves-as-a-copy.md)). The page itself is
+  ([ADR 32](../adr/0032-a-swiped-page-leaves-as-a-copy.md)). The page itself is
   hidden until the next one enters, three seconds at most, and so is the copy.
   The copy lies on a sheet as large as the screen, with the page's ground,
   above the page and under the bars: with no ground the page under showed

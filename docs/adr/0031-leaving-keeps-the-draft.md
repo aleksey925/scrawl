@@ -1,4 +1,4 @@
-# 32. Leaving the editor keeps the draft and asks nothing
+# 31. Leaving the editor keeps the draft and asks nothing
 
 Status: accepted. Where it applies: [editor](../ui/editor.md).
 
@@ -35,7 +35,7 @@ apps that keep a draft, Notes and Mail's draft among them, leave at once.
 - The dialog as it was: a question about a loss that does not happen.
 - A save on leaving, as Notes does: a save here is a commit and a push, and an
   explicit Save was a choice made for the phone's editor
-  ([ADR 30](0030-the-phone-editor-bars.md)).
+  ([ADR 29](0029-the-phone-editor-bars.md)).
 - An Edit button in the toast: the way back is known, and a second button in a
   toast that comes on every leave is noise.
 - A sheet from the bottom for the discard question: the dialogs of a phone

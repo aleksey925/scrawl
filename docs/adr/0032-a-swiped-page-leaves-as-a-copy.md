@@ -1,6 +1,6 @@
-# 33. A swiped page leaves as a copy of itself
+# 32. A swiped page leaves as a copy of itself
 
-Status: accepted. Where it applies: [phone](../ui/phone.md).
+Status: proposed. Where it applies: [phone](../ui/phone.md).
 
 ## Context
 

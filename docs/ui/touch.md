@@ -7,7 +7,7 @@ Sizes and feedback on a touch screen, phone or tablet.
   few, a segmented control or a chip beside one, 36px. The layouts at the
   bottom of a phone's editor are the one choice drawn at 40px: they fill the
   strip under the thumb alone, with no chip beside them, as the mockup has it
-  ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Mantine's 26px menu rows
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Mantine's 26px menu rows
   put the theme and the space three to a fingertip, and a choice drawn at the
   tap height stood twice as tall as the chip beside it. On a touch screen an
   open menu or popover has a clear ground under it that takes the tap closing

@@ -21,6 +21,10 @@ nothing new to set for a local run.
   `app-<id>.<domain>` from `APPS_URL` or `app-<id>.localhost` by default, in a
   frame under one bar of scrawl. The browser isolates it and gives it real
   storage.
+- In Safari, on a Mac and on an iPhone, Run opens the app in a tab of its own,
+  not in the frame. WebKit keeps the `localStorage` of a frame from another
+  origin in memory only, so the app's data in the frame was gone once the
+  browser closed; a tab of its own keeps it ([quirks](../quirks.md#webkit)).
 - The server switches on the host before any middleware. The apps host has no
   sign-in and none of scrawl's routes; it serves only the web files of the
   folder named by a signed app cookie, which a one-time ticket of 60 seconds
@@ -37,11 +41,11 @@ nothing new to set for a local run.
   never be `Secure`, and a warning at start on http. The local link scrawl logs
   is `127.0.0.1`, which is never a neighbor of an app host.
 - Offline, an app is kept by a second worker of scrawl on the apps host, only
-  while scrawl's offline copy is on and only in a same-site frame: in a
-  cross-site frame Chromium's worker sends no cookie, so the local run at
-  `127.0.0.1` and `localhost` is not kept. It keeps what the app loads and
-  fetches the whole folder ahead, with one queue for every change of its cache.
-  An app's own worker wins its scope.
+  while scrawl's offline copy is on and only in a same-site frame or a tab of
+  its own: in a cross-site frame Chromium's worker sends no cookie, so the
+  local run at `127.0.0.1` and `localhost` is not kept in the frame. It keeps
+  what the app loads and fetches the whole folder ahead, with one queue for
+  every change of its cache. An app's own worker wins its scope.
 
 ## Options turned down
 

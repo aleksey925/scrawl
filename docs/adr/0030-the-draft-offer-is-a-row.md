@@ -1,6 +1,6 @@
-# 31. The offer of a draft is a row under the topbar
+# 30. The offer of a draft is a row under the topbar
 
-Status: accepted. Where it applies: [editor](../ui/editor.md).
+Status: proposed. Where it applies: [editor](../ui/editor.md).
 
 ## Context
 
@@ -10,7 +10,7 @@ Restore and a gray Discard. On a phone it took about 140px over the text, its
 yellow read as a fault, and Restore, the step most people take, looked the
 lesser one. The phone's editor had just got a bar with Save as a word in the
 accent and an orange dot for unsaved text
-([ADR 30](0030-the-phone-editor-bars.md)).
+([ADR 29](0029-the-phone-editor-bars.md)).
 
 ## Decision
 

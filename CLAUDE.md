@@ -147,7 +147,9 @@ One kind of knowledge per place:
 - `docs/ui/` - how a screen looks and behaves. Kept current the same way.
 - `docs/adr/` - one decision per file, with the options turned down. An ADR is
   not rewritten: a new decision is a new file, and the old one's status names
-  the file that replaced it.
+  the file that replaced it. An ADR whose decision is still open, such as a
+  design still being worked out, is proposed, and a proposed ADR is edited in
+  place.
 - `docs/quirks.md` - facts about browsers, libraries, git and the OS, found by
   hitting them. A rule cites a fact in a few words, and the fact is written
   there once.

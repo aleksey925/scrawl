@@ -42,12 +42,12 @@ Colors, controls and type: how a note and the chrome are drawn.
   keyboard's focus on a grid of the editor lifts the same way too. The accent
   is spent the way Notion spends it, read off its own pages: the one main
   button and a toggle that is on, and on a phone the current tab of the bar
-  ([ADR 29](../adr/0029-the-current-tab-is-the-accent.md)); the search field
-  has no ring, the back link and Cancel are plain text, and a main button that
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)); the search field has
+  no ring, the back link and Cancel are plain text, and a main button that
   cannot be pressed yet fades in its color. The Save of a phone's editor is the
   exception: a word and not a filled button, it is the faint gray of a disabled
   tab while there is nothing to save, so the accent appears only with a change
-  ([ADR 30](../adr/0030-the-phone-editor-bars.md)). The light theme spends it
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)). The light theme spends it
   the way macOS does on two more things: a link in a note, which the dark theme
   draws in the text's color, and the menu row under the pointer, filled with
   the accent and lettered white, which in the dark is the hover tint. A tap
@@ -56,9 +56,9 @@ Colors, controls and type: how a note and the chrome are drawn.
   blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
   weight at 20px, 16px in menus, with two exceptions: the current tab of a
   phone's bar draws its icon filled
-  ([ADR 29](../adr/0029-the-current-tab-is-the-accent.md)), and the formatting
+  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)), and the formatting
   toolbar over a phone's keyboard draws 22px icons in 44px tools
-  ([ADR 30](../adr/0030-the-phone-editor-bars.md)), and `web/src/icons.ts` is
+  ([ADR 29](../adr/0029-the-phone-editor-bars.md)), and `web/src/icons.ts` is
   the one place that says which drawing each one is: Notion's own set cannot be
   taken, and Phosphor is the open one closest to it. A build keeps only the
   weights the app draws ([frontend](../design/frontend.md#build-and-release)).

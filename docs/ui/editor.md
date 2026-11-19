@@ -30,7 +30,7 @@ The editor screen.
   this switch has it: the other icon switches always show their names.
 - On a phone, below the phone width, the bar on top is the way back at the
   left, the file's name in the middle with the state of the save under it, and
-  Save at the right ([ADR 30](../adr/0030-the-phone-editor-bars.md)). Back is
+  Save at the right ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Back is
   the arrow in the text color and does what Cancel does. Save is a word in the
   accent, gray and disabled while there is nothing to save, so the bar does not
   jump; a note not created yet can be saved at once. The sync control is not
@@ -85,7 +85,7 @@ The editor screen.
   the device as the editor goes, neither the text nor an offered draft can be
   changed while the next page loads, a toast says "Changes kept as a draft on
   this device", and the editor offers the draft back the next time
-  ([ADR 32](../adr/0032-leaving-keeps-the-draft.md)). The toast has no button:
+  ([ADR 31](../adr/0031-leaving-keeps-the-draft.md)). The toast has no button:
   the way back is the note itself, and for a note not created yet the next New
   note in its folder, which opens at the same address and offers the draft.
   Text typed there instead of Restore leaves the offered draft as it is while
@@ -128,7 +128,7 @@ The editor screen.
   server. On a phone an orange dot stands before both unsaved states.
 - A draft left in the browser from an earlier visit is offered in a row right
   under the topbar, across the whole screen
-  ([ADR 31](../adr/0031-the-draft-offer-is-a-row.md)): the orange dot of the
+  ([ADR 30](../adr/0030-the-draft-offer-is-a-row.md)): the orange dot of the
   unsaved state, Unsaved draft, the time it was written as the history writes a
   version, then Discard in the secondary color and Restore in the accent, as
   Save is on a phone. A draft written against another version of the file adds

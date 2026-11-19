@@ -1,8 +1,7 @@
-# 28. Edit is in the phone's bar, and New opens tiles
+# 28. Edit is in the phone's bar, New opens tiles, and the current tab is the accent
 
-Status: accepted, apart from the current tab drawn dark, replaced by
-[ADR 29](0029-the-current-tab-is-the-accent.md). Where it applies:
-[phone](../ui/phone.md).
+Status: proposed. Where it applies: [phone](../ui/phone.md),
+[look](../ui/look.md).
 
 ## Context
 
@@ -10,6 +9,11 @@ On a phone the bar had five tabs, Notes, Search, Recent, New and Profile, and a
 note had a blue round Edit button above the bar. The button covered the text
 under it, and the page kept room at its end so the last line could scroll out
 from under it. New opened a card menu of two items, New note and New folder.
+
+The current tab was only darker than the others: the text color against the
+tertiary gray, with the same outline icon. On a white page the dark tab looked
+heavy and still did not stand out, and the place a person was in was hard to
+see at a glance.
 
 ## Decision
 
@@ -20,8 +24,7 @@ from under it. New opened a card menu of two items, New note and New folder.
     a picture;
   - New in a list and on every other screen;
   - nothing when the person cannot write, and the four tabs share the width.
-- The cell is drawn in the gray of the tabs, so the dark current tab stays the
-  one dark cell. A disabled Edit is faint.
+- The cell is drawn in the gray of the tabs. A disabled Edit is faint.
 - A note has no New: Edit takes the cell, and a note is made from a list.
 - The blue round Edit button goes away on a phone. A desktop keeps its Edit in
   the topbar.
@@ -30,8 +33,16 @@ from under it. New opened a card menu of two items, New note and New folder.
   scrim only closes, as Escape does.
 - Profile keeps its card menu: two tiles fit two items, a card fits a long
   menu.
-- The bar stays as it was: solid, a 1px line on top, the current tab dark, in
-  place on a scroll.
+- The bar stays solid, with a 1px line on top, in place on a scroll.
+- The current tab is drawn in the accent of the theme, its icon in Phosphor's
+  fill weight and its label in the 600 weight. The other tabs keep the tertiary
+  gray, the regular icon and the 400 weight.
+- Nothing is drawn around it: no ground, line, pill or underline, the way the
+  tab bar of iOS 7 to 18 shows it.
+- Only a place is ever current: Notes, Search and Recent. New and Profile open
+  something and are never current, as the tab bar of Apple's guidelines is for
+  moving between places, not for actions. The middle cell, Edit or New, stays
+  in the gray of the tabs.
 
 ## Options turned down
 
@@ -48,3 +59,7 @@ from under it. New opened a card menu of two items, New note and New folder.
   menus draw.
 - The bar swapped for a toolbar of New folder, New note and Cancel: the tabs
   vanished under the finger and the screen changed more than the action needed.
+- The current tab dark, as before: heavy on white, and no accent.
+- A pill or a ground behind the current tab, the Liquid Glass look of iOS 26:
+  one more shape in a bar that only has to say where the person is.
+- An underline: the mark of a web page's tabs, not of a phone's bar.

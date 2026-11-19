@@ -1,6 +1,6 @@
-# 30. The phone's editor: back, name and Save on top, one strip at the bottom
+# 29. The phone's editor: back, name and Save on top, one strip at the bottom
 
-Status: accepted. Where it applies: [editor](../ui/editor.md),
+Status: proposed. Where it applies: [editor](../ui/editor.md),
 [phone](../ui/phone.md).
 
 ## Context

@@ -2988,11 +2988,12 @@ test.describe('mobile', () => {
 
         test('a tap on a row below an open menu only closes the menu', async ({page}) => {
             // arrange
-            const files = ['first', 'second', 'third', 'fourth'].map((name) => `${FOLDER}/below-${name}.md`);
+            const folder = 'e2e-mobile/below';
+            const files = ['first', 'second', 'third', 'fourth'].map((name) => `${folder}/below-${name}.md`);
             for (const path of files) {
                 writeFixture(path, '# Below\n');
             }
-            await page.goto(MAIN.url.dir(FOLDER));
+            await page.goto(MAIN.url.dir(folder));
             await rowOf(page, files[0]).getByTestId('tree-row-menu').tap();
             await openedMenu(page, 'tree-row-menu-dropdown');
             const box = await rowOf(page, files[3]).boundingBox();
@@ -3002,7 +3003,8 @@ test.describe('mobile', () => {
 
             // assert
             await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
-            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            removeFixture(folder);
         });
 
         test('a finger resting beside an open menu leaves the row of the menu as it is', async ({page}) => {
@@ -4603,6 +4605,7 @@ test.describe('mobile', () => {
 
             // assert
             await expect(page.getByTestId('toast-action')).toBeVisible();
+            await settled(page);
             const box = await page.getByTestId('toast-box').boundingBox();
             const action = await page.getByTestId('toast-action').boundingBox();
             const width = page.viewportSize().width;

@@ -1538,6 +1538,8 @@ test.describe('mobile', () => {
             await sub.tap();
             await expect(page).toHaveURL(MAIN.url.dir(docs.deep.folder));
             await held.reached;
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await expect.poll(() => page.locator('[data-screen]').evaluate((screen) => screen.getAnimations().length)).toBe(0);
 
             // act
             await swipe(page, 300);

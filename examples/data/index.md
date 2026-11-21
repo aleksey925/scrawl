@@ -17,10 +17,10 @@ and the references we keep coming back to.
 - [Replication](databases/replication.md) - why a replica lags
 - [Locks](databases/locks.md) - and how deadlocks happen
 
-## Tools
+## Mini apps
 
-- [PostgreSQL config](tools/pg-config/index.html) - settings for a new server
-  from its memory, cores and load
+- [PostgreSQL config](mini-apps/pg-config/index.html) - settings for a new
+  server from its memory, cores and load
 
 ## Reference
 

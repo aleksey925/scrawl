@@ -2,6 +2,12 @@
 
 Markdown notes in any browser, from a folder or a git repository.
 
+[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=flat-square&color=2f80ed)](https://github.com/aleksey925/scrawl/releases)
+[![License](https://img.shields.io/github/license/aleksey925/scrawl?style=flat-square&color=555)](LICENSE)
+![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+
 scrawl lets you read and edit your notes from a browser, on a laptop or a
 phone. Point it at a folder or a git repository and it serves the notes there
 as they are: no database, no import, no format of its own. The files on disk

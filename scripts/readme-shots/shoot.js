@@ -11,7 +11,7 @@ const NOTE = 'showcase/postgres-migration.md';
 const SPACE = 'notes';
 const DESKTOP = {width: 1280, height: 800, scale: 2, cropMargin: 4};
 const PHONE = {width: 402, height: 874, statusBar: 62, homeIndicator: 34, scale: 3};
-const HERO = {width: 2400, height: 1350, windowWidth: 1500, titleBar: 56, phoneToWindow: 0.7, overlap: 0.12, phoneBelow: 50};
+const HERO = {width: 2400, margin: 80, titleBar: 56, phoneToWindow: 0.7, overlap: 0.12, phoneBelow: 50};
 const PHONE_FRAME = {width: 640, height: 1345};
 const WEBP_QUALITY = 0.9;
 const READY_TIMEOUT_MS = 60_000;
@@ -125,30 +125,36 @@ function dataURL(png) {
 }
 
 function layout(desktopHeight) {
-    const windowHeight = HERO.titleBar + Math.round(desktopHeight * HERO.windowWidth / DESKTOP.width);
+    const phonePerWindow = (PHONE_FRAME.width * HERO.phoneToWindow) / PHONE_FRAME.height;
+    const desktopRatio = desktopHeight / DESKTOP.width;
+    const groupWidth = HERO.width - 2 * HERO.margin;
+    const windowWidth = Math.round((groupWidth - phonePerWindow * HERO.titleBar) / (1 - HERO.overlap + phonePerWindow * desktopRatio));
+    const windowHeight = HERO.titleBar + Math.round(desktopRatio * windowWidth);
     const phoneScale = (windowHeight * HERO.phoneToWindow) / PHONE_FRAME.height;
-    const phoneWidth = PHONE_FRAME.width * phoneScale;
     const phoneHeight = PHONE_FRAME.height * phoneScale;
-    const overlap = HERO.windowWidth * HERO.overlap;
-    const left = Math.round((HERO.width - (HERO.windowWidth + phoneWidth - overlap)) / 2);
-    const top = Math.round((HERO.height - (windowHeight + HERO.phoneBelow)) / 2);
-    return [
+    const height = windowHeight + HERO.phoneBelow + 2 * HERO.margin;
+    const css = [
         ':root {',
-        `  --window-left: ${left}px;`,
-        `  --window-top: ${top}px;`,
-        `  --window-width: ${HERO.windowWidth}px;`,
+        `  --canvas-width: ${HERO.width}px;`,
+        `  --canvas-height: ${height}px;`,
+        `  --window-left: ${HERO.margin}px;`,
+        `  --window-top: ${HERO.margin}px;`,
+        `  --window-width: ${windowWidth}px;`,
         `  --title-bar: ${HERO.titleBar}px;`,
-        `  --phone-left: ${Math.round(left + HERO.windowWidth - overlap)}px;`,
-        `  --phone-top: ${Math.round(top + windowHeight + HERO.phoneBelow - phoneHeight)}px;`,
+        `  --phone-left: ${Math.round(HERO.margin + windowWidth * (1 - HERO.overlap))}px;`,
+        `  --phone-top: ${Math.round(HERO.margin + windowHeight + HERO.phoneBelow - phoneHeight)}px;`,
         `  --phone-scale: ${phoneScale.toFixed(4)};`,
         '}',
     ].join('\n');
+    return {css, width: HERO.width, height};
 }
 
-function heroHTML(scheme, desktop, phone) {
+function heroHTML(scheme, placed, desktop, phone) {
     return fs.readFileSync(path.join(__dirname, 'hero.html'), 'utf8')
         .replace('{{scheme}}', scheme)
-        .replace('/* {{layout}} */', layout(desktop.height))
+        .replace('/* {{layout}} */', placed.css)
+        .replace('{{canvas-width}}', String(placed.width))
+        .replace('{{canvas-height}}', String(placed.height))
         .replace('{{desktop}}', dataURL(desktop.shot))
         .replace('{{phone}}', dataURL(phone.shot))
         .replaceAll('{{status-bg}}', phone.background);
@@ -169,9 +175,10 @@ async function toWebP(page, png) {
 }
 
 async function composeHero(browser, scheme, desktop, phone) {
-    const context = await browser.newContext({viewport: HERO, deviceScaleFactor: 1});
+    const placed = layout(desktop.height);
+    const context = await browser.newContext({viewport: {width: placed.width, height: placed.height}, deviceScaleFactor: 1});
     const page = await context.newPage();
-    await page.setContent(heroHTML(scheme, desktop, phone));
+    await page.setContent(heroHTML(scheme, placed, desktop, phone));
     await page.evaluate(() => Promise.all([...document.images].map((img) => img.decode())));
     const png = await page.screenshot();
     const webp = await toWebP(page, png);

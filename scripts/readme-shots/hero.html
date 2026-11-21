@@ -33,8 +33,8 @@
 
   html, body {
     margin: 0;
-    width: 2400px;
-    height: 1350px;
+    width: var(--canvas-width);
+    height: var(--canvas-height);
     overflow: hidden;
   }
 
@@ -207,7 +207,7 @@
 </style>
 </head>
 <body>
-  <canvas id="background" width="2400" height="1350"></canvas>
+  <canvas id="background" width="{{canvas-width}}" height="{{canvas-height}}"></canvas>
   <script>
     (() => {
       const dark = document.documentElement.dataset.scheme === 'dark';

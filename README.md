@@ -11,15 +11,10 @@ anything.
 
 It ships as one static binary or a Docker image.
 
-![A note with a task list and a Mermaid diagram](docs/screenshots/desktop-note.webp)
-
-![On a phone: a note in light theme, a note in dark theme, the editor](docs/screenshots/phone.webp)
-
-<p>
-  <img src="docs/screenshots/desktop-editor.webp" width="32%" alt="The editor with the text and the preview side by side">
-  <img src="docs/screenshots/desktop-search.webp" width="32%" alt="Search across all notes">
-  <img src="docs/screenshots/desktop-history.webp" width="32%" alt="Two versions of a note compared">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.webp">
+  <img alt="One note with a diagram, a chart, a table and a task list, on a laptop and on a phone" src="docs/screenshots/hero-light.webp">
+</picture>
 
 ## Features
 

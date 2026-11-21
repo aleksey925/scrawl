@@ -1,0 +1,281 @@
+<!doctype html>
+<html data-scheme="{{scheme}}">
+<head>
+<meta charset="utf-8">
+<style>
+  /* {{layout}} */
+
+  :root {
+    --titlebar: linear-gradient(#f1f1f3, #e7e7ea);
+    --titlebar-line: #d4d4d8;
+    --address: rgba(0, 0, 0, 0.06);
+    --address-text: #8a8a8e;
+    --window-shadow: rgba(0, 0, 0, 0.27);
+    --window-edge: rgba(0, 0, 0, 0.11);
+    --phone-shadow: rgba(0, 0, 0, 0.35);
+    --phone-edge: rgba(255, 255, 255, 0.18);
+    --status-text: #000;
+    --home-indicator: #000;
+  }
+
+  :root[data-scheme='dark'] {
+    --titlebar: linear-gradient(#303033, #28282b);
+    --titlebar-line: #1a1a1c;
+    --address: rgba(255, 255, 255, 0.08);
+    --address-text: #8e8e93;
+    --window-shadow: rgba(0, 0, 0, 0.55);
+    --window-edge: rgba(255, 255, 255, 0.16);
+    --phone-shadow: rgba(0, 0, 0, 0.63);
+    --phone-edge: rgba(255, 255, 255, 0.18);
+    --status-text: #fff;
+    --home-indicator: #fff;
+  }
+
+  html, body {
+    margin: 0;
+    width: 2400px;
+    height: 1350px;
+    overflow: hidden;
+  }
+
+  #background {
+    position: absolute;
+    inset: 0;
+  }
+
+  body {
+    position: relative;
+    font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .window {
+    position: absolute;
+    left: var(--window-left);
+    top: var(--window-top);
+    width: var(--window-width);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 30px 50px var(--window-shadow), 0 0 0 2px var(--window-edge);
+  }
+
+  .titlebar {
+    position: relative;
+    height: var(--title-bar);
+    background: var(--titlebar);
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--titlebar-line);
+  }
+
+  .lights {
+    position: absolute;
+    left: 22px;
+    top: 21px;
+    display: flex;
+    gap: 9px;
+  }
+
+  .lights span {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.15);
+  }
+
+  .lights span:nth-child(1) { background: #ff5f57; }
+  .lights span:nth-child(2) { background: #febc2e; }
+  .lights span:nth-child(3) { background: #28c840; }
+
+  .address {
+    position: absolute;
+    left: 50%;
+    top: 12px;
+    width: 600px;
+    height: 32px;
+    transform: translateX(-50%);
+    border-radius: 8px;
+    background: var(--address);
+    color: var(--address-text);
+    font-size: 14px;
+    line-height: 32px;
+    text-align: center;
+  }
+
+  .window img {
+    display: block;
+    width: 100%;
+  }
+
+  .phone {
+    position: absolute;
+    left: var(--phone-left);
+    top: var(--phone-top);
+    transform: scale(var(--phone-scale));
+    transform-origin: 0 0;
+    width: 640px;
+    height: 1345px;
+    border-radius: 110px;
+    padding: 6px;
+    box-sizing: border-box;
+    background: linear-gradient(135deg, #6b7079 0%, #2c2f34 22%, #4a4e55 50%, #24262a 78%, #6b7079 100%);
+    box-shadow:
+      0 calc(24px / var(--phone-scale)) calc(40px / var(--phone-scale)) var(--phone-shadow),
+      0 0 0 calc(2px / var(--phone-scale)) var(--phone-edge);
+  }
+
+  .button {
+    position: absolute;
+    width: 5px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #3b3e44, #6b7079);
+  }
+
+  .button.left { left: -4px; }
+  .button.right { right: -4px; background: linear-gradient(90deg, #6b7079, #3b3e44); }
+
+  .bezel {
+    width: 100%;
+    height: 100%;
+    border-radius: 104px;
+    padding: 14px;
+    box-sizing: border-box;
+    background: #050505;
+  }
+
+  .screen {
+    position: relative;
+    width: 600px;
+    height: 1305px;
+    border-radius: 90px;
+    overflow: hidden;
+    background: {{status-bg}};
+  }
+
+  .status {
+    position: relative;
+    height: 92px;
+    background: {{status-bg}};
+    color: var(--status-text);
+  }
+
+  .time {
+    position: absolute;
+    left: 72px;
+    top: 30px;
+    width: 110px;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .icons {
+    position: absolute;
+    right: 50px;
+    top: 35px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .island {
+    position: absolute;
+    left: 50%;
+    top: 17px;
+    width: 188px;
+    height: 55px;
+    transform: translateX(-50%);
+    border-radius: 28px;
+    background: #000;
+  }
+
+  .screen > img {
+    display: block;
+    width: 600px;
+    height: 1213px;
+  }
+
+  .home {
+    position: absolute;
+    left: 50%;
+    bottom: 12px;
+    width: 210px;
+    height: 8px;
+    transform: translateX(-50%);
+    border-radius: 4px;
+    background: var(--home-indicator);
+  }
+</style>
+</head>
+<body>
+  <canvas id="background" width="2400" height="1350"></canvas>
+  <script>
+    (() => {
+      const dark = document.documentElement.dataset.scheme === 'dark';
+      const from = dark ? [0x2c, 0x2e, 0x34] : [0xd6, 0xda, 0xe0];
+      const to = dark ? [0x18, 0x19, 0x1d] : [0xba, 0xc0, 0xca];
+      const light = [0x46, 0x4a, 0x54];
+      const canvas = document.getElementById('background');
+      const {width, height} = canvas;
+      const context = canvas.getContext('2d');
+      const image = context.createImageData(width, height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const t = 0.6 * x / width + 0.4 * y / height;
+          const d = Math.hypot(x - width / 2, y) / 1300;
+          const k = dark ? 0.5 * Math.exp(-2.2 * d * d) : 0;
+          const at = (y * width + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            const base = from[c] + (to[c] - from[c]) * t;
+            image.data[at + c] = Math.round(base * (1 - k) + light[c] * k);
+          }
+          image.data[at + 3] = 255;
+        }
+      }
+      context.putImageData(image, 0, 0);
+    })();
+  </script>
+  <div class="window">
+    <div class="titlebar">
+      <div class="lights"><span></span><span></span><span></span></div>
+      <div class="address">localhost:7272</div>
+    </div>
+    <img src="{{desktop}}" alt="">
+  </div>
+
+  <div class="phone">
+    <div class="button left" style="top: 250px; height: 52px"></div>
+    <div class="button left" style="top: 350px; height: 96px"></div>
+    <div class="button left" style="top: 466px; height: 96px"></div>
+    <div class="button right" style="top: 390px; height: 150px"></div>
+    <div class="button right" style="top: 760px; height: 80px"></div>
+    <div class="bezel">
+      <div class="screen">
+        <div class="status">
+          <div class="time">9:41</div>
+          <div class="icons">
+            <svg width="28" height="18" viewBox="0 0 28 18" fill="currentColor">
+              <rect x="0" y="12" width="5" height="6" rx="1.2"/>
+              <rect x="7.5" y="8.5" width="5" height="9.5" rx="1.2"/>
+              <rect x="15" y="4.5" width="5" height="13.5" rx="1.2"/>
+              <rect x="22.5" y="0" width="5" height="18" rx="1.2"/>
+            </svg>
+            <svg width="26" height="19" viewBox="0 0 26 19" fill="currentColor">
+              <path d="M13 3.2c3.7 0 7.1 1.4 9.7 3.8.3.3.8.3 1.1 0l1.6-1.6c.3-.3.3-.8 0-1.2C22.1 1.1 17.7-.7 13-.7S3.9 1.1.6 4.2c-.3.4-.3.9 0 1.2L2.2 7c.3.3.8.3 1.1 0C5.9 4.6 9.3 3.2 13 3.2z"/>
+              <path d="M13 8.9c2.1 0 4.1.8 5.6 2.1.3.3.8.3 1.1 0l1.6-1.6c.3-.3.3-.9 0-1.2C19.2 6.3 16.2 5.1 13 5.1s-6.2 1.2-8.3 3.1c-.3.3-.3.9 0 1.2L6.3 11c.3.3.8.3 1.1 0C8.9 9.7 10.9 8.9 13 8.9z"/>
+              <path d="M16.8 13.2c.3-.3.3-.9 0-1.2-1-.9-2.4-1.4-3.8-1.4s-2.8.5-3.8 1.4c-.3.3-.3.9 0 1.2l3.2 3.2c.3.3.8.3 1.1 0l3.3-3.2z"/>
+            </svg>
+            <svg width="40" height="19" viewBox="0 0 40 19">
+              <rect x="0.75" y="0.75" width="34" height="17.5" rx="5.2" fill="none" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.5"/>
+              <rect x="3" y="3" width="29.5" height="13" rx="3.2" fill="currentColor"/>
+              <path d="M37 6.3v6.4c1.3-.5 2.2-1.8 2.2-3.2s-.9-2.7-2.2-3.2z" fill="currentColor" fill-opacity="0.4"/>
+            </svg>
+          </div>
+        </div>
+        <img src="{{phone}}" alt="">
+        <div class="island"></div>
+        <div class="home"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

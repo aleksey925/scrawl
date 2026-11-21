@@ -50,7 +50,9 @@ web/vite.icons.ts      the build step that keeps only the icon weights
                        the app draws
 e2e/                   playwright suite against a real binary
 examples/data/         sample notes: tests, `make run` and the browser suite
-scripts/               try-sync.sh, the sync states of a clone tried by hand
+scripts/               try-sync.sh, the sync states of a clone tried by hand,
+                       readme-shots/, the hero picture of the README and
+                       the notes it shows
 vendor/                dependencies, checked in, `make deps` regenerates
 docs/design/           how each part works and the rules it keeps
 docs/ui/               how each screen looks and behaves
@@ -241,4 +243,5 @@ make cover      race tests plus a coverage summary
 make lint       every pre-commit hook, through prek
 make run        run ./examples/data as the "notes" space, auth disabled
 make e2e        the browser suite
+make readme-shots  the hero picture of the README into docs/screenshots/
 ```

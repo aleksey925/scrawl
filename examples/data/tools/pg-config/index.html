@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PostgreSQL config</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #d2d2d7;
+    --accent: #336791;
+    --accent-text: #ffffff;
+    --code: #f0f2f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #191919;
+      --card: #252525;
+      --text: #ececec;
+      --muted: #9b9b9b;
+      --line: #3a3a3a;
+      --accent: #6a9fd4;
+      --accent-text: #0d1b29;
+      --code: #1f1f1f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 40px;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  .lead { margin: 0 0 20px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  label { display: block; margin-bottom: 12px; font-weight: 600; font-size: 13px; }
+  label span { display: block; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    font-weight: 400;
+  }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hint { display: block; margin-top: 4px; color: var(--muted); font-weight: 400; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .tabs { display: inline-flex; padding: 2px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); }
+  .tabs button { border: 0; background: none; color: var(--muted); padding: 4px 12px; border-radius: 999px; font: inherit; font-size: 13px; cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--card); color: var(--text); font-weight: 600; }
+  .copy { border: 0; border-radius: 8px; padding: 6px 14px; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600; cursor: pointer; }
+  pre {
+    margin: 0;
+    padding: 12px;
+    overflow-x: auto;
+    border-radius: 8px;
+    background: var(--code);
+    font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .note { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>PostgreSQL config</h1>
+  <p class="lead">A starting point for <code>postgresql.conf</code> from the size of the server and the kind of load.</p>
+  <div class="grid">
+    <form class="card" id="form">
+      <label><span>PostgreSQL version</span>
+        <select name="version">
+          <option>17</option><option>16</option><option>15</option><option>14</option><option>13</option>
+        </select>
+      </label>
+      <label><span>Load</span>
+        <select name="load">
+          <option value="web">Web app</option>
+          <option value="oltp">Many short transactions</option>
+          <option value="dw">Reports and analytics</option>
+          <option value="mixed">Mixed</option>
+          <option value="desktop">A developer's machine</option>
+        </select>
+      </label>
+      <div class="pair">
+        <label><span>Memory, GB</span>
+          <input name="ram" type="number" min="1" max="4096" step="1" value="16" inputmode="numeric">
+        </label>
+        <label><span>CPU cores</span>
+          <input name="cpu" type="number" min="1" max="512" step="1" value="4" inputmode="numeric">
+        </label>
+      </div>
+      <label><span>Connections</span>
+        <input name="connections" type="number" min="5" max="10000" step="1" placeholder="by the load" inputmode="numeric">
+        <small class="hint">Leave empty to take the usual number for the load.</small>
+      </label>
+      <label><span>Disks</span>
+        <select name="disk">
+          <option value="ssd">SSD</option>
+          <option value="san">Network storage</option>
+          <option value="hdd">HDD</option>
+        </select>
+      </label>
+    </form>
+    <section class="card">
+      <div class="head">
+        <div class="tabs" role="group" aria-label="Format">
+          <button type="button" data-format="conf" aria-pressed="true">postgresql.conf</button>
+          <button type="button" data-format="sql" aria-pressed="false">ALTER SYSTEM</button>
+        </div>
+        <button type="button" class="copy" id="copy">Copy</button>
+      </div>
+      <pre id="out"></pre>
+      <p class="note">These are rules of thumb, not a benchmark. Check them under your own load.</p>
+    </section>
+  </div>
+</main>
+<script>
+  const KB = 1;
+  const MB = 1024 * KB;
+  const GB = 1024 * MB;
+
+  const loads = {
+    web: {connections: 200, buffers: 1 / 4, cache: 3 / 4, maintenance: 1 / 16, workMem: 1, stats: 100, wal: ['1GB', '4GB']},
+    oltp: {connections: 300, buffers: 1 / 4, cache: 3 / 4, maintenance: 1 / 16, workMem: 1, stats: 100, wal: ['2GB', '8GB']},
+    dw: {connections: 40, buffers: 1 / 4, cache: 3 / 4, maintenance: 1 / 8, workMem: 2, stats: 500, wal: ['4GB', '16GB']},
+    mixed: {connections: 100, buffers: 1 / 4, cache: 3 / 4, maintenance: 1 / 16, workMem: 2, stats: 100, wal: ['1GB', '4GB']},
+    desktop: {connections: 20, buffers: 1 / 16, cache: 1 / 4, maintenance: 1 / 16, workMem: 6, stats: 100, wal: ['100MB', '2GB']},
+  };
+  const disks = {
+    ssd: {pageCost: 1.1, io: 200},
+    san: {pageCost: 1.1, io: 300},
+    hdd: {pageCost: 4, io: 2},
+  };
+
+  function size(kb) {
+    if (kb >= GB && kb % GB === 0) return `${kb / GB}GB`;
+    if (kb >= MB) return `${Math.floor(kb / MB)}MB`;
+    return `${Math.floor(kb)}kB`;
+  }
+
+  function number(form, name, fallback) {
+    const value = Number.parseInt(form.elements[name].value, 10);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  }
+
+  function settings(form) {
+    const load = loads[form.elements.load.value];
+    const disk = disks[form.elements.disk.value];
+    const ram = number(form, 'ram', 16) * GB;
+    const cpu = number(form, 'cpu', 4);
+    const connections = number(form, 'connections', load.connections);
+
+    const buffers = ram * load.buffers;
+    const walBuffers = Math.min(16 * MB, Math.max(32 * KB, buffers * 0.03));
+    const perGather = cpu >= 4 ? Math.min(Math.ceil(cpu / 2), form.elements.load.value === 'dw' ? cpu : 4) : 0;
+    const workers = cpu >= 4 ? cpu : 8;
+    const workMem = Math.max(64 * KB, (ram - buffers) / ((connections + workers) * 3) / Math.max(perGather, 1) / load.workMem);
+
+    const rows = [
+      ['max_connections', connections],
+      ['shared_buffers', size(buffers)],
+      ['effective_cache_size', size(ram * load.cache)],
+      ['maintenance_work_mem', size(Math.min(2 * GB, ram * load.maintenance))],
+      ['work_mem', size(workMem)],
+      ['huge_pages', ram >= 32 * GB ? 'try' : 'off'],
+      ['wal_buffers', size(walBuffers > 14 * MB ? 16 * MB : walBuffers)],
+      ['min_wal_size', load.wal[0]],
+      ['max_wal_size', load.wal[1]],
+      ['checkpoint_completion_target', 0.9],
+      ['default_statistics_target', load.stats],
+      ['random_page_cost', disk.pageCost],
+      ['effective_io_concurrency', disk.io],
+    ];
+    if (cpu >= 4) {
+      rows.push(
+        ['max_worker_processes', cpu],
+        ['max_parallel_workers', cpu],
+        ['max_parallel_workers_per_gather', perGather],
+        ['max_parallel_maintenance_workers', Math.min(Math.ceil(cpu / 2), 4)],
+      );
+    }
+    return rows;
+  }
+
+  let format = 'conf';
+  const form = document.getElementById('form');
+  const out = document.getElementById('out');
+
+  function quoted(value) {
+    return typeof value === 'number' ? String(value) : `'${value}'`;
+  }
+
+  function draw() {
+    const version = form.elements.version.value;
+    const rows = settings(form);
+    const lines = format === 'conf'
+      ? [`# PostgreSQL ${version}`, ...rows.map(([name, value]) => `${name} = ${value}`)]
+      : [`-- PostgreSQL ${version}`, ...rows.map(([name, value]) => `ALTER SYSTEM SET ${name} = ${quoted(value)};`)];
+    out.textContent = lines.join('\n');
+  }
+
+  form.addEventListener('input', draw);
+  form.addEventListener('submit', (event) => event.preventDefault());
+  for (const button of document.querySelectorAll('[data-format]')) {
+    button.addEventListener('click', () => {
+      format = button.dataset.format;
+      for (const other of document.querySelectorAll('[data-format]')) {
+        other.setAttribute('aria-pressed', String(other === button));
+      }
+      draw();
+    });
+  }
+  document.getElementById('copy').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    try {
+      await navigator.clipboard.writeText(out.textContent);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Select and copy';
+    }
+    setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+  });
+  draw();
+</script>
+</body>
+</html>

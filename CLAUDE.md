@@ -244,5 +244,5 @@ make cover      race tests plus a coverage summary
 make lint       every pre-commit hook, through prek
 make run        run ./examples/data as the "notes" space, auth disabled
 make e2e        the browser suite
-make readme-shots  the hero picture of the README into docs/screenshots/
+make readme-promo  the hero picture of the README into docs/screenshots/
 ```

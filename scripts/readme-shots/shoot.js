@@ -7,7 +7,7 @@ const {spawn} = require('child_process');
 const repoRoot = path.resolve(__dirname, '..', '..');
 const {chromium} = require(require.resolve('playwright', {paths: [path.join(repoRoot, 'e2e')]}));
 
-const NOTE = 'showcase/postgres-migration.md';
+const NOTE = 'projects/postgres-migration.md';
 const SPACE = 'notes';
 const DESKTOP = {width: 1280, height: 880, scale: 2, cropMargin: 4, titleGap: 32};
 const PHONE = {width: 402, height: 874, statusBar: 62, homeIndicator: 34, scale: 3};

@@ -4860,7 +4860,7 @@ test.describe('mobile', () => {
         await page.goto(routes.doc(docs.linked.path));
         await page.getByTestId('note-bar-find').tap();
         await expect(page.getByTestId('doc-find')).toBeVisible();
-        const link = page.locator('[data-testid=doc] a[href$="/notes/gone.md"]');
+        const link = page.locator(`[data-testid=doc] a[href$="/${docs.linked.missing}"]`);
         await link.evaluate((anchor) => anchor.scrollIntoView({block: 'center', behavior: 'instant'}));
         const read = await readingPlace(page);
         await page.evaluate(() => {

@@ -1,6 +1,8 @@
-"""Non-markdown attachment: served raw, never rendered."""
+"""Turn a note title into a file name."""
 
 from __future__ import annotations
+
+import sys
 
 
 def slugify(title: str) -> str:
@@ -8,4 +10,4 @@ def slugify(title: str) -> str:
 
 
 if __name__ == "__main__":
-    print(slugify("Hello Notes"))
+    print(slugify(" ".join(sys.argv[1:]) or "Meeting notes"))

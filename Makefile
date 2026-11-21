@@ -11,7 +11,7 @@ TEST_TIMEOUT = 20m
 DOCKER_ARGS=--build-arg VERSION=$(VERSION)
 DOCKER_IMAGE = ghcr.io/aleksey925/scrawl
 
-.PHONY: deps ui formatter plantuml gzassets build snapshot run readme-shots e2e test test-gzassets race cover lint img
+.PHONY: deps ui formatter plantuml gzassets build snapshot run readme-promo e2e test test-gzassets race cover lint img
 
 img:
 	@DOCKER_BUILDKIT=1 docker build $(DOCKER_ARGS) -t $(DOCKER_IMAGE):$(VERSION) .
@@ -72,9 +72,9 @@ run:
     --auth.tokens=bot:demo-token:ro \
     --auth.secret-file=/tmp/scrawl-session.key
 
-readme-shots:
-	@go build -o $(DIST_DIR)/readme-shots/scrawl .
-	@node scripts/readme-shots/shoot.js $(DIST_DIR)/readme-shots/scrawl docs/screenshots
+readme-promo:
+	@go build -o $(DIST_DIR)/readme-promo/scrawl .
+	@node scripts/readme-shots/shoot.js $(DIST_DIR)/readme-promo/scrawl docs/screenshots
 
 e2e: build
 	@cd e2e && npx playwright test

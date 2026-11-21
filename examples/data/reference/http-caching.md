@@ -1,9 +1,7 @@
 # Caching in HTTP
 
-A showcase of every markup element in one note: it makes it easy to check how
-changes to the theme and styles affect readability. The text is real, so the
-eye reads it like a normal note and not like a list of samples. Back to the
-[contents](../index.md).
+How a browser decides whether to fetch a response again, and how the server
+tells it. Back to the [index](../index.md).
 
 ## In short
 
@@ -29,8 +27,8 @@ Chemistry and math show up in notes too: H<sub>2</sub>O, 2<sup>10</sup> =
 1024, and the lifetime of a response is computed as
 $t_{fresh} = max\text{-}age - age$. Details are in
 [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) and in the
-[note on the shell](../notes/shell-cookbook.md); a link to a
-[page that does not exist](missing-page.md) should look broken. A bare link
+[shell cookbook](shell-cookbook.md), and a
+[note on CDNs](cdn.md) is still to be written. A bare link
 works too: https://developer.mozilla.org/docs/Web/HTTP/Caching.
 
 ## Cache-Control directives
@@ -259,9 +257,7 @@ $$
 hit\ ratio = \frac{hits}{hits + misses} \times 100\%
 $$
 
-## Image and collapsible block
-
-![Logo from the images folder](../images/logo.png)
+## A full response
 
 <details>
 <summary>The full server response with headers</summary>

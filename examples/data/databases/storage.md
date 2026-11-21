@@ -2,8 +2,7 @@
 
 A note on how a relational database lays rows out in files, what it does
 with them on a read, and why the same query can run in ten milliseconds
-or in ten seconds. The document is long on purpose: it shows the side
-outline, anchor links and code highlighting in one place.
+or in ten seconds.
 
 Contents:
 

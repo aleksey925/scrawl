@@ -1,7 +1,7 @@
 # Shell cookbook
 
-A long page on purpose: it is the fixture the browser suite scrolls when
-it checks that opening the editor lands where the reader was looking.
+Commands worth remembering, from moving around to cleaning up after a
+script.
 
 Back to the [index](../index.md).
 

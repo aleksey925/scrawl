@@ -27,8 +27,8 @@ const appOnly = [
   /\/src\/(offline|sw|htmlapp)\//,
   /\/src\/api\/client\.ts$/,
   /\/src\/(App|appPlatform|findWorker|routes|main)\.tsx?$/,
-  /\/src\/pages\/(EditPage|HistoryPage|NotePage|RunPage|SearchPage)\.tsx$/,
-  /\/src\/shell\/(AppLayout|BarEditProvider|DocumentExtras|EditAction|ExportMenu|FileActions|FileView|HistoryDialog|NeedsNetwork|NewTiles|NoteExtensions|NoteMenu|OfflineAccess|OfflineMark|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
+  /\/src\/pages\/(EditPage|HistoryPage|NotePage|ProfilePage|RunPage|SearchPage)\.tsx$/,
+  /\/src\/shell\/(AppLayout|Avatar|Capsule|DocumentExtras|ExportMenu|FileActions|FileView|HistoryDialog|NeedsNetwork|NoteExtensions|NoteMenu|OfflineAccess|OfflineMark|PageSheet|ResetDialog|RowMenu|SearchDialog|SearchResults|SpaceAlerts|SpaceMenu|SyncControl|TabBar|useMe|useMutationState)\.tsx?$/,
   /\/node_modules\/(@codemirror|@uiw|prettier|mermaid|katex|@plantuml|dompurify)\//,
 ];
 

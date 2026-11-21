@@ -169,11 +169,6 @@
   white-space: nowrap;
 }
 
-.rowDetail {
-  color: var(--scrawl-text-secondary);
-  font-size: 13px;
-  line-height: 1.3;
-}
 
 .rowRight {
   display: flex;

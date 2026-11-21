@@ -1,5 +1,5 @@
 import { ActionIcon, Menu, Text } from '@mantine/core';
-import { useMemo, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
@@ -33,6 +33,10 @@ function wordsOf(html: string): number {
   return counted.words;
 }
 
+function shownWords(html: string, opened: boolean): number {
+  return opened || counted?.html === html ? wordsOf(html) : 0;
+}
+
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const navigate = useNavigate();
   const { canWrite, me } = useAccount();
@@ -43,7 +47,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const { openOutline } = useReaderLayout();
   const keyboard = useKeyboardPlace();
   const [opened, setOpened] = useState(false);
-  const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
+  const words = shownWords(doc.html, opened);
 
   return (
     <PopupMenu position="bottom-end" width={260} withinPortal opened={opened} onChange={setOpened}>
@@ -143,7 +147,7 @@ export interface NoteSheetProps {
 export function NoteSheet({ doc, opened, onClose }: NoteSheetProps): JSX.Element {
   const { me } = useAccount();
   const exporter = useNoteExport(doc.path);
-  const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
+  const words = shownWords(doc.html, opened);
   const pick = (action: () => void): void => {
     onClose();
     action();

@@ -5,7 +5,7 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, PAST_DRAFT_DELAY_MS, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, PAST_DRAFT_DELAY_MS, READONLY, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
     holdRoute, mockMe, nameOf, okToast, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -426,6 +426,28 @@ test.describe('mobile', () => {
                 await expect(page.getByTestId(testId)).toHaveCount(0);
             }
             await expect(page.getByTestId('note-menu-copy-link')).toBeVisible();
+        });
+
+        test('a reader of a read-only space sees no Edit in the bar of a text file and no write in its sheet', async ({page}) => {
+            // arrange
+            const textFile = 'e2e-mobile/reader/plain.txt';
+            writeFixture(textFile, 'just text\n');
+            await mockMe(page, {}, {read_only: true});
+            await page.goto(routes.doc(textFile));
+            await expect(page.getByTestId('file')).toBeVisible();
+
+            // act
+            await page.getByTestId('file-menu').tap();
+
+            // assert
+            await openedMenu(page, 'file-menu-dropdown');
+            const actionsOf = page.getByTestId('file-bar').locator(':scope > :is(button, a)');
+            expect(await actionsOf.evaluateAll((items) => items.map((el) => el.dataset.testid))).toEqual(['file-menu']);
+            for (const testId of ['file-menu-rename', 'file-menu-move', 'file-menu-delete']) {
+                await expect(page.getByTestId(testId)).toHaveCount(0);
+            }
+            await expect(page.getByTestId('file-download')).toBeVisible();
+            removeFixture('e2e-mobile/reader');
         });
 
         test('New is gone in a read-only space, and the tab bar takes the whole width', async ({page}) => {
@@ -2848,6 +2870,34 @@ test.describe('mobile', () => {
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
         });
 
+        test('Move to keeps its button off for the folder the file is in and for a folder that holds its name', async ({page}) => {
+            // arrange
+            const name = 'twin.md';
+            const file = `${FOLDER}/${name}`;
+            const other = `${FOLDER}/holds-twin`;
+            writeFixture(file, '# Twin\n');
+            writeFixture(`${other}/${name}`, '# Other twin\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill(nameOf(FOLDER));
+            const here = page.locator(`[data-testid=move-place][data-path="${FOLDER}"]`);
+            await expect(here).toHaveAttribute('data-current', 'true');
+
+            // act & assert
+            await here.tap({force: true});
+            await expect(page.getByTestId('move-submit')).toHaveText('Move');
+            await expect(page.getByTestId('move-submit')).toBeDisabled();
+
+            await page.getByTestId('move-input').fill(nameOf(other));
+            await page.locator(`[data-testid=move-place][data-path="${other}"]`).tap();
+            await expect(page.getByTestId('move-taken')).toHaveText(`${nameOf(other)} already holds ${name}`);
+            await expect(page.getByTestId('move-submit')).toBeDisabled();
+            removeFixture(other);
+            removeFixture(file);
+        });
+
         test('Cancel in Move to closes it and moves nothing', async ({page}) => {
             // arrange
             const file = `${FOLDER}/stay-put.md`;
@@ -3180,6 +3230,45 @@ test.describe('mobile', () => {
         await expect(page.locator('main')).toHaveCSS('background-color', rgb(lightTheme.palette.groupedBg));
         expect(await tooSmall(page, '[data-testid=profile-page] :is(a, button)')).toEqual([]);
         await shot(page, 'mobile-profile');
+    });
+
+    test('Sign out on the profile page leads to the sign-in screen', async ({page}) => {
+        // arrange
+        await openProfile(page);
+
+        // act
+        await page.getByTestId('profile-signout').tap();
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login\\?from=`));
+        await expect(page.locator('form.login-box')).toBeVisible();
+    });
+
+    test('the profile page of a read-only space names the mode in a row of its own', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {read_only: true});
+
+        // act
+        await openProfile(page);
+
+        // assert
+        await expect(page.getByTestId('profile-readonly')).toHaveText('Read-only mode');
+        await expect(page.getByTestId('profile-signout')).toBeVisible();
+    });
+
+    test('the profile page of no user offers Sign in, which leads to the sign-in screen', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {user: ''});
+        await openProfile(page);
+        await expect(page.getByTestId('profile-signout')).toHaveCount(0);
+        await page.context().clearCookies();
+
+        // act
+        await page.getByTestId('profile-signin').tap();
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login`));
+        await expect(page.locator('form.login-box')).toBeVisible();
     });
 
     test('Offline access and Sign out are one-line rows of 48px in groups of their own, the icon and the switch centered', async ({page}) => {
@@ -4231,8 +4320,10 @@ test.describe('mobile', () => {
     });
 
     test('the way back and the page text start on one line, and the text keeps the same room on the right', async ({page}) => {
+        // act
         await page.goto(routes.doc(DOC));
 
+        // assert
         const width = page.viewportSize().width;
         const back = await page.getByTestId('topbar-up').locator('svg').boundingBox();
         const heading = await page.getByTestId('doc').locator('h1').first().boundingBox();
@@ -4654,6 +4745,42 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-history');
     });
 
+    test('Restore in the history sheet asks first and then brings the picked version back', async ({page}) => {
+        // arrange
+        const note = `${HISTORY_FOLDER}/restored-${Date.now()}.md`;
+        const first = '# Первая\n';
+        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+        for (const body of [first, '# Вторая\n']) {
+            await setSource(page, body);
+            await save(page);
+        }
+        await page.goto(HISTORY.url.history(note));
+        await expect(page.getByTestId('version')).toHaveCount(2);
+        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
+        await expect(page.getByTestId('version-restore')).toBeDisabled();
+
+        // act
+        await page.getByTestId('version').nth(1).tap();
+        await page.getByTestId('version-restore').tap();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
+        await page.getByTestId('modal-confirm').tap();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
+        await expect.poll(() => readFixture(note, HISTORY)).toBe(first);
+        await expect(page.getByTestId('version')).toHaveCount(3);
+    });
+
+    test('the history sheet of a read-only space lists the versions and offers no Restore', async ({page}) => {
+        // act
+        await signIn(page, {baseURL: READONLY.baseURL, from: routes.history(DOC)});
+
+        // assert
+        await expect(page.getByTestId('history-dialog')).toBeVisible();
+        await expect(page.getByTestId('version').first()).toBeVisible();
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+    });
+
     test('the search field has the focus as soon as the search opens, and keeps it', async ({page}) => {
         // arrange
         await page.goto(routes.home());
@@ -4898,7 +5025,8 @@ test.describe('mobile', () => {
         await expect.poll(() => active.evaluate((hit) => {
             const box = hit.getBoundingClientRect();
             const note = hit.closest('[data-screen]').getBoundingClientRect();
-            return box.top >= note.top && box.bottom <= note.bottom;
+            const card = document.querySelector('[data-testid=doc-find]').getBoundingClientRect();
+            return box.top >= note.top && box.bottom <= card.top;
         })).toBe(true);
     });
 

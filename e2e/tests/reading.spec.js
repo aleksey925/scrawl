@@ -5,7 +5,7 @@ const {expect, test} = require('../support/test');
 const docs = require('../support/docs');
 const {
     DIALOG_TITLE, MAIN, chooseTheme, headingAnchorGeometry, mediumShadow, modifier, nameOf, openSpaceMenu, pressShortcut, removeFixture,
-    rgb, routes, shot, showOutline, signIn, titleRoom, writeFixture,
+    rgb, routes, shot, showOutline, signIn, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
 const darkTheme = require('../../theme/themes/dark.json');
@@ -884,10 +884,9 @@ test.describe('reading', () => {
 
         // act
         await page.mouse.wheel(0, 100);
-        await page.waitForTimeout(300);
 
         // assert
-        expect(await page.evaluate(() => window.scrollY), 'only the outline scrolled').toBe(pageY);
+        await stays(() => page.evaluate(() => window.scrollY), pageY, 500);
         await expect(active).toHaveText('Section 64');
         removeFixture(OUTLINE);
     });

@@ -2,7 +2,7 @@ import { Notifications, notifications, type NotificationData } from '@mantine/no
 import { useEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 
 import { IconAlertTriangle, IconCheck } from '../icons';
-import { keyboardShown } from '../shell/useVisibleArea';
+import { followKeyboardArea } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 import type { ToastKind } from '../toast';
 
@@ -74,33 +74,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
 }
 
 function useKeyboardRoom(active: boolean): void {
-  useEffect(() => {
-    const view = window.visualViewport;
-    if (!active || view === null) {
-      return undefined;
-    }
-    const root = document.documentElement.style;
-    const release = (): void => {
-      root.removeProperty('--scrawl-toast-view-top');
-      root.removeProperty('--scrawl-toast-view-height');
-    };
-    const follow = (): void => {
-      if (!keyboardShown(view)) {
-        release();
-        return;
-      }
-      root.setProperty('--scrawl-toast-view-top', `${view.offsetTop}px`);
-      root.setProperty('--scrawl-toast-view-height', `${view.height}px`);
-    };
-    follow();
-    view.addEventListener('resize', follow);
-    view.addEventListener('scroll', follow);
-    return () => {
-      view.removeEventListener('resize', follow);
-      view.removeEventListener('scroll', follow);
-      release();
-    };
-  }, [active]);
+  useEffect(() => (active ? followKeyboardArea('toast-view') : undefined), [active]);
 }
 
 export function Toasts(): JSX.Element {

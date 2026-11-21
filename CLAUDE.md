@@ -210,8 +210,9 @@ Before changing a part, read its doc:
   kept on the device, the draft offer, leaving the editor:
   [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
-- the tab bar, dialogs, toasts, screen moves, swipe back, the find bar above
-  the keyboard: [phone](docs/ui/phone.md)
+- the capsule, its tab bar and New, the note and file bars, the grouped lists,
+  the sheets, Profile, the search and find cards, a rename in a row, dialogs,
+  toasts, screen moves, swipe back: [phone](docs/ui/phone.md)
 - tap sizes, `TapGuard`, the pressed state, a long press:
   [touch](docs/ui/touch.md)
 - why something is built the way it is: [`docs/adr/`](docs/adr/)

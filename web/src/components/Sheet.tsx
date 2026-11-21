@@ -95,7 +95,6 @@ interface SheetRowBody {
   icon?: Icon;
   lead?: ReactNode;
   label: ReactNode;
-  detail?: ReactNode;
   right?: ReactNode;
   danger?: boolean;
   testId?: string;
@@ -110,14 +109,13 @@ export type SheetRowProps = SheetRowBody &
   );
 
 export function SheetRow(props: SheetRowProps): JSX.Element {
-  const { icon: RowIcon, lead, label, detail, right, danger = false, testId } = props;
+  const { icon: RowIcon, lead, label, right, danger = false, testId } = props;
   const body = (
     <>
       {RowIcon !== undefined && <RowIcon size={layout.iconSizeLarge} className={classes.rowIcon} aria-hidden />}
       {lead}
       <span className={classes.rowText}>
         <span className={classes.rowLabel}>{label}</span>
-        {detail !== undefined && <span className={classes.rowDetail}>{detail}</span>}
       </span>
       {right !== undefined && <span className={classes.rowRight}>{right}</span>}
     </>

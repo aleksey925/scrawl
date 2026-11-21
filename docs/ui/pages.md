@@ -57,55 +57,55 @@ opens over them.
   offline mark shows its tip the same way; the button stays gray while its tip
   is open. A click on a problem state opens the facts behind it, in a popover
   as wide as its text and no wider than 320px, so a short state is not a
-  half-empty box; a phone has no popover and shows them on Profile. In a
-  conflict it lists the files under "Conflicting files:" and has no button:
-  Replace local copy is in the banner, which every screen shows. Its dialog is
-  the prototype's alert: a bold title ending in a question, gray text, the
-  files on a gray ground with their icons, no colored callout and no close
-  button, and a blue Replace, since nothing is lost. Under reduced motion the
-  spinner is a still cloud with an arrow. A folder is always its list, the root
-  included: a Notion database of Name, Size and Modified led by a `..` row, and
-  a click anywhere on a row opens it. A right click on a row opens the menu the
-  tree row has, at the pointer as a desktop has it, over the row's name and its
-  selected text too, as a tree row does. It creates nothing: from a row a new
-  entry was named in the tree, away from the list. On the free space of the
-  page a right click opens a menu of New note and New folder, a note's draft
-  and a row of the table for the folder; there a link, a button and selected
-  text keep the browser's own menu, so text is still copied from there. The
-  free space is the page, which grows to the bottom of the window. A row keeps
-  the hover gray while its menu is up. A rename draws the field in the name
-  cell of the row, on the gray a new row has, and the row then takes no click,
-  no right click and no hover. New is a large main button at the right of the
-  folder's title, where Notion puts New page: a click opens a note's draft, and
-  the arrow joined to it opens a menu of New folder alone, as wide as its
-  label, which puts a row with the field after the last folder. Its tip names
-  the key `N`. The page has no `⋯` in the topbar: its Copy link, Rename, Move
-  to and Delete are the row menu's, in the tree and in the list of the folder
-  above, and a menu of a folder on its own page was a second place for them.
-  There is no gray pill of the one view and no count of the items over the
-  table: the pill switched nothing, and the count said what the rows show. The
-  table is Notion's too: no line between the columns, which read as a
-  spreadsheet, and columns of their own width, the name 530px and the others
-  150px, as a file name carries its extension, with an empty one at the end
-  taking the rest and the row lines running across it, so a date is not a
-  screen away from its name. Every column starts at its left edge, the size
-  too: a size against its right edge stood against the date and the two read as
-  one column. On a narrow page the name gives way. A column's header is gray
-  text of the regular weight with a filled icon, as Notion heads one; 500
-  beside the system's own smoothing read bold, and an empty folder keeps the
-  header with its empty state under it, a blue New note and a plain New folder.
-  Its `index.md` is a row like any other, in its place by name, with a "Folder
-  page" tag, and no readme is shown under the list; Home in the sidebar opens
-  the root `index.md`, or the root's list when there is none. A folder holding
-  two cases of `index.md` has no folder page, and a site refuses it, because
-  both would be written to one file. A note that does not exist yet is a page
-  too, its file name as a faint title and the ways on from there, the first of
-  them, create it, on Enter. On a phone the bar on top holds `‹` with the
-  folder above, the title once the page's own has scrolled under the bar, at
-  once on a page that has none of its own, and the sync control at the right.
-  The title there stays the note's title, since it stands for the heading that
-  scrolled under the bar. The actions of a note or a file are in its capsule at
-  the bottom ([phone](phone.md)). A rename of the page puts its field in the
+  half-empty box; a phone opens the same popover. In a conflict it lists the
+  files under "Conflicting files:" and has no button: Replace local copy is in
+  the banner, which every screen shows. Its dialog is the prototype's alert: a
+  bold title ending in a question, gray text, the files on a gray ground with
+  their icons, no colored callout and no close button, and a blue Replace,
+  since nothing is lost. Under reduced motion the spinner is a still cloud with
+  an arrow. A folder is always its list, the root included: a Notion database
+  of Name, Size and Modified led by a `..` row, and a click anywhere on a row
+  opens it. A right click on a row opens the menu the tree row has, at the
+  pointer as a desktop has it, over the row's name and its selected text too,
+  as a tree row does. It creates nothing: from a row a new entry was named in
+  the tree, away from the list. On the free space of the page a right click
+  opens a menu of New note and New folder, a note's draft and a row of the
+  table for the folder; there a link, a button and selected text keep the
+  browser's own menu, so text is still copied from there. The free space is the
+  page, which grows to the bottom of the window. A row keeps the hover gray
+  while its menu is up. A rename draws the field in the name cell of the row,
+  on the gray a new row has, and the row then takes no click, no right click
+  and no hover. New is a large main button at the right of the folder's title,
+  where Notion puts New page: a click opens a note's draft, and the arrow
+  joined to it opens a menu of New folder alone, as wide as its label, which
+  puts a row with the field after the last folder. Its tip names the key `N`.
+  The page has no `⋯` in the topbar: its Copy link, Rename, Move to and Delete
+  are the row menu's, in the tree and in the list of the folder above, and a
+  menu of a folder on its own page was a second place for them. There is no
+  gray pill of the one view and no count of the items over the table: the pill
+  switched nothing, and the count said what the rows show. The table is
+  Notion's too: no line between the columns, which read as a spreadsheet, and
+  columns of their own width, the name 530px and the others 150px, as a file
+  name carries its extension, with an empty one at the end taking the rest and
+  the row lines running across it, so a date is not a screen away from its
+  name. Every column starts at its left edge, the size too: a size against its
+  right edge stood against the date and the two read as one column. On a narrow
+  page the name gives way. A column's header is gray text of the regular weight
+  with a filled icon, as Notion heads one; 500 beside the system's own
+  smoothing read bold, and an empty folder keeps the header with its empty
+  state under it, a blue New note and a plain New folder. Its `index.md` is a
+  row like any other, in its place by name, with a "Folder page" tag, and no
+  readme is shown under the list; Home in the sidebar opens the root
+  `index.md`, or the root's list when there is none. A folder holding two cases
+  of `index.md` has no folder page, and a site refuses it, because both would
+  be written to one file. A note that does not exist yet is a page too, its
+  file name as a faint title and the ways on from there, the first of them,
+  create it, on Enter. On a phone the bar on top holds `‹` with the folder
+  above, the title once the page's own has scrolled under the bar, at once on a
+  page that has none of its own, and the sync control at the right. The title
+  there stays the note's title, since it stands for the heading that scrolled
+  under the bar. The actions of a note or a file are in its capsule at the
+  bottom ([phone](phone.md)). A rename of the page puts its field in the
   title's place across the whole bar, and the way back leaves the bar until it
   is done; the sync control stays after the field. The sync control is the icon
   alone on a phone: a word next to a title of half the bar did not fit. A tap

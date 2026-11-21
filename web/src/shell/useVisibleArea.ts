@@ -60,25 +60,25 @@ export function useFullScreenStyle(active: boolean): CSSProperties | undefined {
   } as CSSProperties;
 }
 
-export function followVisibleArea(element: HTMLElement): () => void {
+export function followKeyboardArea(prefix: string, onFollow?: (keyboard: boolean) => void): () => void {
   const view = window.visualViewport;
   if (view === null) {
     return () => {};
   }
   const root = document.documentElement.style;
   const release = (): void => {
-    root.removeProperty('--scrawl-visible-height');
-    root.removeProperty('--scrawl-visible-top');
+    root.removeProperty(`--scrawl-${prefix}-height`);
+    root.removeProperty(`--scrawl-${prefix}-top`);
   };
   const follow = (): void => {
     const keyboard = keyboardShown(view);
-    element.dataset.keyboard = keyboard ? 'true' : 'false';
+    onFollow?.(keyboard);
     if (!keyboard) {
       release();
       return;
     }
-    root.setProperty('--scrawl-visible-height', `${view.height}px`);
-    root.setProperty('--scrawl-visible-top', `${view.offsetTop}px`);
+    root.setProperty(`--scrawl-${prefix}-height`, `${view.height}px`);
+    root.setProperty(`--scrawl-${prefix}-top`, `${view.offsetTop}px`);
   };
   follow();
   view.addEventListener('resize', follow);
@@ -87,6 +87,15 @@ export function followVisibleArea(element: HTMLElement): () => void {
     view.removeEventListener('resize', follow);
     view.removeEventListener('scroll', follow);
     release();
+  };
+}
+
+export function followVisibleArea(element: HTMLElement): () => void {
+  const unfollow = followKeyboardArea('visible', (keyboard) => {
+    element.dataset.keyboard = keyboard ? 'true' : 'false';
+  });
+  return () => {
+    unfollow();
     delete element.dataset.keyboard;
   };
 }

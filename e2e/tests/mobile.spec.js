@@ -5560,7 +5560,7 @@ test.describe('mobile sync state', () => {
 
     async function saveStuck(page, contentPath, source) {
         await page.goto(WIKI.edit(contentPath));
-        await setSource(page, source);
+        await setSource(page, `${source}\nsaved at ${Date.now()}.\n`);
         await save(page);
     }
 
@@ -5610,7 +5610,7 @@ test.describe('mobile sync state', () => {
 
     test('an index note reaches the control on a phone too', async ({page}) => {
         breakOrigin(wiki.origin);
-        await saveStuck(page, 'index.md', `# Remote page\n\nthe root index on a phone, stuck at ${Date.now()}.\n`);
+        await saveStuck(page, 'index.md', '# Remote page\n\nthe root index on a phone, stuck.\n');
         await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
 
         await page.goto(WIKI.doc('index.md'));

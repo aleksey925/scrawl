@@ -1211,7 +1211,7 @@ test.describe('reading', () => {
         await page.getByTestId('sidebar-hide').click();
         await expect(sidebar).toHaveCount(0);
         await expect(burger).toBeVisible();
-        expect(await left()).toBeLessThan(beside);
+        await expect.poll(left).toBeLessThan(beside);
         await shot(page, 'reading-sidebar-hidden');
 
         await page.reload();

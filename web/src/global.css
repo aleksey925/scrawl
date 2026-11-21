@@ -8,6 +8,13 @@
 
 :root {
   --scrawl-tabbar-space: 0px;
+  --scrawl-capsule-bottom: 8px;
+}
+
+@media (display-mode: standalone) {
+  :root {
+    --scrawl-capsule-bottom: max(calc(env(safe-area-inset-bottom, 0px) - 14px), 8px);
+  }
 }
 
 html {

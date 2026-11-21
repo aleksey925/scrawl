@@ -1,11 +1,17 @@
 import { createContext, useContext } from 'react';
 
-export interface FindControl {
-  open: (() => void) | undefined;
-  register: (open: (() => void) | undefined) => void;
+export interface FindHandle {
+  open: () => void;
+  opened: boolean;
 }
 
-const FindControlContext = createContext<FindControl>({ open: undefined, register: () => undefined });
+export interface FindControl {
+  open: (() => void) | undefined;
+  opened: boolean;
+  register: (handle: FindHandle | undefined) => void;
+}
+
+const FindControlContext = createContext<FindControl>({ open: undefined, opened: false, register: () => undefined });
 
 export const FindControlProvider = FindControlContext.Provider;
 

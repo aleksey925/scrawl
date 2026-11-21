@@ -41,18 +41,21 @@ The editor screen.
   there either: the cells beside the name are 64px wide and have no room for it
   without moving the name off the middle, the draft keeps the text on the
   device, and a save with no network shows its toast. The bottom of the screen
-  is one strip. With the layouts in it, it is as tall as the tab bar, so the
-  edge does not move when the editor opens; with the toolbar over the keyboard
-  it is 50px. While no text is typed it is the layouts as a choice of three,
-  Text, Preview and Changes, as Split has no room there, at the bottom, under
-  the thumb, with the home indicator's room under it; Changes carries an orange
-  dot while there are unsaved changes. A dot and not a count: a count needs a
-  diff in the browser or a call to the server on every pause. While the text
-  has the focus, the formatting toolbar takes the strip's place over the
-  keyboard: the same tools, 44px each, in the text's color, with the wrap
-  button at its end, and a button outside the scroll that puts the keyboard
-  away. The strip switches on the focus of the text and does not guess where
-  the keyboard is; the table menu of the toolbar keeps it while open. The
+  is one strip, in the flow of the page, so the text ends above it and does not
+  scroll under it. While no text is typed it is the layouts as a choice of
+  three, Text, Preview and Changes, as Split has no room there, under the
+  thumb: a pill 44px tall, 16px from the sides, its bottom as high above the
+  edge as the capsule of a note, so the bar does not jump when the editor opens
+  ([phone](phone.md)). Changes carries an orange dot while there are unsaved
+  changes. A dot and not a count: a count needs a diff in the browser or a call
+  to the server on every pause. While the text has the focus, the formatting
+  toolbar takes the strip's place, a pill 50px tall 8px over the keyboard, with
+  the fill, line and shadow of the capsule, white in the light theme and the
+  popover's gray in the dark: the same tools, 44px each, in the text's color,
+  scrolling sideways with no lines between their groups, the wrap button at
+  their end, and, after a thin line, a button outside the scroll that puts the
+  keyboard away. The strip switches on the focus of the text and does not guess
+  where the keyboard is; the table menu of the toolbar keeps it while open. The
   editor on a phone is as tall as the visible area and follows it, the bar on
   top included, so the toolbar is at the bottom of what is seen, over the
   keyboard ([phone](phone.md)). An editor as tall as the page ran under the

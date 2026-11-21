@@ -9,6 +9,13 @@ export function decodeFragment(value: string): string {
 }
 
 export function elementWithId(root: HTMLElement, id: string): HTMLElement | null {
+  if (id === '') {
+    return null;
+  }
+  const exact = root.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+  if (exact !== null) {
+    return exact;
+  }
   const wanted = decodeFragment(id);
   const candidates = Array.from(root.querySelectorAll<HTMLElement>('[id]'));
   for (const candidate of candidates) {

@@ -74,6 +74,7 @@ export {
   UserCircleIcon as IconUserCircle,
   WarningIcon as IconAlertTriangle,
   WifiSlashIcon as IconWifiOff,
+  XCircleIcon as IconClear,
   XIcon as IconX,
 } from '@phosphor-icons/react';
 
@@ -92,3 +93,18 @@ export const IconCompose: Icon = forwardRef((props, ref) =>
   createElement(IconBase, { ref, ...props, weights: composeWeights }),
 );
 IconCompose.displayName = 'IconCompose';
+
+const outlineDrawing = createElement(
+  'g',
+  { fill: 'none', stroke: 'currentColor', strokeWidth: 16, strokeLinecap: 'round' },
+  createElement('path', { d: 'M40,64H216M88,128H216M136,192H216' }),
+);
+
+const outlineWeights = new Map<IconWeight, ReturnType<typeof createElement>>(
+  (['thin', 'light', 'regular', 'bold', 'fill', 'duotone'] as const).map((weight) => [weight, outlineDrawing]),
+);
+
+export const IconOutline: Icon = forwardRef((props, ref) =>
+  createElement(IconBase, { ref, ...props, weights: outlineWeights }),
+);
+IconOutline.displayName = 'IconOutline';

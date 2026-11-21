@@ -4,6 +4,7 @@ const docs = {
         path: 'db/storage.md',
         title: 'Data storage',
         folder: 'db',
+        sibling: 'db/locks.md',
         heading: {id: 'indexes', text: 'Indexes'},
     },
     linked: {path: 'guide.md', title: 'Guide'},

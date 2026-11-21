@@ -17,8 +17,6 @@
 
   .mantine-AppShell-header,
   .mantine-AppShell-navbar,
-  .mantine-AppShell-aside,
-  .mantine-Affix-root,
   .mantine-Notifications-root,
   [data-print='hide'] {
     display: none !important;

@@ -3,7 +3,8 @@ import { useEffect, useRef, type JSX, type KeyboardEvent, type ReactNode } from 
 
 import { IconChevronDown, IconChevronUp, IconSearch, IconX } from '../icons';
 import { composing, ownsShortcuts } from '../shell/shortcuts';
-import { layout } from '../theme';
+import { keyboardShown } from '../shell/useVisibleArea';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './FindBar.module.css';
 import type { FindQuery } from './findMatches';
@@ -28,9 +29,10 @@ type ToggleName = keyof Omit<FindQuery, 'text'>;
 
 const toggleKeys: Partial<Record<string, ToggleName>> = { KeyC: 'matchCase', KeyW: 'word', KeyR: 'regex' };
 
-export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
+export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: boolean }): JSX.Element {
   const bar = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
+  const atBottom = useBelow(layoutBreakpoints.phone);
   const { query, setQuery } = find;
   const flip = (name: ToggleName): void => setQuery({ ...query, [name]: !query[name] });
 
@@ -40,9 +42,23 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       return undefined;
     }
     const follow = (): void => {
-      if (bar.current !== null) {
-        bar.current.style.transform = view.offsetTop === 0 ? '' : `translateY(${view.offsetTop}px)`;
+      const element = bar.current;
+      if (element === null) {
+        return;
       }
+      if (docked) {
+        element.dataset.keyboard = keyboardShown(view) ? 'true' : 'false';
+        return;
+      }
+      if (atBottom) {
+        element.style.transform = '';
+        element.style.setProperty('--scrawl-find-bottom', `${view.offsetTop + view.height}px`);
+        element.dataset.keyboard = keyboardShown(view) ? 'true' : 'false';
+        return;
+      }
+      element.style.removeProperty('--scrawl-find-bottom');
+      element.style.transform = Math.abs(view.offsetTop) < 1 ? '' : `translateY(${view.offsetTop}px)`;
+      element.dataset.keyboard = 'false';
     };
     follow();
     view.addEventListener('scroll', follow);
@@ -53,10 +69,10 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
       view.removeEventListener('resize', follow);
       window.removeEventListener('scroll', follow);
     };
-  }, []);
+  }, [atBottom, docked]);
 
   useEffect(() => {
-    input.current?.focus();
+    input.current?.focus({ preventScroll: true });
     input.current?.select();
   }, [find.openings]);
 
@@ -91,7 +107,7 @@ export function FindBar({ find }: { find: FindOnPage }): JSX.Element {
     <div
       ref={bar}
       data-testid="doc-find"
-      className={classes.bar}
+      className={docked ? `${classes.bar} ${classes.docked}` : classes.bar}
       role="search"
       data-print="hide"
       {...ownsShortcuts}

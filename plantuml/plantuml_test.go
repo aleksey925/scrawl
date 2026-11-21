@@ -953,7 +953,7 @@ func TestInlineDrawsEveryExample(t *testing.T) {
 	t.Parallel()
 
 	// arrange
-	notes, err := filepath.Glob("../examples/data/showcase/plantuml/*.md")
+	notes, err := filepath.Glob("testdata/examples/*.md")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 	renderer := render.New(render.Options{})

@@ -11,7 +11,14 @@ import { showToast } from '../toast';
 
 import classes from './OfflineAccess.module.css';
 
-export function OfflineAccessItem(): JSX.Element {
+export interface OfflineAccess {
+  supported: boolean;
+  wanted: boolean;
+  line: string | undefined;
+  toggle: () => void;
+}
+
+export function useOfflineAccess(): OfflineAccess {
   const supported = offlineSupported();
   const wanted = useOfflineWanted();
   const online = useConnection() !== 'offline';
@@ -29,6 +36,12 @@ export function OfflineAccessItem(): JSX.Element {
       void refreshStatus();
     }
   }, [supported, wanted]);
+
+  return { supported, wanted, line, toggle };
+}
+
+export function OfflineAccessItem(): JSX.Element {
+  const { supported, wanted, line, toggle } = useOfflineAccess();
 
   return (
     <Menu.Item

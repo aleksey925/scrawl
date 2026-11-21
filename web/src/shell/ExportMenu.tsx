@@ -4,6 +4,7 @@ import { useEffect, useRef, type JSX } from 'react';
 import { api } from '../api/client';
 import type { ExportFormat } from '../api/types';
 import { errorText } from '../api/useApi';
+import { SheetTile, SheetTiles } from '../components/Sheet';
 import { IconDownload } from '../icons';
 import { useReadingCopy } from '../offline/connection';
 import { layout } from '../theme';
@@ -72,5 +73,20 @@ export function ExportItems({ print, download }: NoteExport): JSX.Element {
         Export as PDF
       </Menu.Item>
     </>
+  );
+}
+
+export function ExportTiles({ print, download }: NoteExport): JSX.Element {
+  const fromCopy = useReadingCopy();
+  return (
+    <SheetTiles>
+      {!fromCopy && (
+        <>
+          <SheetTile testId="doc-export-md" icon={IconDownload} label="Markdown" onClick={() => download('md')} />
+          <SheetTile testId="doc-export-html" icon={IconDownload} label="HTML" onClick={() => download('html')} />
+        </>
+      )}
+      <SheetTile testId="doc-export-pdf" icon={IconDownload} label="PDF" onClick={print} />
+    </SheetTiles>
   );
 }

@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import { usePlatform } from '../platform';
 
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
+import { centerMatch } from './findScreen';
 import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
 
 export const findParam = 'q';
@@ -96,7 +97,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     const first = group[0];
     if (first !== undefined && scroll) {
       reveal(first);
-      first.scrollIntoView({ block: 'center', behavior: 'instant' });
+      centerMatch(first);
     }
     setIndex(next);
   }, []);
@@ -120,7 +121,10 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
         setStatus('bad');
         setTotal(0);
         if (line.current !== undefined) {
-          matchAtLine(root, [], line.current).block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+          const block = matchAtLine(root, [], line.current).block;
+          if (block !== undefined) {
+            centerMatch(block);
+          }
           line.current = undefined;
         }
         return;
@@ -141,7 +145,9 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
           if (marked.length === 0) {
             setStatus('none');
             const at = line.current === undefined ? undefined : matchAtLine(root, marked, line.current);
-            at?.block?.scrollIntoView({ block: 'center', behavior: 'instant' });
+            if (at?.block !== undefined) {
+              centerMatch(at.block);
+            }
             line.current = undefined;
             return;
           }
@@ -153,7 +159,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
             if (at.match !== undefined) {
               first = at.match;
             } else if (at.block !== undefined) {
-              at.block.scrollIntoView({ block: 'center', behavior: 'instant' });
+              centerMatch(at.block);
               scroll = false;
             }
             line.current = undefined;

@@ -77,13 +77,16 @@ The tree, its head and its foot.
   the space under the rows stands for it. A site has no menu to offer and
   leaves the browser's own. A phone has no tree, so a row of a folder's list
   carries the same menu: a `⋯` beside the row, which a link cannot hold, and a
-  long press anywhere on it. They feel the way iOS has them: the `⋯` leaves the
-  row as it is, and a resting finger shrinks the row a little, then lifts a
-  copy of it as a card over the dimmed and blurred page, with the menu growing
-  out of the card and hanging from the row's right edge, inside the page's
-  gutter, where a right thumb reaches it, as iOS's own lists hang it; tied to
-  the card's start it stood against the left edge. Closing the menu sets the
-  row back down. A row lit gray while its menu was up read as a web page. React
+  long press anywhere on it. There the menu is a sheet from the bottom
+  ([phone](phone.md)): its head is the entry's icon, its name and "in" with the
+  space and the folders above it, and its groups are Open; then Run and Edit
+  where the row has them, Rename, Move to... and Copy link; then Delete in red.
+  Without the right to write the actions that write are not there. The `⋯`
+  leaves the row as it is, and a resting finger shrinks the row a little, then
+  opens the sheet. No copy of the row is lifted as a card over the page: the
+  head of the sheet names the entry, so a card added nothing. The click sent as
+  the finger lifts is swallowed, so it neither closes the sheet nor presses a
+  row in it. A row lit gray while its menu was up read as a web page. React
   hands a press inside a menu's portal up to the row it belongs to, so a long
   press only times a press that started inside the row itself. The menu offers
   Edit only where the answer gives an edit address: the server writes one on a

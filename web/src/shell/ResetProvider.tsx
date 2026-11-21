@@ -24,10 +24,15 @@ export function ResetProvider({ children }: { children: ReactNode }): JSX.Elemen
   );
 }
 
-export function ResetAction(): JSX.Element | null {
+export function useResetOpener(): (() => void) | undefined {
   const open = useContext(ResetContext);
   const { sync } = useAccount();
-  if (open === undefined || sync?.canReset !== true) {
+  return sync?.canReset === true ? open : undefined;
+}
+
+export function ResetAction(): JSX.Element | null {
+  const open = useResetOpener();
+  if (open === undefined) {
     return null;
   }
   return (

@@ -38,20 +38,21 @@ Colors, controls and type: how a note and the chrome are drawn.
   takes the hover tint, as a lifted field with its shadow stuck out of the row
   and broke the rhythm of the lines, and a ring glared across the page. The
   tint is the hover's and not the picked row's gray, which read as a picked
-  row. A phone draws that row from edge to edge ([phone](phone.md)). The
-  keyboard's focus on a grid of the editor lifts the same way too. The accent
-  is spent the way Notion spends it, read off its own pages: the one main
-  button and a toggle that is on, and on a phone the current tab of the bar
-  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)); the search field has
-  no ring, the back link and Cancel are plain text, and a main button that
-  cannot be pressed yet fades in its color. The focus of the keyboard is one
-  ring on the chrome, 2px of the accent 2px off the edge, as Mantine draws it:
-  a plain button or link of the chrome takes it from one rule in `global.css`,
-  where the browser drew a ring of its own that differed from control to
-  control. A crumb of the topbar draws it 2px inside its edge, as the row of
-  crumbs clips what is outside it, and so does a tab of a phone's bar, as the
-  edge of the screen would clip the first, the last and the bottom of each, and
-  so do the way back and the Save of a phone's bars, which have 2px of the bar
+  row. A phone draws that row across its row of the list's group
+  ([phone](phone.md)). The keyboard's focus on a grid of the editor lifts the
+  same way too. The accent is spent the way Notion spends it, read off its own
+  pages: the one main button and a toggle that is on, and on a phone the
+  current tab of the bar
+  ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)); the search
+  field has no ring, the back link and Cancel are plain text, and a main button
+  that cannot be pressed yet fades in its color. The focus of the keyboard is
+  one ring on the chrome, 2px of the accent 2px off the edge, as Mantine draws
+  it: a plain button or link of the chrome takes it from one rule in
+  `global.css`, where the browser drew a ring of its own that differed from
+  control to control. A crumb of the topbar draws it 2px inside its edge, as
+  the row of crumbs clips what is outside it, and so does a tab or a button of
+  a phone's capsule, which fills the capsule but for its 4px of padding, and so
+  do the way back and the Save of a phone's bars, which have 2px of the bar
   above them. The note's own controls in `markdown.css` and the mini outline
   draw theirs to fit their box. The Save of a phone's editor is the exception:
   a word and not a filled button, it is the faint gray of a disabled tab while
@@ -62,19 +63,24 @@ Colors, controls and type: how a note and the chrome are drawn.
   the accent and lettered white, which in the dark is the hover tint. A tap
   latches the hover, so a touch screen keeps the tint in both. A menu has 10px
   corners and the theme's shadow, a dialog 12px; a translucent menu ground
-  blurs what is under it, as a menu of macOS does. Icons are Phosphor's regular
-  weight at 20px, 16px in menus. The other sizes are named in `layout` of
-  `web/src/theme.ts`, each for its own place: 22px in the tabs of a phone's bar
-  and in the 44px tools over a phone's keyboard
-  ([ADR 29](../adr/0029-the-phone-editor-bars.md)), 26px on the New tiles, 18px
-  in the desktop's formatting toolbar, 15px in the heads of a folder's list and
-  14px in small marks such as the sync badge; an empty state draws 32px. The
-  current tab of a phone's bar draws its icon filled
-  ([ADR 28](../adr/0028-edit-in-the-bar-new-as-tiles.md)). `web/src/icons.ts`
-  is the one place that says which drawing each one is: Notion's own set cannot
-  be taken, and Phosphor is the open one closest to it. A build keeps only the
-  weights the app draws ([frontend](../design/frontend.md#build-and-release)).
-  The note's own controls are the one exception: the picture viewer in
+  blurs what is under it, as a menu of macOS does. A phone's capsule and sheets
+  are solid and blur nothing, as iOS draws them with Reduce Transparency on
+  ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)). Icons are
+  Phosphor's regular weight at 20px, 16px in menus. The other sizes are named
+  in `layout` of `web/src/theme.ts`, each for its own place: 22px in the
+  capsule of a phone, in the rows of a sheet and in the 44px tools over a
+  phone's keyboard ([ADR 29](../adr/0029-the-phone-editor-bars.md)), 26px on
+  New and on the big tiles of its sheet, 17px on the clear button of a name
+  field in a phone's list, 18px in the desktop's formatting toolbar, 15px in
+  the heads of a folder's list and 14px in small marks such as the sync badge;
+  an empty state draws 32px. The current tab of a phone's tab bar draws its
+  icon filled, on a pill of the accent's tint, `tabCurrent`
+  ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)).
+  `web/src/icons.ts` is the one place that says which drawing each one is:
+  Notion's own set cannot be taken, and Phosphor is the open one closest to it.
+  A build keeps only the weights the app draws
+  ([frontend](../design/frontend.md#build-and-release)). The note's own
+  controls are the one exception: the picture viewer in
   `web/src/reader/viewer.ts` and the buttons and marks of `markdown.css` are
   plain DOM and CSS, and run on a page of the command line too, which carries
   no React, so they write their few drawings themselves; `icons.ts` would bring
@@ -86,7 +92,30 @@ Colors, controls and type: how a note and the chrome are drawn.
   it is always `Segmented`, the theme's included: its indicator keeps its own
   transition while mantine turns them all off for a new theme
   ([quirks](../quirks.md#react-mantine-and-the-editor)). The theme buttons of a
-  page of the command line slide the same way.
+  page of the command line slide the same way. On a phone every segmented
+  control and the chip of the search are fully round: the picked part is a
+  raised pill of the page's ground on a tinted track, `borderLight`, with its
+  label in the 600 weight, so a phone speaks one pill shape with the current
+  tab ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)). A
+  desktop keeps the 6px corners. A screen on the ground of a sheet sets
+  `--scrawl-segment-track` to `sheetClose`, as the track of `borderLight` did
+  not show on a group in the dark theme.
+- A sheet of a phone, `Sheet` in `web/src/components/Sheet.tsx`, is the grouped
+  sheet of iOS on mantine's `Drawer` from the bottom: 14px top corners on the
+  theme's `groupedBg` ground, a 36px grabber, a title of 17px in the 600 weight
+  with a round ✕ of 32px on `sheetClose`, and groups of `groupedCard` with 14px
+  corners. A row is 50px tall with a 22px icon and 17px text, and the rows of a
+  group are split by `borderTranslucent`: in the dark theme `borderLight` is
+  the color of a group itself. A destructive row is red in a group of its own.
+  A row of a group is one line: its icon at the left and its control at the
+  right, a switch, a check, a time or a chevron, sit in the middle of the row's
+  height, never on its first line of text, and a longer explanation is a footer
+  under the group, 13px in the secondary text color with 6px over it and 16px
+  at the sides, as in the Settings of iOS. A tile is 72px tall and a big one
+  104px, on the ground of a group. The note at the foot is 13px in the tertiary
+  text color. The capsule's colors are `capsule` for the fill, `capsuleBorder`
+  for its 1px line and the `capsule` shadow: white with a faint line in the
+  light theme, the popover's gray with the dark border in the dark one.
 - A status the topbar shows with no facts behind it, a calm sync state or the
   offline mark, opens a small dark tip under its button rather than a popover:
   `StatusTip`, Notion's tooltip: 6px by 10px of padding, the medium radius and

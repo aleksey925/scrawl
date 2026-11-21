@@ -1,4 +1,4 @@
-import { useRef, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 
 import type { DiffKind, DiffRow, DiffSide } from '../api/types';
 import { countOf } from '../components/formats';
@@ -77,9 +77,13 @@ export interface RenderedDiffProps {
   version: string;
 }
 
+const noFolds: ReadonlySet<number> = new Set();
+
 export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: RenderedDiffProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
-  const drawn = `${version}:${layout}`;
+  const [opened, setOpened] = useState({ version, folds: noFolds });
+  const folds = opened.version === version ? opened.folds : noFolds;
+  const drawn = `${version}:${layout}:${Array.from(folds).join(',')}`;
   useKatex(rootRef, drawn);
   useDiagrams(rootRef, drawn);
   const Row = layout === 'split' ? SplitRow : UnifiedRow;
@@ -103,11 +107,18 @@ export function RenderedDiff({ rows, layout, oldLabel, newLabel, version }: Rend
       )}
       {foldRows(rows).map((segment, index) =>
         segment.folded ? (
-          <details key={index} className="diff-fold" data-testid="diff-fold">
+          <details
+            key={`${version}-${index}`}
+            className="diff-fold"
+            data-testid="diff-fold"
+            onToggle={(event) => {
+              if (event.currentTarget.open && !folds.has(index)) {
+                setOpened({ version, folds: new Set(folds).add(index) });
+              }
+            }}
+          >
             <summary>{countOf(segment.rows.length, 'unchanged block')}</summary>
-            {segment.rows.map((row, at) => (
-              <Row key={at} row={row} />
-            ))}
+            {folds.has(index) && segment.rows.map((row, at) => <Row key={at} row={row} />)}
           </details>
         ) : (
           segment.rows.map((row, at) => <Row key={`${index}-${at}`} row={row} />)

@@ -1,7 +1,4 @@
-import {
-  useCallback, useRef, useState,
-  type JSX, type MouseEvent, type PointerEvent, type ReactElement, type ReactNode,
-} from 'react';
+import { useCallback, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import type { DirEntry } from '../api/types';
@@ -13,11 +10,11 @@ import { useRenamingHere, type Renaming } from '../shell/fileActionsContext';
 import { parentOf } from '../shell/naming';
 import { SyncBadge } from '../shell/SyncBadge';
 import { useLongPress } from '../shell/useLongPress';
+import { useAboveKeyboard } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './DirTable.module.css';
 import { EntryIcon } from './EntryIcon';
-import { LiftedRow } from './LiftedRow';
 import { NameField } from './NameField';
 import { usePointerMenu } from './pointerMenu';
 import pressClasses from './PressRow.module.css';
@@ -38,8 +35,7 @@ function opensRow(event: MouseEvent): boolean {
 
 export function DirTable({ path, entries, drafting = false, onDraftSubmit, onDraftCancel }: DirTableProps): JSX.Element {
   const { physicalUrl } = usePlatform();
-  const { FileView, RowMenu, RunLink } = useReaderExtensions();
-  const filePages = FileView !== undefined;
+  const { RowMenu, RunLink, filePages = false } = useReaderExtensions();
   const navigate = useNavigate();
   const phone = useBelow(layoutBreakpoints.phone);
   const menu = usePointerMenu<DirEntry>();
@@ -266,13 +262,6 @@ function RunEntry({ path, className }: RunLinkProps): JSX.Element | null {
   return RunLink === undefined ? null : <RunLink path={path} className={className} />;
 }
 
-function restingRect(element: HTMLElement): DOMRect {
-  const rect = element.getBoundingClientRect();
-  const width = element.offsetWidth;
-  const height = element.offsetHeight;
-  return new DOMRect(rect.left + (rect.width - width) / 2, rect.top + (rect.height - height) / 2, width, height);
-}
-
 function onMenuButton(event: MouseEvent | PointerEvent): boolean {
   return event.target instanceof Element && event.target.closest('button, [data-row-action]') !== null;
 }
@@ -294,14 +283,16 @@ function PhoneRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element 
 }
 
 function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming }): JSX.Element {
+  const rowRef = useRef<HTMLDivElement>(null);
+  useAboveKeyboard(rowRef);
   return (
-    <div {...rowAttributes(entry)} className={`${classes.listRow} ${classes.naming}`}>
+    <div ref={rowRef} {...rowAttributes(entry)} className={`${classes.listRow} ${classes.renaming}`}>
       <div className={classes.listLink}>
         <RenameField
           session={session}
           testId="dir-rename"
-          icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />}
-          className={classes.listField}
+          icon={<EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeRow} className={classes.listIcon} />}
+          listRow
         />
       </div>
     </div>
@@ -311,7 +302,7 @@ function PhoneRenameRow({ entry, session }: { entry: DirEntry; session: Renaming
 function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Element {
   const body = (
     <>
-      <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSize} className={classes.listIcon} />
+      <EntryIcon name={entry.name} isDir={entry.is_dir} size={layout.iconSizeRow} className={classes.listIcon} />
       <span className={classes.listName}>
         <span data-testid="dir-row-name" className={classes.listLabel}>
           {entry.name}
@@ -321,26 +312,10 @@ function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Elem
     </>
   );
   const { RowMenu } = useReaderExtensions();
-  const rowRef = useRef<HTMLDivElement>(null);
   const [menuOpened, setMenuOpened] = useState(false);
   const [holding, setHolding] = useState(false);
-  const [lifted, setLifted] = useState<DOMRect | undefined>(undefined);
-  const lift = useCallback(() => setLifted(rowRef.current === null ? undefined : restingRect(rowRef.current)), []);
-  const longPress = useLongPress(lift, setHolding);
-  const menu = (opened: boolean, setOpened: (opened: boolean) => void, target?: ReactElement): ReactNode =>
-    RowMenu !== undefined && (
-      <RowMenu
-        path={entry.path}
-        isDir={entry.is_dir}
-        name={entry.name}
-        touch
-        editUrl={entry.edit_url}
-        runPath={runPath}
-        opened={opened}
-        onOpenedChange={setOpened}
-        target={target}
-      />
-    );
+  const openMenu = useCallback(() => setMenuOpened(true), []);
+  const longPress = useLongPress(openMenu, setHolding);
   const link = routed ? (
     <Link className={classes.listLink} to={entry.url}>
       {body}
@@ -352,44 +327,42 @@ function PhoneLinkRow({ entry, routed, runPath, href }: PhoneRowProps): JSX.Elem
   );
 
   return (
-    <>
-      <div
-        ref={rowRef}
-        {...rowAttributes(entry)}
-        data-holding={holding ? 'true' : 'false'}
-        data-lifted={lifted === undefined ? 'false' : 'true'}
-        className={`${classes.listRow} ${pressClasses.row}`}
-        {...(RowMenu === undefined
-          ? {}
-          : {
-              ...longPress,
-              onPointerDown: (event: PointerEvent) => {
-                if (!onMenuButton(event)) {
-                  longPress.onPointerDown(event);
-                }
-              },
-              onContextMenu: (event: MouseEvent) => {
-                event.preventDefault();
-                if (event.currentTarget.contains(event.target as Node) && !onMenuButton(event)) {
-                  lift();
-                }
-              },
-            })}
-      >
-        {link}
-        {runPath !== undefined && <RunEntry path={runPath} className={classes.listRun} />}
-        {menu(menuOpened, setMenuOpened)}
-      </div>
-      {RowMenu !== undefined && lifted !== undefined && (
-        <LiftedRow
-          rect={lifted}
-          onDropped={() => setLifted(undefined)}
-          menu={(card, opened, setOpened) => menu(opened, setOpened, card)}
-        >
-          <div className={classes.listLink}>{body}</div>
-        </LiftedRow>
+    <div
+      {...rowAttributes(entry)}
+      data-holding={holding ? 'true' : 'false'}
+      className={`${classes.listRow} ${pressClasses.row}`}
+      {...(RowMenu === undefined
+        ? {}
+        : {
+            ...longPress,
+            onPointerDown: (event: PointerEvent) => {
+              if (!(event.currentTarget.contains(event.target as Node) && onMenuButton(event))) {
+                longPress.onPointerDown(event);
+              }
+            },
+            onContextMenu: (event: MouseEvent) => {
+              event.preventDefault();
+              if (event.currentTarget.contains(event.target as Node) && !onMenuButton(event)) {
+                openMenu();
+              }
+            },
+          })}
+    >
+      {link}
+      {runPath !== undefined && <RunEntry path={runPath} className={classes.listRun} />}
+      {RowMenu !== undefined && (
+        <RowMenu
+          path={entry.path}
+          isDir={entry.is_dir}
+          name={entry.name}
+          touch
+          editUrl={entry.edit_url}
+          runPath={runPath}
+          opened={menuOpened}
+          onOpenedChange={setMenuOpened}
+        />
       )}
-    </>
+    </div>
   );
 }
 
@@ -430,7 +403,7 @@ function PhoneDraftRow({ onSubmit, onCancel }: DraftRowProps): JSX.Element {
         <NameField
           initial=""
           testId="dir-draft"
-          icon={<IconFolder size={layout.iconSize} className={classes.listIcon} aria-hidden />}
+          icon={<IconFolder size={layout.iconSizeRow} className={classes.listIcon} aria-hidden />}
           className={classes.listField}
           placeholder="Folder name"
           label="Name of the new folder"

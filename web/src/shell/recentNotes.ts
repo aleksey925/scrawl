@@ -41,20 +41,27 @@ function write(scope: string, notes: readonly RecentNote[]): void {
 
 export interface RecentNotes {
   notes: readonly RecentNote[];
-  remember: (note: RecentNote) => void;
   clear: () => void;
 }
 
 export function useRecentNotes(): RecentNotes {
   const { storageScope } = usePlatform();
   const notes = useSyncExternalStore(changes.subscribe, () => read(storageScope));
-  const remember = useCallback(
+  const clear = useCallback(() => write(storageScope, []), [storageScope]);
+  return { notes, clear };
+}
+
+export function useRememberRecent(): (note: RecentNote) => void {
+  const { storageScope } = usePlatform();
+  return useCallback(
     (note: RecentNote) => {
-      const rest = read(storageScope).filter((entry) => entry.path !== note.path);
+      const notes = read(storageScope);
+      if (notes[0]?.path === note.path && notes[0].title === note.title) {
+        return;
+      }
+      const rest = notes.filter((entry) => entry.path !== note.path);
       write(storageScope, [note, ...rest].slice(0, maxRecent));
     },
     [storageScope],
   );
-  const clear = useCallback(() => write(storageScope, []), [storageScope]);
-  return { notes, remember, clear };
 }

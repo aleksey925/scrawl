@@ -1,30 +1,38 @@
 import { Text } from '@mantine/core';
-import { useEffect, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { absoluteTime, shortDate } from '../components/formats';
 import { ReadingAnchorTracker } from '../editor/ReadingAnchorTracker';
-import { IconHistory } from '../icons';
+import { IconDots, IconHistory, IconOutline, IconPencil, IconSearch } from '../icons';
 import { historyUrl } from '../paths';
-import { layoutBreakpoints, useAtLeast } from '../theme';
+import { useFindControl } from '../reader/findControl';
+import { layoutBreakpoints, useAtLeast, useBelow } from '../theme';
 
+import { Capsule, CapsuleAction } from './Capsule';
 import type { DocumentExtrasProps } from './extensions';
-import { useOfferEdit } from './BarEditProvider';
-import { EditAction } from './EditAction';
 import { useAccount } from './NavContext';
-import { NoteMenu } from './NoteMenu';
-import { PageActions } from './ShellSlots';
+import { NoteMenu, NoteSheet } from './NoteMenu';
+import { useReaderLayout } from './ReaderLayout';
+import { PageActions, PageBar } from './ShellSlots';
 import { plainShortcut } from './shortcuts';
 import classes from './Topbar.module.css';
 import { TopbarAction } from './TopbarAction';
 
 export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Element {
-  useOfferEdit(doc.edit_url);
+  const { canWrite } = useAccount();
+  const phone = useBelow(layoutBreakpoints.phone);
+  useEditShortcut(canWrite ? doc.edit_url : undefined);
+
   return (
     <>
-      <PageActions>
-        <NoteActions doc={doc} />
-      </PageActions>
+      {phone ? (
+        <NoteBar doc={doc} />
+      ) : (
+        <PageActions>
+          <NoteActions doc={doc} />
+        </PageActions>
+      )}
 
       <ReadingAnchorTracker path={doc.path} rev={doc.rev} placed={placed} />
     </>
@@ -34,7 +42,6 @@ export function DocumentExtras({ doc, placed }: DocumentExtrasProps): JSX.Elemen
 function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element {
   const { canWrite, me } = useAccount();
   const wide = useAtLeast(layoutBreakpoints.compactTopbar);
-  useEditShortcut(canWrite ? doc.edit_url : undefined);
 
   return (
     <>
@@ -43,11 +50,44 @@ function NoteActions({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element 
           Edited {shortDate(doc.mod_time)}
         </Text>
       )}
-      {canWrite && <EditAction testId="doc-edit" to={doc.edit_url} />}
+      {canWrite && <TopbarAction testId="doc-edit" label="Edit" to={doc.edit_url} />}
       {wide && me?.history_on === true && (
         <TopbarAction testId="doc-history" label="History" icon={IconHistory} to={historyUrl(doc.path)} />
       )}
       <NoteMenu doc={doc} />
+    </>
+  );
+}
+
+function NoteBar({ doc }: { doc: DocumentExtrasProps['doc'] }): JSX.Element {
+  const { canWrite } = useAccount();
+  const { openOutline } = useReaderLayout();
+  const find = useFindControl();
+  const [menuOpened, setMenuOpened] = useState(false);
+
+  return (
+    <>
+      <PageBar>
+        {!find.opened && (
+          <Capsule testId="note-bar" label="Note" kind="actions">
+            {openOutline !== undefined && (
+              <CapsuleAction testId="note-bar-outline" label="Outline" icon={IconOutline} onClick={openOutline} />
+            )}
+            {find.open !== undefined && (
+              <CapsuleAction testId="note-bar-find" label="Find in note" icon={IconSearch} onClick={find.open} />
+            )}
+            {canWrite && <CapsuleAction testId="note-bar-edit" label="Edit" icon={IconPencil} to={doc.edit_url} />}
+            <CapsuleAction
+              testId="note-menu"
+              label="More actions"
+              icon={IconDots}
+              expanded={menuOpened}
+              onClick={() => setMenuOpened(true)}
+            />
+          </Capsule>
+        )}
+      </PageBar>
+      <NoteSheet doc={doc} opened={menuOpened} onClose={() => setMenuOpened(false)} />
     </>
   );
 }

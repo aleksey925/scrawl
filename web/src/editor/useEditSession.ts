@@ -307,7 +307,7 @@ export function useEditSession({
           const kept = shown || draftRef.current.moveTo(dest, res.rev, bufferText());
           savedAsRef.current = dest;
           setSavedAs(dest);
-          reportMutation(res, `Created "${basenameOf(dest)}"`);
+          reportMutation(res, `Created “${basenameOf(dest)}”`);
           return { shownStored: shown, created: kept ? dest : undefined };
         }
         reportMutation(res, 'Saved');

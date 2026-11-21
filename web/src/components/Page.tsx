@@ -1,4 +1,8 @@
-import { useRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 'react';
+import { useEffect, useRef, type ComponentPropsWithoutRef, type JSX, type ReactNode } from 'react';
+
+import { syncHead } from '../headTheme';
+import { layoutBreakpoints, useBelow } from '../theme';
+import { useThemeChoice } from '../themeChoice';
 
 import classes from './Page.module.css';
 import { useScreenEnter } from './screenMotion';
@@ -13,6 +17,7 @@ export interface PageProps extends ComponentPropsWithoutRef<'div'> {
 export function Page({ variant = 'note', className, children, ...rest }: PageProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   useScreenEnter(ref);
+  useGroupedHead(variant === 'list');
   return (
     <div
       {...rest}
@@ -24,6 +29,18 @@ export function Page({ variant = 'note', className, children, ...rest }: PagePro
       {children}
     </div>
   );
+}
+
+function useGroupedHead(list: boolean): void {
+  const grouped = useBelow(layoutBreakpoints.phone) && list;
+  const theme = useThemeChoice();
+  useEffect(() => {
+    if (!grouped) {
+      return undefined;
+    }
+    syncHead(theme, 'groupedBg');
+    return () => syncHead(theme);
+  }, [grouped, theme]);
 }
 
 export interface PageTitleProps {

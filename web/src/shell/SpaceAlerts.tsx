@@ -1,15 +1,20 @@
 import { Alert, Code, Stack, Text } from '@mantine/core';
 import type { JSX } from 'react';
+import { useLocation } from 'react-router';
 
 import { IconAlertTriangle } from '../icons';
-import { layout } from '../theme';
+import { isProfilePath } from '../paths';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useAccount } from './NavContext';
 import { ResetAction } from './ResetProvider';
 import { factText } from './syncMessage';
 
 export function SpaceAlerts(): JSX.Element {
-  const { sync } = useAccount();
+  const { sync: shown } = useAccount();
+  const phone = useBelow(layoutBreakpoints.phone);
+  const atProfile = isProfilePath(useLocation().pathname);
+  const sync = phone && atProfile ? undefined : shown;
 
   return (
     <div data-testid="space-alerts" data-empty={sync === undefined} data-print="hide" role="status" aria-live="polite">

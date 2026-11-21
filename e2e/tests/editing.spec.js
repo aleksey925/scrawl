@@ -2,6 +2,8 @@ const {expect, test} = require('../support/test');
 
 const fs = require('fs');
 
+const docs = require('../support/docs');
+
 const {
     MAIN, PAST_DRAFT_DELAY_MS, SHARED, dialogButtons, editorStatus, fixtureFile, holdRoute, nameOf, okToast, pressShortcut, readFixture, recordPrompts,
     refuseDrafts, removeFixture, rgb, routes, save, setRefusingDrafts, setSource, shot, signIn, sourceText, stays, storedDrafts,
@@ -279,6 +281,60 @@ test.describe('editing', () => {
         removeFixture(docPath);
     });
 
+    test('an edit elsewhere in the note keeps its diagram and formula drawn in the preview', async ({page}) => {
+        // arrange
+        const docPath = scratch('preview-kept');
+        const body = (word) => `# Схема\n\n$x^2$\n\n\`\`\`mermaid\nflowchart TD\n  A --> B\n\`\`\`\n\n${word}\n`;
+        writeFixture(docPath, body('старый'));
+        await page.goto(routes.edit(docPath));
+        const preview = page.getByTestId('editor-preview');
+        await expect(preview.locator('.md-diagram[data-state="done"] svg')).toBeVisible();
+        await expect(preview.locator('.math.is-typeset')).toHaveCount(1);
+        await preview.locator('.md-diagram svg').evaluate((svg) => {
+            svg.dataset.kept = 'yes';
+        });
+        await preview.evaluate((root) => {
+            window.undrawnSeen = 0;
+            new MutationObserver(() => {
+                const undrawn = '.math:not(.is-typeset), .md-diagram:not([data-state="done"]), :not(.md-diagram) > pre.mermaid';
+                if (root.querySelector(undrawn) !== null) {
+                    window.undrawnSeen += 1;
+                }
+            }).observe(root, {childList: true, subtree: true});
+        });
+
+        // act
+        await setSource(page, body('новый'));
+
+        // assert
+        await expect(preview).toContainText('новый');
+        await expect(preview.locator('.md-diagram svg')).toHaveAttribute('data-kept', 'yes');
+        expect(await page.evaluate(() => window.undrawnSeen)).toBe(0);
+        removeFixture(docPath);
+    });
+
+    test('Restore in Preview puts the draft back into the text', async ({page}) => {
+        // arrange
+        const docPath = scratch('restore-in-preview');
+        writeFixture(docPath, 'kept\n');
+        await page.goto(routes.edit(docPath));
+        await expect.poll(() => sourceText(page)).toBe('kept\n');
+        await setSource(page, 'typed but not saved\n');
+        await page.getByTestId('editor-cancel').click();
+        await expect(okToast(page)).toHaveText(text.toast.draftKept);
+        await page.goto(routes.edit(docPath));
+        await page.getByTestId('editor-layout-mode').getByText('Preview').click();
+
+        // act
+        await page.getByTestId('editor-draft-restore').click();
+
+        // assert
+        await expect(page.getByTestId('editor-draft')).toHaveCount(0);
+        await page.getByTestId('editor-layout-mode').getByText('Source').click();
+        await expect.poll(() => sourceText(page)).toBe('typed but not saved\n');
+        removeFixture(docPath);
+    });
+
     test('a back of the browser with unsaved changes asks nothing and says the draft is kept', async ({page}) => {
         // arrange
         const docPath = scratch('dirty-back');
@@ -436,7 +492,7 @@ test.describe('editing', () => {
     test('Save goes back to the reader the editor was opened from, and a back from there skips the editor', async ({page}) => {
         // arrange
         const docPath = scratch('save-goes-back');
-        await page.goto(routes.dir('db'));
+        await page.goto(routes.dir(docs.folder.path));
         await editFromReader(page, docPath, 'kept\n');
         await setSource(page, 'written\n');
         await page.getByTestId('editor-save').click();
@@ -446,7 +502,7 @@ test.describe('editing', () => {
         await page.goBack();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
         removeFixture(docPath);
     });
 
@@ -454,7 +510,7 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('cancel-replaces');
         writeFixture(docPath, 'kept\n');
-        await page.goto(routes.dir('db'));
+        await page.goto(routes.dir(docs.folder.path));
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await page.getByTestId('editor-cancel').click();
@@ -465,7 +521,7 @@ test.describe('editing', () => {
         await page.goBack();
 
         // assert
-        await expect(page).toHaveURL(MAIN.url.dir('db'));
+        await expect(page).toHaveURL(MAIN.url.dir(docs.folder.path));
         removeFixture(docPath);
     });
 
@@ -473,7 +529,7 @@ test.describe('editing', () => {
         // arrange
         const docPath = scratch('save-reader-loads');
         writeFixture(docPath, 'kept\n');
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        const {release, reached} = await holdRoute(page, '**/assets/NotePage.js');
         await page.goto(routes.edit(docPath));
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await reached;
@@ -868,19 +924,19 @@ test.describe('editing', () => {
         await editFromReader(page, docPath, 'kept\n');
         await setSource(page, 'written\n');
         const {release, reached} = await holdSave(page);
-        const other = page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link');
+        const other = page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link');
 
         // act
         await page.getByTestId('editor-save').click();
         await reached;
         await other.click();
-        await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
         release();
 
         // assert
         await expect(okToast(page)).toContainText(text.toast.saved);
         await expect(page.getByTestId('toast').filter({hasText: text.toast.draftKept})).toHaveCount(0);
-        await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+        await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
         expect(readFixture(docPath)).toBe('written\n');
         removeFixture(docPath);
     });
@@ -938,8 +994,8 @@ test.describe('editing', () => {
             await page.getByTestId('editor-save').click();
             await reached;
             await setSource(page, '# Plan\n\nmore\n');
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
 
             // act
             release();
@@ -948,7 +1004,7 @@ test.describe('editing', () => {
             await expect(okToast(page).filter({hasText: text.toast.created})).toHaveCount(1);
             await expect.poll(() => storedDrafts(page)).toEqual([{path: created, content: '# Plan\n\nmore\n'}]);
             expect(readFixture(created)).toBe('# Plan\n');
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
         } finally {
             removeFixture(folder);
         }
@@ -976,8 +1032,8 @@ test.describe('editing', () => {
             await page.getByTestId('editor-save').click();
             await reached;
             await setSource(page, '# Plan\n\nmore\n');
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
 
             // act
             release();
@@ -1038,8 +1094,8 @@ test.describe('editing', () => {
             await page.getByTestId('editor-save').click();
             await reached;
             await setSource(page, '# \n\nmore\n');
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
 
             // act
             release();
@@ -1135,14 +1191,14 @@ test.describe('editing', () => {
         const untitled = `${folder}/${text.create.untitled}`;
         fs.mkdirSync(fixtureFile(folder), {recursive: true});
         try {
-            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            const chunk = await holdRoute(page, '**/assets/NotePage.js');
             await page.goto(routes.draft(untitled));
             await expect(editorStatus(page)).toHaveAttribute('data-state', 'new');
             await chunk.reached;
             const {release, reached} = await holdSave(page);
             await page.getByTestId('editor-save').click();
             await reached;
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
 
             // act
             release();
@@ -1150,9 +1206,9 @@ test.describe('editing', () => {
             chunk.release();
 
             // assert
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
             await expect(page.getByTestId('doc')).toBeVisible();
-            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            await stays(() => page.url(), MAIN.url.doc(docs.linked.path), 500);
             expect(readFixture(untitled)).toBe('');
         } finally {
             removeFixture(folder);
@@ -1255,10 +1311,10 @@ test.describe('editing', () => {
             await reached;
             await setSource(page, '# Plan\n\nmore\n');
             await setRefusingDrafts(page, true);
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
             await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.discard);
             await page.getByTestId('modal-confirm').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
             await setRefusingDrafts(page, false);
 
             // act
@@ -1348,7 +1404,7 @@ test.describe('editing', () => {
         const docPath = scratch('save-went-elsewhere');
         writeFixture(docPath, 'kept\n');
         try {
-            const chunk = await holdRoute(page, '**/assets/DocumentPage.js');
+            const chunk = await holdRoute(page, '**/assets/NotePage.js');
             await page.goto(routes.edit(docPath));
             await expect.poll(() => sourceText(page)).toBe('kept\n');
             await chunk.reached;
@@ -1356,7 +1412,7 @@ test.describe('editing', () => {
             const {release, reached} = await holdSave(page);
             await page.getByTestId('editor-save').click();
             await reached;
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
 
             // act
             release();
@@ -1364,9 +1420,9 @@ test.describe('editing', () => {
             chunk.release();
 
             // assert
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
             await expect(page.getByTestId('doc')).toBeVisible();
-            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            await stays(() => page.url(), MAIN.url.doc(docs.linked.path), 500);
             expect(readFixture(docPath)).toBe('written\n');
         } finally {
             removeFixture(docPath);
@@ -1664,7 +1720,7 @@ test.describe('editing', () => {
         await expect.poll(() => sourceText(page)).toBe('kept\n');
         await setSource(page, 'an older draft\n');
         await page.waitForTimeout(PAST_DRAFT_DELAY_MS);
-        const {release, reached} = await holdRoute(page, '**/assets/DocumentPage.js');
+        const {release, reached} = await holdRoute(page, '**/assets/NotePage.js');
         await page.goto(routes.edit(docPath));
         await expect(page.getByTestId('editor-draft')).toBeVisible();
         await reached;
@@ -1935,15 +1991,15 @@ test.describe('editing', () => {
             const {release, reached} = await holdSave(page);
             await page.getByTestId('editor-conflict-copy').click();
             await reached;
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
 
             // act
             release();
 
             // assert
             await expect(okToast(page).filter({hasText: text.toast.saved})).toHaveCount(1);
-            await stays(() => page.url(), MAIN.url.doc('guide.md'), 500);
+            await stays(() => page.url(), MAIN.url.doc(docs.linked.path), 500);
             expect(readFixture(docPath)).toBe('disk wins\n');
         } finally {
             removeFixture(folder);
@@ -1996,8 +2052,8 @@ test.describe('editing', () => {
             await page.getByTestId('editor-conflict-copy').click();
             await reached;
             await setSource(page, 'mine to keep\n\nmore\n');
-            await page.locator('[data-testid=tree-row][data-path="guide.md"]').getByTestId('tree-link').click();
-            await expect(page).toHaveURL(MAIN.url.doc('guide.md'));
+            await page.locator(`[data-testid=tree-row][data-path="${docs.linked.path}"]`).getByTestId('tree-link').click();
+            await expect(page).toHaveURL(MAIN.url.doc(docs.linked.path));
 
             // act
             release();

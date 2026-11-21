@@ -1,0 +1,208 @@
+:global(:root):has(.page) :global(:is(.mantine-AppShell-header, .mantine-AppShell-main)) {
+  background: var(--scrawl-grouped-bg);
+}
+
+.groups .card {
+  border-radius: 12px;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card.short > * {
+  min-height: 48px;
+}
+
+.caption {
+  padding-left: 16px;
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--scrawl-text);
+  color: var(--scrawl-bg);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.accountText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user {
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.space {
+  overflow: hidden;
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.syncIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  color: var(--scrawl-color-orange);
+}
+
+.syncIcon:is([data-state='sent'], [data-state='sending']) {
+  color: var(--scrawl-text-secondary);
+}
+
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 16px 0;
+  color: var(--scrawl-text-secondary);
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reason {
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--scrawl-code-bg);
+  color: var(--scrawl-text);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.spaceTile {
+  display: inline-flex;
+  flex: none;
+}
+
+.spaceTile > span {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.check {
+  color: var(--scrawl-accent);
+}
+
+.page .themeTrack {
+  --sc-padding: 3px;
+  height: 36px;
+  padding: 3px;
+  border-radius: 18px;
+  background: var(--scrawl-sheet-close);
+}
+
+.themeTrack .themeThumb {
+  border-radius: 15px;
+  background: var(--scrawl-bg);
+}
+
+.themeTrack .themeLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  color: var(--scrawl-text-secondary);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.themeTrack .themeLabel[data-active] {
+  color: var(--scrawl-text);
+  font-weight: 600;
+}
+
+.switchRow {
+  padding: 0 16px;
+}
+
+.switchRow[data-disabled] .switchTrack {
+  opacity: 0.4;
+}
+
+.switchRow .switchBody {
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+}
+
+.switchRow .switchText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.switchRow .switchName {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: var(--scrawl-text);
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.switchLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rowIcon {
+  flex: none;
+  color: var(--scrawl-icon);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .groups {
+    margin-top: 4px;
+  }
+}

@@ -228,6 +228,11 @@ How the react app in `web/` is built, shipped and wired.
   `web/src/components/Page.module.css`. A band that runs from edge to edge of
   the screen pulls out past the gutter by the same value, so a new gutter has
   to change it too.
+- What only the page of a note draws, its bar and menu and a file's own page,
+  comes with that page's chunk and not with the entry: `NoteExtensions` adds
+  them to the reader's extensions, and the routes of a note and of History wrap
+  the reader's page in it. A folder's list learns that the app has a page for
+  any file from `filePages`, as the list is drawn on other routes too.
 - A screen keeps the answer it has while it fetches the next one, and answers
   are remembered across a route swap (`useApi`, cleared whole by any mutation).
   Clearing the data before the request blanked the tree, the note and every
@@ -314,11 +319,42 @@ How the react app in `web/` is built, shipped and wired.
   keeps a phone's keyboard down, and the text is picked with
   `setSelectionRange` as well as `select()`, because iOS ignores `select()`
   there.
+- Find in note on a phone turns the note into a screen of its own
+  (`useFindScreen` in `web/src/reader/findScreen.ts`): the note's `Page` gets
+  `data-fill="find"`, the shell's main takes the visible area as it does for
+  the editor, the root stops scrolling and the page scrolls inside. The card is
+  drawn in the shell's foot slot, after the page in the main, not fixed: the
+  main is moved with the visible area, which makes it the box a fixed element
+  is placed in, and a fixed card got that move twice. The line being read is
+  measured from the bar on top, kept as the screen comes and given back to the
+  window as it goes, after the screen has let go of the visible area, so a
+  keyboard still up does not shift it. It is not given back when the note on
+  screen is another one by then or the page is leaving: the note before stays
+  on screen while the next one loads, and its place landed on the next note. A
+  click on a link that leaves the page gives it back first, so the place the
+  browser keeps for Back is the one being read. Another note opened with Find
+  still open starts a screen of its own. A match keeps its place in the middle
+  while the screen changes size under it, as when the keyboard comes up after
+  it was found, until a finger or a wheel moves the note. What reads the scroll
+  of the page, the bar on top and the outline, reads the screen's while it is
+  there, and only a scroll of the page or of the screen lets go of the heading
+  the address names, not one of the outline's own panel. A swiped page's copy
+  keeps the screen's height and scroll and is put in the body, as the main it
+  came from loses its move when the next page comes. Print shows the note
+  whole, keeps the phone's layout across the paper's width and gives the screen
+  its scroll back after.
 - A panel that covers the page is mantine's `Drawer`, which owns the `inert`
   behind it, the focus it took and which single panel is up. The drawer and the
   outline sheet once each ran their own copy of that over overlapping elements,
   so closing one lifted the other's `inert`, and a close that went around the
-  teardown left the page taking no tap at all.
+  teardown left the page taking no tap at all. The sheets of a phone are such
+  drawers from the bottom: `Sheet` in `web/src/components/Sheet.tsx`, and the
+  outline's own, and `useSheetDrag` beside it lets a finger drag either down
+  ([phone](../ui/phone.md)). A `Sheet` draws no drawer until it is first
+  opened, as every row of a folder's list has one: a hundred closed drawers
+  each kept a portal and listeners. It then draws the drawer closed and opens
+  it on the next render, since a drawer mounted open does not slide in
+  ([quirks](../quirks.md#react-mantine-and-the-editor)).
 - A right click on a row of a folder's list, and on the free space of a
   folder's page and of the tree, opens its menu at the pointer, through
   `usePointerMenu` and `FixedAnchor` in `web/src/components/pointerMenu.tsx`. A
@@ -332,8 +368,10 @@ How the react app in `web/` is built, shipped and wired.
 - A menu item that puts a name field on the page, New folder or Rename, is a
   `FieldMenuItem`, which tells its `PopupMenu` not to give the focus back to
   its button, or the field would lose it
-  ([quirks](../quirks.md#react-mantine-and-the-editor)). Every name field in
-  place, in the tree, a folder's list or the bar on top, is `NameField`, in
+  ([quirks](../quirks.md#react-mantine-and-the-editor)). A Rename row of a
+  sheet, and a tile of New, turn off the sheet's `returnFocus` for the same
+  reason, through `useKeptFocus` beside `Sheet`. Every name field in place, in
+  the tree, a folder's list or the bar on top, is `NameField`, in
   `web/src/components/NameField.tsx`, the name of a note's draft too. A draft
   is no rename: the editor owns its name and hands the crumb and the phone's
   bar a `rename` through the page chrome (`useDraftChrome`), and the tree draws
@@ -368,10 +406,21 @@ How the react app in `web/` is built, shipped and wired.
   the finger.
 - The whole pass goes to `track` in `pending.ts`, which a PDF waits for, so a
   print has every diagram drawn.
-- Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`. PlantUML's own
-  ids get that prefix too, and every `url(#...)` and `href="#..."` that points
-  at one follows (`scopeIds` in `diagramSvg.ts`): every PlantUML diagram
-  carries the same ids, and a heading of the note may be called that too.
+- The last 64 diagrams drawn are kept, by kind, theme, scheme and source, and
+  the last 512 formulas by their TeX and whether they stand alone. The preview
+  gets a new note with each pause in typing, and drew every diagram and formula
+  again, each behind its placeholder, though one paragraph changed. A block
+  whose drawing is kept gets it in the layout effect, before the browser draws,
+  with no engine loaded: the svg itself when it is no longer on the page, else
+  a copy with ids of its own, the way PlantUML's are made. A pass over a note
+  already drawn skips every block drawn for the same look, so an unchanged
+  stretch opened in a comparison draws only its own blocks. A failed drawing is
+  not kept, as a library a network error kept from PlantUML would stay failed.
+- Every pass draws under fresh ids, `md-<kind>-<pass>-<index>`, and a kept svg
+  brings the id of the pass that drew it. PlantUML's own ids get that prefix
+  too, and every `url(#...)` and `href="#..."` that points at one follows
+  (`scopeIds` in `diagramSvg.ts`): every PlantUML diagram carries the same ids,
+  and a heading of the note may be called that too.
 - The viewer shows a copy of the diagram. The copy gets ids of its own, with an
   `md-viewer` prefix, and its `<style>` follows them, so the ids in the note
   and the viewer's are never the same while it is open.

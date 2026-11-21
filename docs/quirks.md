@@ -67,10 +67,23 @@ words; the fact itself is written here.
   else. [Themes](design/themes.md)
 - A phone's keyboard covers the bottom of the page without making it shorter,
   so a field fixed to the bottom sits under the keys. [Phone](ui/phone.md)
+- In an app on the home screen of an iPhone the keyboard shrinks
+  `window.innerHeight` to the visible height and pans the visible area to the
+  bottom of the page, while `document.documentElement.clientHeight` keeps the
+  page's height: `innerHeight` 459, `offsetTop` 414, `clientHeight` 873.
+  [Phone](ui/phone.md)
 - With the keyboard up, a scroll moves the visible area across the page, and an
   element fixed to the page moves with it. React renders a state set in a
   scroll listener after the frame is drawn, so the element is seen in the wrong
   place for a frame. [Phone](ui/phone.md)
+- In an app on the home screen of iOS 27.2, the visible area is moved by the
+  system while the page scrolls with the keyboard up, and the page hears of it
+  frames later: an element moved from the scroll events, not by React, still
+  stood up to 70px off in a third of the frames of a recording. When the page
+  cannot scroll and a box sized to the visible area scrolls instead, it stood
+  still in all but one of 456 frames. `interactive-widget=resizes-content` does
+  not shrink the page there: `clientHeight` stays 873 with the visible
+  height 459. [Phone](ui/phone.md)
 - With the keyboard up, a scrolling box as tall as the page runs under the
   keys, and a drag in it moves either the box or the visible area across the
   page. [Editor](ui/editor.md)
@@ -207,6 +220,8 @@ words; the fact itself is written here.
   that is not set. [Look](ui/look.md)
 - Mantine writes a modal's transition inline, which outranks the stylesheet.
   [Pages](ui/pages.md)
+- A mantine drawer mounted already open shows at once, with no slide: its
+  transition starts only when `opened` changes. [Frontend](design/frontend.md)
 - Mantine's `setColorScheme` turns every transition off for a moment with
   `* { transition: none !important }`, so the theme picker's indicator jumped
   while every other choice slid. [Look](ui/look.md)

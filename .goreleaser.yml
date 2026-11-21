@@ -32,6 +32,24 @@ archives:
       - LICENSE
       - README.md
 
+brews:
+  - name: scrawl
+    repository:
+      owner: aleksey925
+      name: homebrew-apps
+      branch: master
+    directory: Formula
+    commit_author:
+      name: Aleksey Petrunnik
+      email: petrunnik.a@gmail.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://github.com/aleksey925/scrawl"
+    description: "Markdown notes in any browser, from a folder or a git repository"
+    license: "MIT"
+    skip_upload: '{{ if eq (envOrDefault "MAKE_LATEST" "true") "true" }}false{{ else }}true{{ end }}'
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/scrawl --version")
+
 checksum:
   name_template: "checksums.txt"
 

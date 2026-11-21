@@ -24,7 +24,26 @@
   }
 
   .page {
-    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg));
+    padding-bottom: calc(var(--scrawl-tabbar-space) + var(--mantine-spacing-lg) + var(--scrawl-keyboard-room, 0px));
+  }
+
+  :global(:root):has(.page[data-variant='list']) {
+    --scrawl-ground: var(--scrawl-grouped-bg);
+    --scrawl-capsule-line: var(--scrawl-capsule-border-grouped);
+    --scrawl-capsule-glow: var(--scrawl-shadow-capsule-grouped);
+  }
+
+  :global(:root):has(.page[data-variant='list']) :global(body) {
+    background: var(--scrawl-grouped-bg);
+  }
+}
+
+@media screen {
+  .page[data-fill='find'] {
+    min-height: 0;
+    padding-bottom: var(--mantine-spacing-lg);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
   }
 }
 

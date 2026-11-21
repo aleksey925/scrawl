@@ -115,8 +115,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   manualRef.current = manual;
   savedAsRef.current = savedAs;
   const notCreated = drafting && savedAs === undefined;
-  const named = manual ?? joinPath(folder, noteNameOf(content));
-  const filePath = drafting ? (savedAs ?? named) : path;
+  const named = notCreated ? (manual ?? joinPath(folder, noteNameOf(content))) : undefined;
+  const filePath = named ?? (drafting ? (savedAs ?? path) : path);
   const kind: EditorKind = isMarkdown(filePath) ? 'markdown' : 'text';
   const fileName = basenameOf(filePath);
   const formattable = !readOnly && kind === 'markdown';
@@ -150,7 +150,6 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
   const showPreview = mode === 'preview' || mode === 'split';
   const preview = usePreview(content, path, showPreview);
   const changes = useChanges({ saved, content, path, enabled: mode === 'changes', paused: saving });
-  const uploads = useUploads(path, useCallback(() => viewRef.current, []));
   const draft = useDraft({
     path: savedAs ?? path,
     rev,
@@ -215,6 +214,8 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     const current = viewRef.current;
     return current?.dom.isConnected === true ? current : undefined;
   }, []);
+
+  const uploads = useUploads(path, liveView, setContent);
 
   const bufferText = useCallback(
     (): string => liveView()?.state.doc.toString() ?? contentRef.current,
@@ -409,7 +410,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [bufferText, folder, liveView],
   );
 
-  useDraftChrome(notCreated ? { path: named, rename: renameDraft } : undefined);
+  useDraftChrome(named !== undefined ? { path: named, rename: renameDraft } : undefined);
 
   const onAction = useCallback((action: MarkdownAction): void => {
     const current = viewRef.current;
@@ -441,6 +442,10 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [],
   );
 
+  const pickImage = useCallback((): void => {
+    fileRef.current?.click();
+  }, []);
+
   const onFiles = useCallback(
     ({ files, at }: DroppedFiles): void => uploads.upload(files, at),
     [uploads],
@@ -466,7 +471,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
     [setSplit, split],
   );
 
-  const [countable] = useDebouncedValue(content, 300);
+  const [countable] = useDebouncedValue(wide || kind === 'text' ? content : '', 300);
   const lines = useMemo(() => countable.split('\n').length, [countable]);
 
   const saveState: SaveState = saving
@@ -494,21 +499,25 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       mark: dirty ? <span data-testid="editor-changes-mark" className={classes.changesMark} aria-hidden /> : undefined,
     },
   ];
-  const wrapButton = (size: number): JSX.Element => (
-    <ToolButton testId="editor-wrap" label="Wrap long lines" aria-pressed={lineWrap.wrap} onClick={lineWrap.toggle}>
-      {lineWrap.wrap ? <IconTextWrap size={size} /> : <IconTextWrapDisabled size={size} />}
-    </ToolButton>
+  const wrapButton = useCallback(
+    (size: number): JSX.Element => (
+      <ToolButton testId="editor-wrap" label="Wrap long lines" aria-pressed={lineWrap.wrap} onClick={lineWrap.toggle}>
+        {lineWrap.wrap ? <IconTextWrap size={size} /> : <IconTextWrapDisabled size={size} />}
+      </ToolButton>
+    ),
+    [lineWrap.wrap, lineWrap.toggle],
   );
+  const toolbarEnd = useMemo(() => (phoneModes ? wrapButton(layout.iconSizeLarge) : undefined), [phoneModes, wrapButton]);
   const toolbar = !readOnly && kind === 'markdown' && (
     <Toolbar
       onAction={onAction}
-      onPickImage={() => fileRef.current?.click()}
+      onPickImage={pickImage}
       onToc={insertToc}
       tableMenu={tableMenu}
       onFormat={formattable ? format : undefined}
       iconSize={phoneModes ? layout.iconSizeLarge : layout.iconSizeTool}
     >
-      {phoneModes ? wrapButton(layout.iconSizeLarge) : undefined}
+      {toolbarEnd}
     </Toolbar>
   );
   const status = (
@@ -583,7 +592,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
           stale={draft.stale}
           disabled={leaving}
           onRestore={() => {
-            const current = viewRef.current;
+            const current = liveView();
             const text = draft.offered?.content ?? '';
             const name = draft.offered?.name;
             if (drafting && name !== undefined) {
@@ -685,7 +694,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
       )}
 
       {phoneModes && (
-          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar}>
+          <div data-testid="editor-strip" data-typing={typing ? 'true' : 'false'} className={classes.phoneBar} data-print="hide">
             {typing ? (
               <div ref={keyboardBarRef} data-testid="editor-keyboard-bar" className={classes.keyboardBar}>
                 {toolbar}
@@ -707,7 +716,7 @@ export function EditorScreen(props: EditorScreenProps): JSX.Element {
                 value={mode === 'split' ? 'source' : mode}
                 onChange={chooseMode}
                 aria-label="Editor layout"
-                classNames={{ label: classes.phoneMode }}
+                classNames={{ root: classes.phoneModes, label: classes.phoneMode }}
                 options={phoneOptions}
               />
             )}

@@ -11,7 +11,9 @@ function mediaOf(scheme: Scheme): string {
   return `(prefers-color-scheme: ${scheme})`;
 }
 
-export function syncHead(choice: string): void {
+export type HeadGround = 'bg' | 'groupedBg';
+
+export function syncHead(choice: string, ground: HeadGround = 'bg'): void {
   const picked = lookupTheme(choice);
   const wanted = picked === undefined ? schemes.map((each) => ({ scheme: each, media: mediaOf(each) })) : [{ scheme: picked.scheme, media: '' }];
 
@@ -21,7 +23,7 @@ export function syncHead(choice: string): void {
     for (const { scheme, media } of wanted) {
       const meta = document.createElement('meta');
       meta.name = 'theme-color';
-      meta.content = (picked ?? autoTheme(scheme)).palette.bg;
+      meta.content = (picked ?? autoTheme(scheme)).palette[ground];
       if (media !== '') {
         meta.media = media;
       }

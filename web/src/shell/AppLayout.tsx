@@ -8,12 +8,9 @@ import { useReadingCopy } from '../offline/connection';
 import { offlineMe, storedMe } from '../offline/source';
 import { documentPage, editPage, preloadPage } from '../pagePreloads';
 
-import { BarEditProvider } from './BarEditProvider';
 import { preloadDialogs } from './dialogChunks';
-import { DocumentExtras } from './DocumentExtras';
 import { ReaderExtensionsProvider, type ReaderExtensions } from './extensions';
 import { FileActionsProvider } from './FileActions';
-import { FileView } from './FileView';
 import { NavProvider, useAccount } from './NavContext';
 import { NetworkGate } from './NeedsNetwork';
 import { OfflineMark } from './OfflineMark';
@@ -28,7 +25,7 @@ import { SyncControl } from './SyncControl';
 import { TabBar } from './TabBar';
 import { useMe, type MeState } from './useMe';
 
-const extensions: ReaderExtensions = { DocumentExtras, FileView, RowMenu, RunLink };
+const extensions: ReaderExtensions = { RowMenu, RunLink, filePages: true };
 
 const chrome: ReaderChrome = {
   sidebarFoot: <SpaceMenu />,
@@ -71,13 +68,10 @@ function PagePreloads(): null {
 }
 
 function AppProviders({ children }: { children: ReactNode }): JSX.Element {
-  const fromCopy = useReadingCopy();
   return (
     <ResetProvider>
       <FileActionsProvider>
-        <SearchProvider enabled={!fromCopy}>
-          <BarEditProvider>{children}</BarEditProvider>
-        </SearchProvider>
+        <SearchProvider>{children}</SearchProvider>
       </FileActionsProvider>
     </ResetProvider>
   );

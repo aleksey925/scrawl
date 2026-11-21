@@ -117,3 +117,11 @@ export function recentUrl(): string {
 export function isRecentPath(pathname: string): boolean {
   return trimTrailingSlash(pathname).toLowerCase() === recentUrl();
 }
+
+export function profileUrl(): string {
+  return '/profile';
+}
+
+export function isProfilePath(pathname: string): boolean {
+  return trimTrailingSlash(pathname).toLowerCase() === profileUrl();
+}

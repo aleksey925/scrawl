@@ -3,11 +3,17 @@ import {
   type JSX, type ReactNode,
 } from 'react';
 
+import { useReadingCopy } from '../offline/connection';
+import { layoutBreakpoints, useBelow } from '../theme';
+
 import { SearchDialog } from './dialogChunks';
 import { SearchControlProvider, type SearchControl } from './searchOpener';
 import { appShortcut, modChord } from './shortcuts';
 
-export function SearchProvider({ enabled, children }: { enabled: boolean; children: ReactNode }): JSX.Element {
+export function SearchProvider({ children }: { children: ReactNode }): JSX.Element {
+  const offline = useReadingCopy();
+  const phone = useBelow(layoutBreakpoints.phone);
+  const enabled = !offline || phone;
   const [opened, setOpened] = useState(false);
   const [initial, setInitial] = useState('');
 
@@ -37,7 +43,7 @@ export function SearchProvider({ enabled, children }: { enabled: boolean; childr
     <SearchControlProvider value={enabled ? control : undefined}>
       {children}
       {enabled && opened && (
-        <SearchDialog initial={initial} onClose={close} />
+        <SearchDialog initial={initial} offline={offline} onClose={close} />
       )}
     </SearchControlProvider>
   );

@@ -10,9 +10,10 @@ export interface RenameFieldProps {
   testId: string;
   icon?: ReactNode;
   className?: string;
+  listRow?: boolean;
 }
 
-export function RenameField({ session, testId, icon, className }: RenameFieldProps): JSX.Element {
+export function RenameField({ session, testId, icon, className, listRow }: RenameFieldProps): JSX.Element {
   const { submitRename, endRename, renameCommit } = useFileActions();
   const name = basenameOf(session.path);
   return (
@@ -24,6 +25,7 @@ export function RenameField({ session, testId, icon, className }: RenameFieldPro
       testId={testId}
       icon={icon}
       className={className}
+      listRow={listRow}
       commitRef={renameCommit}
       onSubmit={async (typed) => {
         const saved = await submitRename(session.path, session.isDir, typed);

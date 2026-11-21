@@ -8,8 +8,9 @@ import { planMotion } from '../components/screenMotion';
 import controls from '../controls.module.css';
 import { cameFrom } from '../historyTrail';
 import { IconChevronLeft } from '../icons';
-import { directoryUrl, isDocPath, isEditPath, isRecentPath } from '../paths';
+import { directoryUrl, isDocPath, isEditPath, isProfilePath, isRecentPath } from '../paths';
 import { usePlatform } from '../platform';
+import { pageScrolled, readingTop } from '../reader/findScreen';
 import { layout } from '../theme';
 
 import { AppLogo } from './AppLogo';
@@ -24,9 +25,9 @@ import { useSwipeBack } from './useSwipeBack';
 function titleGone(): boolean {
   const heading = document.querySelector('[data-screen] h1');
   if (heading === null) {
-    return window.scrollY > 0;
+    return pageScrolled();
   }
-  return heading.getBoundingClientRect().bottom <= layout.topbarHeightCompact;
+  return heading.getBoundingClientRect().bottom <= readingTop();
 }
 
 interface WayUp extends Crumb {
@@ -51,13 +52,13 @@ function useScrolled(watchTitle: boolean): { scrolled: boolean; showTitle: boole
 
   useEffect(() => {
     const update = (): void => {
-      const scrolled = window.scrollY > 0;
+      const scrolled = pageScrolled();
       const showTitle = !watchTitle || titleGone();
       setState((prev) => (prev.scrolled === scrolled && prev.showTitle === showTitle ? prev : { scrolled, showTitle }));
     };
     update();
-    window.addEventListener('scroll', update, { passive: true });
-    return () => window.removeEventListener('scroll', update);
+    document.addEventListener('scroll', update, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', update, { capture: true });
   }, [watchTitle, location.key]);
 
   return state;
@@ -79,7 +80,8 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
   const above = parent.dir;
   const { source, prefetch } = usePlatform();
   const editing = isEditPath(location.pathname);
-  const tabRoot = isRecentPath(location.pathname);
+  const atProfile = isProfilePath(location.pathname);
+  const tabRoot = atProfile || isRecentPath(location.pathname);
   const { scrolled, showTitle } = useScrolled(chrome.ownTitle);
   const navigate = useNavigate();
   const { renaming, commit } = usePageRenaming();
@@ -148,6 +150,11 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
             <span className={classes.homeName}>{space}</span>
           </span>
         )}
+        {atProfile && (
+          <span data-testid="topbar-tab-title" className={classes.tabTitle}>
+            Profile
+          </span>
+        )}
         {!atRoot && !tabRoot && (
           <Link
             data-testid="topbar-up"
@@ -166,11 +173,11 @@ export function PhoneTopBar({ end, menu, actionsRef }: PhoneTopBarProps): JSX.El
         )}
       </div>
 
-      <div data-testid="topbar-title" data-shown={showTitle && !atRoot ? 'true' : 'false'} className={classes.title}>
+      <div data-testid="topbar-title" data-shown={showTitle && !atRoot && !atProfile ? 'true' : 'false'} className={classes.title}>
         {renaming !== undefined ? (
           <RenameField session={renaming} testId="page-rename" className={classes.field} />
         ) : (
-          !atRoot && chrome.title
+          !atRoot && !atProfile && chrome.title
         )}
       </div>
 

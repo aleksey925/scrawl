@@ -60,13 +60,6 @@
   --button-padding-x-sm: var(--scrawl-button-padding-x);
 }
 
-.button[data-size='lg'] {
-  --button-height-lg: var(--scrawl-button-height);
-  --button-padding-x-lg: var(--scrawl-button-padding-x);
-  font-size: 15px;
-  font-weight: 600;
-}
-
 .button[data-variant='default'] {
   --button-bg: transparent;
   --button-bd: 1px solid var(--scrawl-border);
@@ -247,6 +240,28 @@
 
 .segment[data-active] {
   color: var(--scrawl-text);
+}
+
+@mixin smaller-than $mantine-breakpoint-sm {
+  .segmentRoot {
+    --sc-padding: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--scrawl-segment-track, var(--scrawl-border-light));
+  }
+
+  .segmentIndicator {
+    border-radius: 999px;
+    background: var(--scrawl-bg);
+  }
+
+  .segment {
+    min-height: calc(var(--scrawl-touch-choice) - 6px);
+  }
+
+  .segment[data-active] {
+    font-weight: 600;
+  }
 }
 
 .modalHeader {

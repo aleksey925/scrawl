@@ -2,6 +2,8 @@ import type { MermaidConfig } from 'mermaid';
 
 import { screenSettled } from '../motion';
 import type { Platform } from '../platform';
+import { BoundedMap } from './boundedMap';
+import { scopeIds } from './diagramSvg';
 import { isPlainClick } from './links';
 import { track } from './pending';
 import { preserveScroll } from './scroll';
@@ -26,11 +28,17 @@ interface Diagram {
   box: HTMLElement;
   view: HTMLElement;
   source: string;
+  id: string;
+  key: string;
 }
 
 type Drawn = { item: Diagram; svg: SVGElement } | { item: Diagram; error: string };
 
 const errorLimit = 200;
+
+const kept = new BoundedMap<string, SVGElement>(64);
+
+const placed = new WeakMap<HTMLElement, string>();
 
 function nextTask(): Promise<void> {
   return new Promise((resolve) => {
@@ -42,11 +50,13 @@ let pass = 0;
 
 const frameClass = 'md-diagram-frame';
 
-function wrap(pre: HTMLElement, kind: Kind): Diagram {
+function wrap(pre: HTMLElement, kind: Kind, id: string, look: string): Diagram {
+  const source = pre.textContent ?? '';
+  const key = `${kind.name}\n${look}\n${source}`;
   const parent = pre.parentElement;
   const existing = parent?.querySelector<HTMLElement>(':scope > .md-diagram-view');
   if (parent !== null && parent !== undefined && parent.classList.contains('md-diagram') && existing != null) {
-    return { kind, box: parent, view: existing, source: pre.textContent ?? '' };
+    return { kind, box: parent, view: existing, source, id, key };
   }
 
   const box = document.createElement('div');
@@ -59,7 +69,7 @@ function wrap(pre: HTMLElement, kind: Kind): Diagram {
   view.className = 'md-diagram-view';
   box.append(view);
 
-  return { kind, box, view, source: pre.textContent ?? '' };
+  return { kind, box, view, source, id, key };
 }
 
 function clearError(item: Diagram): void {
@@ -128,6 +138,7 @@ function place(result: Drawn): void {
   frame.append(svg, openButton());
   item.view.replaceChildren(frame);
   item.box.dataset.state = 'done';
+  placed.set(item.box, item.key);
   clearError(item);
 }
 
@@ -245,26 +256,56 @@ async function prepare(kind: Kind, loaders: DiagramLoaders, dark: boolean): Prom
   }
 }
 
-async function drawOne(draw: Draw | undefined, item: Diagram, id: string): Promise<Drawn> {
+async function drawOne(draw: Draw | undefined, item: Diagram): Promise<Drawn> {
   if (draw === undefined) {
     return { item, error: 'the diagram renderer could not be loaded' };
   }
   try {
-    return { item, svg: await draw(id, item.source) };
+    const svg = await draw(item.id, item.source);
+    kept.set(item.key, svg);
+    return { item, svg };
   } catch (error) {
     return { item, error: firstLine(error) };
   }
 }
 
-export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean): () => void {
+function keptDrawing(item: Diagram): Drawn | undefined {
+  const found = kept.get(item.key);
+  if (found === undefined) {
+    return undefined;
+  }
+  if (!found.isConnected) {
+    return { item, svg: found };
+  }
+  const copy = found.cloneNode(true) as SVGSVGElement;
+  scopeIds(copy, item.id);
+  return { item, svg: copy };
+}
+
+export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: boolean, theme: string): () => void {
+  pass += 1;
+  const thisPass = pass;
+  const look = `${theme}:${dark ? 'dark' : 'light'}`;
   const diagrams: Diagram[] = [];
+  let found = 0;
   for (const pre of root.querySelectorAll<HTMLElement>(diagramSelector)) {
     const kind = kindOf(pre);
-    if (kind !== undefined) {
-      diagrams.push(wrap(pre, kind));
+    if (kind === undefined) {
+      continue;
+    }
+    const item = wrap(pre, kind, `md-${kind.name}-${thisPass}-${found}`, look);
+    found += 1;
+    if (placed.get(item.box) === item.key && item.box.dataset.state === 'done') {
+      continue;
+    }
+    const drawn = keptDrawing(item);
+    if (drawn === undefined) {
+      diagrams.push(item);
+    } else {
+      place(drawn);
     }
   }
-  if (diagrams.length === 0) {
+  if (found === 0) {
     return () => {};
   }
 
@@ -282,16 +323,14 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
   root.addEventListener('click', openOnClick);
 
   let cancelled = false;
-  pass += 1;
-  const thisPass = pass;
   let turn = Promise.resolve();
-  const drawInTurn = (item: Diagram, draw: Draw | undefined, id: string): Promise<void> => {
+  const drawInTurn = (item: Diagram, draw: Draw | undefined): Promise<void> => {
     const mine = turn.then(async () => {
       await screenSettled();
       if (cancelled) {
         return;
       }
-      const result = await drawOne(draw, item, id);
+      const result = await drawOne(draw, item);
       await screenSettled();
       if (cancelled) {
         return;
@@ -308,12 +347,12 @@ export function drawDiagrams(root: HTMLElement, loaders: DiagramLoaders, dark: b
       return;
     }
     const draw = await prepare(kind, loaders, dark);
-    for (const [index, item] of diagrams.entries()) {
+    for (const item of diagrams) {
       if (cancelled) {
         return;
       }
       if (item.kind === kind) {
-        await drawInTurn(item, draw, `md-${kind.name}-${thisPass}-${index}`);
+        await drawInTurn(item, draw);
       }
     }
   };

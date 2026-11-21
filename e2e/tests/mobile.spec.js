@@ -2137,13 +2137,13 @@ test.describe('mobile', () => {
             await page.goto(MAIN.url.doc(docs.folder.entry));
             await expect(page.getByTestId('doc')).toBeVisible();
             await settled(page);
-            await page.route(new RegExp(`/api/dir/${docs.folder.path}$`), async (route) => {
-                await new Promise((resolve) => setTimeout(resolve, 600));
-                await route.continue();
-            });
+            const held = await holdRoute(page, new RegExp(`/api/dir/${docs.folder.path}$`));
 
             // act
             await swipe(page, 300);
+            await held.reached;
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            held.release();
 
             // assert
             await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toBeVisible();

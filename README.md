@@ -1,10 +1,10 @@
 # scrawl
 
-[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=flat-square&color=2f80ed)](https://github.com/aleksey925/scrawl/releases/latest)
-[![License](https://img.shields.io/github/license/aleksey925/scrawl?style=flat-square&color=555)](LICENSE)
-![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/aleksey925/scrawl/#docker)
-![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
+[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=for-the-badge&labelColor=18191D&color=2f80ed)](https://github.com/aleksey925/scrawl/releases/latest)
+[![License](https://img.shields.io/github/license/aleksey925/scrawl?style=for-the-badge&labelColor=18191D&color=464A54)](LICENSE)
+![Go](https://img.shields.io/badge/Go-18191D?style=for-the-badge&logo=go&logoColor=00ADD8)
+[![Docker](https://img.shields.io/badge/Docker-18191D?style=for-the-badge&logo=docker&logoColor=2496ED)](https://github.com/aleksey925/scrawl/#docker)
+![PWA](https://img.shields.io/badge/PWA-18191D?style=for-the-badge&logo=pwa&logoColor=A97BFF)
 
 Markdown notes in any browser, from a folder or a git repository.
 

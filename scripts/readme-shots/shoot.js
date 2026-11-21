@@ -9,7 +9,7 @@ const {chromium} = require(require.resolve('playwright', {paths: [path.join(repo
 
 const NOTE = 'showcase/postgres-migration.md';
 const SPACE = 'notes';
-const DESKTOP = {width: 1280, height: 800, scale: 2, cropMargin: 4};
+const DESKTOP = {width: 1280, height: 880, scale: 2, cropMargin: 4, titleGap: 32};
 const PHONE = {width: 402, height: 874, statusBar: 62, homeIndicator: 34, scale: 3};
 const HERO = {width: 2400, margin: 80, titleBar: 56, phoneToWindow: 0.7, overlap: 0.12, phoneBelow: 50};
 const PHONE_FRAME = {width: 640, height: 1345};
@@ -68,6 +68,10 @@ async function shootDesktop(browser, base, scheme) {
     const page = await context.newPage();
     await page.goto(noteURL(base));
     await settled(page);
+    await page.evaluate((gap) => {
+        const bar = document.querySelector('[data-testid="topbar"]').getBoundingClientRect().bottom;
+        window.scrollBy(0, document.querySelector('h1').getBoundingClientRect().top - bar - gap);
+    }, DESKTOP.titleGap);
     const height = await page.evaluate((margin) => {
         let cut = null;
         for (const block of document.querySelector('h1').parentElement.children) {

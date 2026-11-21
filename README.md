@@ -1,9 +1,9 @@
 # scrawl
 
-[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=flat-square&color=2f80ed)](https://github.com/aleksey925/scrawl/releases)
+[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=flat-square&color=2f80ed)](https://github.com/aleksey925/scrawl/releases/latest)
 [![License](https://img.shields.io/github/license/aleksey925/scrawl?style=flat-square&color=555)](LICENSE)
 ![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/aleksey925/scrawl/#docker)
 ![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)
 
 Markdown notes in any browser, from a folder or a git repository.

@@ -7,7 +7,7 @@ const {spawn} = require('child_process');
 const repoRoot = path.resolve(__dirname, '..', '..');
 const {chromium} = require(require.resolve('playwright', {paths: [path.join(repoRoot, 'e2e')]}));
 
-const NOTE = 'projects/postgres-migration.md';
+const NOTE = 'showcase/postgres-migration.md';
 const SPACE = 'notes';
 const DESKTOP = {width: 1280, height: 800, scale: 2, cropMargin: 4};
 const PHONE = {width: 402, height: 874, statusBar: 62, homeIndicator: 34, scale: 3};
@@ -30,7 +30,7 @@ function freePort() {
 
 async function serve(binary, work) {
     const root = path.join(work, 'notes');
-    fs.cpSync(path.join(__dirname, 'notes'), root, {recursive: true});
+    fs.cpSync(path.join(repoRoot, 'examples', 'data'), root, {recursive: true});
     const port = await freePort();
     const child = spawn(binary, [
         'serve', `--listen=127.0.0.1:${port}`, `--space.dir=${root}`, `--space.name=${SPACE}`,

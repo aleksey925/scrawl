@@ -49,10 +49,11 @@ web/icons.ts           the script that draws them, not the icon set of
 web/vite.icons.ts      the build step that keeps only the icon weights
                        the app draws
 e2e/                   playwright suite against a real binary
-examples/data/         sample notes: tests, `make run` and the browser suite
+examples/data/         sample notes: tests, `make run`, the browser suite and
+                       the hero picture of the README
 scripts/               try-sync.sh, the sync states of a clone tried by hand,
-                       readme-shots/, the hero picture of the README and
-                       the notes it shows
+                       readme-shots/, the script of the hero picture of the
+                       README
 vendor/                dependencies, checked in, `make deps` regenerates
 docs/design/           how each part works and the rules it keeps
 docs/ui/               how each screen looks and behaves

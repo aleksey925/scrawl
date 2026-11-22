@@ -90,7 +90,6 @@ scrawl only reads.
   - [Homebrew](#homebrew)
   - [mise](#mise)
   - [From source](#from-source)
-  - [Running binary](#running-binary)
 - [Markdown features](#markdown-features)
   - [Formatting](#formatting)
 - [How your changes are kept](#how-your-changes-are-kept)
@@ -232,17 +231,6 @@ This installs the latest
 ```
 go install github.com/aleksey925/scrawl@latest
 ```
-
-### Running binary
-
-Without Docker, every setting is a flag. The local folder from
-[Quick start](#use-local-folder):
-
-```
-scrawl serve --space.dir ~/notes --space.name notes --auth.users 'admin:admin'
-```
-
-All settings are described in [Configuration](#configuration).
 
 ## Markdown features
 

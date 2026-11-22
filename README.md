@@ -797,8 +797,8 @@ A search looks for the text as typed, in any case and with or without accents.
 Add to the query:
 
 - `mode=fuzzy` - look for words, allowing a typo or two, the results ranked by
-  how well they match;
-- `regex=1` - take the text as a regular expression;
+  how well they match; `case` and `word` do not apply to it;
+- `regex=1` - take the text as a regular expression, also with `mode=fuzzy`;
 - `case=1` - match the case and the accents;
 - `word=1` - match whole words only;
 - `titles=1` - look in the titles only;

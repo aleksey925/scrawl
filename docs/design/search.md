@@ -25,13 +25,13 @@ The server's search and the note's find bar.
   `μεγαλο` finds `μεγάλο`. An accent the query types is kept: a word typed with
   one finds only the words that carry it on the same letter, inside it or as a
   mark after it, and more accents are allowed. So `все` finds `все` and `всё`,
-  `всё` finds only `всё`, `замо́к` does not find `за́мок`, `ü` finds `ǘ` and `ά`
-  finds `ἄ`. A word found with a typo needs only the accents typed somewhere in
-  it, as its letters no longer line up. The server checks the accents at each
-  place a word stands before the words a prefix or a typo expands to are
-  merged, so a plain `cafe` gives `café` no boost, checks a title word by word,
-  as a title has no places, and checks every word of a phrase. A word with no
-  match that carries its accents is the one that looks for typos.
+  `всё` finds only `всё`, `ü` finds `ǘ` and `ά` finds `ἄ`. A word found with a
+  typo needs only the accents typed somewhere in it, as its letters no longer
+  line up. The server checks the accents at each place a word stands before the
+  words a prefix or a typo expands to are merged, so a plain `cafe` gives
+  `café` no boost, checks a title word by word, as a title has no places, and
+  checks every word of a phrase. A word with no match that carries its accents
+  is the one that looks for typos.
 - The plain search compares the characters as written, so `молоко` finds
   `молоко́` and leaves the stress mark, a character of its own, out of the
   match. A mark belongs to the letter before it: Whole word looks past it, and
@@ -40,9 +40,13 @@ The server's search and the note's find bar.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word
-  matches too many other words. An accent is never a typo. A word with no exact
-  match is the one that looks for typos, on the server among every word of the
-  index, in the find bar among the words of the note.
+  matches too many other words. An accent missing is never a typo, and an
+  accent typed on another letter is one, as Fuzzy is there for mistakes: where
+  no word has it on its letter, `замо́к` finds `за́мок`, and that word weighs as
+  any word found with a typo. The short `уже́` still does not find `у́же`, and a
+  phrase in quotes keeps every accent on its letter. A word with no exact match
+  is the one that looks for typos, on the server among every word of the index,
+  in the find bar among the words of the note.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `

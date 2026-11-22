@@ -190,7 +190,7 @@ func typosAllowed(term string) int {
 
 func withinTypos(term, word string) bool {
 	limit := typosAllowed(term)
-	if limit == 0 || term == word || max(len(term)-len(word), len(word)-len(term)) > limit*utf8.UTFMax {
+	if limit == 0 || max(len(term)-len(word), len(word)-len(term)) > limit*utf8.UTFMax {
 		return false
 	}
 	a, b := []rune(term), []rune(word)

@@ -200,7 +200,7 @@ function withinTypos(term: string, word: string): boolean {
   const limit = typosAllowed(term);
   const a = [...term];
   const b = [...word];
-  if (limit === 0 || term === word || Math.abs(a.length - b.length) > limit) {
+  if (limit === 0 || Math.abs(a.length - b.length) > limit) {
     return false;
   }
   let before: number[] = [];

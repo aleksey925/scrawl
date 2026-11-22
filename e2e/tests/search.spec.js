@@ -124,9 +124,9 @@ test.describe('search', () => {
         await expect(lines).toHaveCount(1);
     });
 
-    test('Fuzzy finds a word without its accent or with a typo, and the plain search keeps the accent', async ({page}) => {
+    test('Fuzzy finds a word without its accent, with a typo or with an accent on another letter, and the plain search keeps the accent', async ({page}) => {
         // arrange
-        writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο. Всё и все.\n');
+        writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο. Всё и все. За́мок.\n');
         await indexed(page, 'σπίτι', MANY);
         await openSearch(page);
         const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
@@ -141,6 +141,8 @@ test.describe('search', () => {
         await expect(lines.locator('mark')).toHaveText(['σπίτι']);
         await page.getByTestId('search-input').fill('всё');
         await expect(lines.locator('mark')).toHaveText(['Всё']);
+        await page.getByTestId('search-input').fill('замо́к');
+        await expect(lines.locator('mark')).toHaveText(['За́мок']);
         await page.keyboard.press('Alt+KeyF');
         await page.getByTestId('search-input').fill('σπιτι');
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.exactHint);
@@ -493,6 +495,8 @@ test.describe('find in the note', () => {
         await input.fill('محمد');
         await expect(page.getByTestId('find-hit')).toHaveText(['مُحَمَّد']);
         await input.fill('за́');
+        await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
+        await input.fill('замо́к');
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
         await input.fill('word other word');
         await expect(page.getByTestId('find-hit')).toHaveText(['wording']);

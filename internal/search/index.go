@@ -106,7 +106,7 @@ func (ix *Index) Size() int64 {
 
 func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	if !term.prefix {
-		list := ix.eligible(term, ix.postings[term.text])
+		list := ix.eligible(term, term.text, ix.postings[term.text])
 		return slot{list: list}, len(list) > 0
 	}
 
@@ -134,11 +134,11 @@ func (ix *Index) mergeTerms(sought queryTerm, terms []string) slot {
 	lists := make([][]posting, 0, len(terms))
 	exactAt := -1
 	for _, term := range terms {
-		list := ix.eligible(sought, ix.postings[term])
+		list := ix.eligible(sought, term, ix.postings[term])
 		if len(list) == 0 {
 			continue
 		}
-		if term == sought.text {
+		if !sought.typo && term == sought.text {
 			exactAt = len(lists)
 		}
 		lists = append(lists, list)
@@ -475,7 +475,7 @@ func endsWithWord(query string) bool {
 	return wordRune(r)
 }
 
-func (ix *Index) eligible(term queryTerm, list []posting) []posting {
+func (ix *Index) eligible(term queryTerm, word string, list []posting) []posting {
 	if term.marks == nil {
 		return list
 	}
@@ -485,7 +485,7 @@ func (ix *Index) eligible(term queryTerm, list []posting) []posting {
 		p.offs = slices.DeleteFunc(slices.Clone(p.offs), func(off int32) bool {
 			return !term.carriedAt(doc.plain, int(off))
 		})
-		if p.counts[fieldTitle] > 0 && !titleCarries(doc.title, term) {
+		if p.counts[fieldTitle] > 0 && !titleCarries(doc.title, term, word) {
 			p.counts[fieldTitle] = 0
 		}
 		if len(p.offs) > 0 || p.counts[fieldTitle] > 0 {
@@ -495,10 +495,10 @@ func (ix *Index) eligible(term queryTerm, list []posting) []posting {
 	return res
 }
 
-func titleCarries(title string, term queryTerm) bool {
+func titleCarries(title string, term queryTerm, word string) bool {
 	text := normalize(title)
 	return slices.ContainsFunc(tokenize(text), func(tok token) bool {
-		return termMatches(term, tok.term) && term.carriedAt(text, tok.off)
+		return tok.term == word && term.carriedAt(text, tok.off)
 	})
 }
 

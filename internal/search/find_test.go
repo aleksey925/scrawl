@@ -517,7 +517,8 @@ func TestWithinTypos(t *testing.T) {
 		{"vacum", "vacuum", true},
 		{"vacuum", "vacum", true},
 		{"vacuum", "vacuun", true},
-		{"vacuum", "vacuum", false},
+		{"vacuum", "vacuum", true},
+		{"foo", "foo", false},
 		{"vacm", "vacuum", false},
 		{"индекс", "индекч", true},
 		{"σπτιι", "σπιτι", true},
@@ -609,6 +610,14 @@ func TestFindFuzzyKeepsTypedAccents(t *testing.T) {
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy}, want: []string{}},
 		{name: "a phrase with the accent matches", docs: map[string]string{"a.md": "# Notes\n\nBon café ici.\n"},
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy}, want: []string{"a.md"}},
+		{name: "an accent on another letter is a typo", docs: map[string]string{"a.md": "# Notes\n\nЗа́мок стоит.\n"},
+			query: Query{Text: "замо́к", Mode: ModeFuzzy}, want: []string{"a.md"}},
+		{name: "an accent on another letter in a title is a typo", docs: map[string]string{"a.md": "# За́мок\n\nТекст.\n"},
+			query: Query{Text: "замо́к", Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
+		{name: "a short word keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nУ́же нет.\n"},
+			query: Query{Text: "уже́", Mode: ModeFuzzy}, want: []string{}},
+		{name: "a phrase keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nЗа́мок стоит.\n"},
+			query: Query{Text: `"замо́к стоит"`, Mode: ModeFuzzy}, want: []string{}},
 	}
 
 	for _, tc := range tests {
@@ -963,4 +972,20 @@ func TestFindFuzzyLooksForTyposPastAWordWithoutTheAccent(t *testing.T) {
 	// assert
 	require.NoError(t, err)
 	assert.Equal(t, []string{"caffé"}, allHits(got))
+}
+
+func TestFindFuzzyRanksAnAccentOnAnotherLetterAsATypo(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{
+		"a.md": "# Notes\n\nЗа́мок стоит.\n",
+		"b.md": "# Notes\n\nЗама́к стоит.\n",
+	})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "замо́к", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Equal(t, []string{"a.md", "b.md"}, paths(got))
+	assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
 }

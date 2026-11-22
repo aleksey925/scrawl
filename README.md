@@ -24,8 +24,8 @@ It ships as one static binary or a Docker image.
 
 ## Features
 
-- **Search** across all notes, exact or fuzzy, in any case and with or without
-  accents, or by regular expression; fuzzy search also finds a word typed with
+- **Search** across all notes, exact or fuzzy, in any case, or by regular
+  expression; fuzzy search also finds a word typed without its accents or with
   a typo
 - **Editor** with live preview and a view of your unsaved changes
 - **Consistent formatting**: every save runs the note through prettier, so all
@@ -793,13 +793,15 @@ curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:7272/s/notes/api/file/p
 Every endpoint that works with notes lives under its space,
 `/s/<space>/api/...`.
 
-A search looks for the text as typed, in any case and with or without accents.
-Add to the query:
+A search looks for the text as typed, in any case, with its accents. Add to the
+query:
 
-- `mode=fuzzy` - look for words, allowing a typo or two, the results ranked by
-  how well they match; `case` and `word` do not apply to it;
+- `mode=fuzzy` - look for words, with or without their accents and allowing a
+  typo or two, the results ranked by how well they match; an accent you type is
+  kept: `все` finds `все` and `всё`, `всё` finds only `всё`; `case` and `word`
+  do not apply to it;
 - `regex=1` - take the text as a regular expression, also with `mode=fuzzy`;
-- `case=1` - match the case and the accents;
+- `case=1` - match the case;
 - `word=1` - match whole words only;
 - `titles=1` - look in the titles only;
 - `limit=<n>` - the number of results, 20 by default and 50 at most.

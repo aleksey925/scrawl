@@ -100,7 +100,7 @@ func TestMatchAt(t *testing.T) {
 }
 
 func TestPhraseAt(t *testing.T) {
-	terms := []string{"резервное", "копирование"}
+	terms := []queryTerm{{text: "резервное"}, {text: "копирование"}}
 	tests := []struct {
 		name string
 		text string

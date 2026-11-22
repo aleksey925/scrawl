@@ -16,7 +16,7 @@ export function hintOf(settings: SearchSettings): string {
   if (settings.fuzzy) {
     return 'Words in any order, typos and accents are fine';
   }
-  return settings.matchCase ? 'The text exactly as typed' : 'The text as typed, in any case, accents or not';
+  return settings.matchCase ? 'The text exactly as typed' : 'The text as typed, in any case';
 }
 
 const linesShown = 3;

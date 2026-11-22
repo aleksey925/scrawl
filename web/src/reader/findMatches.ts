@@ -1,4 +1,4 @@
-import type { FindOptions } from './findOptions';
+import type { FindOptions } from "./findOptions";
 
 export interface FindQuery extends FindOptions {
   text: string;
@@ -12,50 +12,51 @@ export interface FindMatch {
 
 export interface FindTerm {
   text: string;
+  marks: string[][] | null;
   prefix: boolean;
 }
 
-export type FindPattern = { kind: 'regex'; source: string; flags: string } | { kind: 'words'; terms: FindTerm[] };
+export type FindPattern =
+  | { kind: "regex"; source: string; flags: string }
+  | { kind: "words"; terms: FindTerm[] };
 
 const maxMatches = 1000;
 const oneTypoChars = 4;
 const twoTypoChars = 8;
 const firstAccented = 0xc0;
 const lastAccented = 0x2fff;
-const ownLetters = 'йЙїЇўЎ';
-const finalSigma = 'ς';
-const sigma = 'σ';
-const ypogegrammeni = '\u0345';
+const ownLetters = "йЙїЇўЎ";
+const finalSigma = "ς";
+const sigma = "σ";
 const accent = /^\p{Script=Inherited}$/u;
-const accentMarks = '[^\\u0345\\P{Script=Inherited}]*';
 
 function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 const leadingFlags = /^\(\?([ims]+)\)/;
 
 function fromRe2(pattern: string): { source: string; flags: string } {
   const lead = leadingFlags.exec(pattern);
-  const flags = (lead?.[1] ?? '').replace('m', '');
+  const flags = (lead?.[1] ?? "").replace("m", "");
   const rest = lead === null ? pattern : pattern.slice(lead[0].length);
-  let source = '';
+  let source = "";
   for (let i = 0; i < rest.length; i++) {
-    const next = rest[i + 1] ?? '';
-    const after = rest[i + 2] ?? '';
-    if (rest.startsWith('(?P<', i)) {
-      source += '(?<';
+    const next = rest[i + 1] ?? "";
+    const after = rest[i + 2] ?? "";
+    if (rest.startsWith("(?P<", i)) {
+      source += "(?<";
       i += 3;
-    } else if (rest[i] !== '\\') {
+    } else if (rest[i] !== "\\") {
       source += rest[i];
-    } else if (next === 'Q') {
-      const end = rest.indexOf('\\E', i + 2);
+    } else if (next === "Q") {
+      const end = rest.indexOf("\\E", i + 2);
       source += escapeRegExp(rest.slice(i + 2, end < 0 ? undefined : end));
       i = end < 0 ? rest.length : end + 1;
-    } else if (next === 'A' || next === 'z') {
-      source += next === 'A' ? '^' : '$';
+    } else if (next === "A" || next === "z") {
+      source += next === "A" ? "^" : "$";
       i++;
-    } else if ((next === 'p' || next === 'P') && /^[A-Za-z]$/.test(after)) {
+    } else if ((next === "p" || next === "P") && /^[A-Za-z]$/.test(after)) {
       source += `\\${next}{${after}}`;
       i += 2;
     } else {
@@ -66,90 +67,125 @@ function fromRe2(pattern: string): { source: string; flags: string } {
   return { source, flags };
 }
 
-interface AccentTable {
-  base: Map<string, string>;
-  variants: Map<string, string>;
-}
+let accentBases: Map<string, string> | undefined;
 
-let accentTable: AccentTable | undefined;
-
-function accents(): AccentTable {
-  if (accentTable !== undefined) {
-    return accentTable;
+function accents(): Map<string, string> {
+  if (accentBases !== undefined) {
+    return accentBases;
   }
-  const base = new Map<string, string>();
-  const grouped = new Map<string, Set<string>>();
+  accentBases = new Map<string, string>();
   for (let code = firstAccented; code <= lastAccented; code++) {
     const char = String.fromCodePoint(code);
     if (!/\p{L}/u.test(char) || ownLetters.includes(char)) {
       continue;
     }
-    const [first = '', ...marks] = [...char.normalize('NFD')];
-    if (marks.length === 0 || !marks.every((part) => accent.test(part))) {
-      continue;
+    const [first = "", ...marks] = [...char.normalize("NFD")];
+    if (marks.length > 0 && marks.every((part) => accent.test(part))) {
+      accentBases.set(char, first.toLowerCase());
     }
-    const lower = first.toLowerCase();
-    base.set(char, lower);
-    grouped.set(lower, (grouped.get(lower) ?? new Set([lower])).add(char));
   }
-  const variants = new Map<string, string>();
-  for (const [lower, set] of grouped) {
-    variants.set(lower, [...set].join(''));
-  }
-  accentTable = { base, variants };
-  return accentTable;
+  return accentBases;
 }
 
 function fold(char: string): string {
-  return accents().base.get(char) ?? (char === finalSigma ? sigma : char.toLowerCase());
+  return (
+    accents().get(char) ?? (char === finalSigma ? sigma : char.toLowerCase())
+  );
 }
 
-function accentFree(text: string): string {
-  let source = '';
-  let afterLetter = false;
-  for (const char of text) {
-    if (afterLetter && accent.test(char) && char !== ypogegrammeni) {
-      continue;
+function marksOf(char: string): string[] {
+  return accents().has(char) ? [...char.normalize("NFD")].slice(1) : [];
+}
+
+function marksOfWord(word: string): string[][] | null {
+  const res: string[][] = [];
+  for (const char of word) {
+    if (!ignorableChar.test(char)) {
+      res.push(marksOf(char));
+    } else if (accent.test(char)) {
+      res.at(-1)?.push(char);
     }
-    afterLetter = /\p{L}/u.test(char);
-    if (!afterLetter) {
-      source += escapeRegExp(char);
-      continue;
-    }
-    const variants = accents().variants.get(fold(char));
-    source += `${variants === undefined ? char : `[${variants}]`}${accentMarks}`;
   }
-  return source;
+  return res.some((letter) => letter.length > 0) ? res : null;
+}
+
+function missingMarks(
+  want: readonly string[],
+  have: readonly string[],
+): string[] {
+  const left = [...have];
+  return want.filter((mark) => {
+    const at = left.indexOf(mark);
+    if (at < 0) {
+      return true;
+    }
+    left.splice(at, 1);
+    return false;
+  });
+}
+
+function carries(
+  want: readonly string[][] | null,
+  have: readonly string[][],
+  typo: boolean,
+): boolean {
+  if (want === null) {
+    return true;
+  }
+  if (typo) {
+    return missingMarks(want.flat(), have.flat()).length === 0;
+  }
+  return want.every(
+    (letter, at) => missingMarks(letter, have[at] ?? []).length === 0,
+  );
 }
 
 const wordChars = /[\p{L}\p{N}\p{Mn}\u00ad\u200b-\u200d\ufeff]+/gu;
 const ignorable = /[\p{Mn}\u00ad\u200b-\u200d\ufeff]/gu;
+const ignorableChar = /^[\p{Mn}\u00ad\u200b-\u200d\ufeff]$/u;
 
 function termOf(word: string): string {
-  return [...word.replace(ignorable, '')].map(fold).join('');
+  return [...word.replace(ignorable, "")].map(fold).join("");
+}
+
+function keyOf(term: Omit<FindTerm, "prefix">): string {
+  return JSON.stringify([term.text, term.marks]);
 }
 
 function termsOf(text: string): FindTerm[] {
-  const typed = [...text.matchAll(wordChars)].map((found) => termOf(found[0])).filter((term) => term !== '');
-  const last = /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? typed.at(-1) : undefined;
-  return [...new Set(typed)].map((term) => ({ text: term, prefix: term === last }));
+  const typed = [...text.matchAll(wordChars)]
+    .map((found) => ({ text: termOf(found[0]), marks: marksOfWord(found[0]) }))
+    .filter((term) => term.text !== "");
+  const last = typed.at(-1);
+  const lastKey =
+    last !== undefined &&
+    /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, ""))
+      ? keyOf(last)
+      : undefined;
+  const byKey = new Map(typed.map((term) => [keyOf(term), term]));
+  return [...byKey].map(([key, term]) => ({
+    ...term,
+    prefix: key === lastKey,
+  }));
 }
 
 export function patternOf(query: FindQuery): FindPattern {
-  const text = query.text.normalize('NFC');
+  const text = query.text.normalize("NFC");
   if (query.fuzzy) {
-    return { kind: 'words', terms: termsOf(text) };
+    return { kind: "words", terms: termsOf(text) };
   }
   const typed = query.regex
     ? fromRe2(text)
-    : { source: query.matchCase ? escapeRegExp(text) : accentFree(text), flags: '' };
+    : { source: escapeRegExp(text), flags: "" };
   let source = typed.source;
   if (query.word) {
     source = `(?<![\\p{L}\\p{N}_]\\p{Mn}*)(?:${source})(?!\\p{Mn}*[\\p{L}\\p{N}_])`;
   }
-  const flags = [...new Set(`gmu${query.matchCase ? '' : 'i'}${typed.flags}`)].join('');
+  const flags = [
+    ...new Set(`gmu${query.matchCase ? "" : "i"}${typed.flags}`),
+  ].join("");
   new RegExp(source, flags);
-  return { kind: 'regex', source, flags };
+  return { kind: "regex", source, flags };
 }
 
 function typosAllowed(term: string): number {
@@ -172,7 +208,11 @@ function withinTypos(term: string, word: string): boolean {
   for (let i = 1; i <= a.length; i++) {
     const cur = [i];
     for (let j = 1; j <= b.length; j++) {
-      let cost = Math.min((prev[j] ?? 0) + 1, (cur[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1));
+      let cost = Math.min(
+        (prev[j] ?? 0) + 1,
+        (cur[j - 1] ?? 0) + 1,
+        (prev[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
         cost = Math.min(cost, (before[j - 2] ?? 0) + 1);
       }
@@ -194,16 +234,20 @@ interface NfcText {
 }
 
 function startsPiece(piece: string, char: string): boolean {
-  return !/\p{M}/u.test(char) && (piece + char).normalize('NFC') === piece.normalize('NFC') + char.normalize('NFC');
+  return (
+    !/\p{M}/u.test(char) &&
+    (piece + char).normalize("NFC") ===
+      piece.normalize("NFC") + char.normalize("NFC")
+  );
 }
 
 function nfcOf(text: string): NfcText {
-  let nfc = '';
+  let nfc = "";
   const starts: number[] = [];
   const ends: number[] = [];
   let at = 0;
   const compose = (piece: string) => {
-    const composed = piece.normalize('NFC');
+    const composed = piece.normalize("NFC");
     nfc += composed;
     for (let i = 0; i < composed.length; i++) {
       starts.push(at);
@@ -211,11 +255,11 @@ function nfcOf(text: string): NfcText {
     }
     at += piece.length;
   };
-  let piece = '';
+  let piece = "";
   for (const char of text) {
-    if (piece !== '' && startsPiece(piece, char)) {
+    if (piece !== "" && startsPiece(piece, char)) {
       compose(piece);
-      piece = '';
+      piece = "";
     }
     piece += char;
   }
@@ -225,7 +269,11 @@ function nfcOf(text: string): NfcText {
   return { text: nfc, starts, ends };
 }
 
-function regexMatches(texts: readonly string[], source: string, flags: string): FindMatch[] {
+function regexMatches(
+  texts: readonly string[],
+  source: string,
+  flags: string,
+): FindMatch[] {
   const re = new RegExp(source, flags);
   const res: FindMatch[] = [];
   texts.forEach((text, block) => {
@@ -235,35 +283,56 @@ function regexMatches(texts: readonly string[], source: string, flags: string): 
       if (found === null) {
         break;
       }
-      if (found[0] === '') {
+      if (found[0] === "") {
         const code = text.codePointAt(found.index);
-        re.lastIndex = found.index + (code !== undefined && code > 0xffff ? 2 : 1);
+        re.lastIndex =
+          found.index + (code !== undefined && code > 0xffff ? 2 : 1);
         if (re.lastIndex > text.length) {
           break;
         }
         continue;
       }
-      res.push({ block, start: found.index, end: found.index + found[0].length });
+      res.push({
+        block,
+        start: found.index,
+        end: found.index + found[0].length,
+      });
     }
   });
   return res;
 }
 
-function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): FindMatch[] {
+function wordMatches(
+  texts: readonly string[],
+  terms: readonly FindTerm[],
+): FindMatch[] {
   const words = texts.flatMap((text, block) =>
     [...text.matchAll(wordChars)].map((found) => ({
       block,
       start: found.index,
       end: found.index + found[0].length,
       term: termOf(found[0]),
+      marks: marksOfWord(found[0]) ?? [],
     })),
   );
   const wanted = new Set<number>();
   for (const sought of terms) {
     const exact = words.flatMap((entry, at) =>
-      entry.term === sought.text || (sought.prefix && entry.term.startsWith(sought.text)) ? [at] : [],
+      (entry.term === sought.text ||
+        (sought.prefix && entry.term.startsWith(sought.text))) &&
+      carries(sought.marks, entry.marks, false)
+        ? [at]
+        : [],
     );
-    const chosen = exact.length > 0 ? exact : words.flatMap((entry, at) => (withinTypos(sought.text, entry.term) ? [at] : []));
+    const chosen =
+      exact.length > 0
+        ? exact
+        : words.flatMap((entry, at) =>
+            withinTypos(sought.text, entry.term) &&
+            carries(sought.marks, entry.marks, true)
+              ? [at]
+              : [],
+          );
     for (const at of chosen) {
       wanted.add(at);
     }
@@ -274,16 +343,32 @@ function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): Find
     .map(({ block, start, end }) => ({ block, start, end }));
 }
 
-export function findMatches(texts: readonly string[], pattern: FindPattern): FindMatch[] {
-  const nfcs = texts.map((original) => (original.normalize('NFC') === original ? null : nfcOf(original)));
+export function findMatches(
+  texts: readonly string[],
+  pattern: FindPattern,
+): FindMatch[] {
+  const nfcs = texts.map((original) =>
+    original.normalize("NFC") === original ? null : nfcOf(original),
+  );
   const joined = texts.map((original, block) => nfcs[block]?.text ?? original);
-  const found = pattern.kind === 'regex' ? regexMatches(joined, pattern.source, pattern.flags) : wordMatches(joined, pattern.terms);
+  const found =
+    pattern.kind === "regex"
+      ? regexMatches(joined, pattern.source, pattern.flags)
+      : wordMatches(joined, pattern.terms);
   const res: FindMatch[] = [];
   for (const raw of found) {
     const nfc = nfcs[raw.block] ?? null;
-    const match = { block: raw.block, start: nfc?.starts[raw.start] ?? raw.start, end: nfc?.ends[raw.end] ?? raw.end };
+    const match = {
+      block: raw.block,
+      start: nfc?.starts[raw.start] ?? raw.start,
+      end: nfc?.ends[raw.end] ?? raw.end,
+    };
     const last = res.at(-1);
-    if (last !== undefined && last.block === match.block && match.start < last.end) {
+    if (
+      last !== undefined &&
+      last.block === match.block &&
+      match.start < last.end
+    ) {
       last.end = Math.max(last.end, match.end);
     } else if (match.start < match.end) {
       res.push(match);
@@ -294,7 +379,7 @@ export function findMatches(texts: readonly string[], pattern: FindPattern): Fin
 
 export class FindTimeout extends Error {
   constructor() {
-    super('the pattern took too long');
-    this.name = 'FindTimeout';
+    super("the pattern took too long");
+    this.name = "FindTimeout";
   }
 }

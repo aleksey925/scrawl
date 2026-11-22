@@ -95,12 +95,8 @@ func compileQuery(q Query) (*regexp.Regexp, error) {
 		return nil, fmt.Errorf("%w: longer than %d bytes", ErrPattern, MaxPattern)
 	}
 	pattern := normalize(q.Text)
-	switch {
-	case q.Regex:
-	case q.Case:
+	if !q.Regex {
 		pattern = regexp.QuoteMeta(pattern)
-	default:
-		pattern = accentFree(pattern)
 	}
 	if !q.Case {
 		pattern = "(?i)" + pattern
@@ -164,7 +160,7 @@ func (ix *Index) typoSlot(term *queryTerm) (slot, bool) {
 		return slot{}, false
 	}
 	term.typo, term.prefix = true, false
-	res := ix.mergeTerms(term.text, found)
+	res := ix.mergeTerms(*term, found)
 	return res, len(res.list) > 0
 }
 
@@ -291,7 +287,7 @@ func titleSpans(title string, terms []queryTerm) []Span {
 	marks := make([]mark, 0, 2)
 	for _, tok := range tokenize(text) {
 		for k, wanted := range terms {
-			if !termMatches(wanted, tok.term) {
+			if !termMatches(wanted, tok.term) || !wanted.carriedAt(text, tok.off) {
 				continue
 			}
 			end := wordEndAt(text, tok.off)

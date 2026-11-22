@@ -4,11 +4,12 @@ The server's search and the note's find bar.
 
 - Both have the same options, in the same order and on the same keys: Match
   case, Whole word, Regular expression and Fuzzy, `Alt+C`, `Alt+W`, `Alt+R` and
-  `Alt+F`. With none of them on, the text is looked for as typed, in any case
-  and with or without accents, so a Greek word typed without its stress mark is
-  found. Match case keeps the accents too, as a person who asks for the case
-  asks for the text exactly. A regular expression is taken as written. Fuzzy
-  looks for words: Match case and Whole word mean nothing there and are
+  `Alt+F`. With none of them on, the text is looked for as typed, in any case,
+  and its accents count: `σπιτι` does not find `σπίτι`. Match case keeps the
+  case too, and a regular expression is taken as written. Fuzzy is the loose
+  search, and every loose rule is its own: it looks for words, with or without
+  their accents and with a typo, so the plain search stays as exact as a person
+  expects of it. Match case and Whole word mean nothing in Fuzzy and are
   disabled, and Fuzzy and Regex turn each other off.
 - An accent is a combining mark that Unicode gives to no script of its own
   (script Inherited): the Latin, Greek and Cyrillic accents and the Arabic
@@ -16,22 +17,26 @@ The server's search and the note's find bar.
   base, so `ά` is `α` and `ё` is `е`. The vowel signs of Hindi or Thai, the
   nukta and the Hebrew points belong to their script and are not accents, as
   `कल` and `कुल` are two words. And `й`, `ї` and `ў` stay letters of their own,
-  as Russian has `мой` and `мои`. A query letter becomes the class of every
-  letter with the same base, followed by any accents, which also finds a stress
-  mark written as a mark of its own, as in `молоко́`. The accents after a letter
-  leave out the Greek ypogegrammeni U+0345: in any case Go and JavaScript take
-  it for `ι`, so `παδί` would find `παιδί`, and text in NFC keeps it inside its
-  letter, as in `ᾳ`. Where NFC leaves it apart, as in `ᾱͅ`, the query keeps it
-  as it is, so the same text is found. A class keeps the offsets of the text,
-  so the marks and the line numbers need no mapping, and the server and the
-  find bar build it from the same rule, over the same letters: U+00C0 to
-  U+2FFF, from `À`, the first letter with a mark, to the end of the alphabets,
-  so the Japanese kana and the CJK characters are left as they are. Match case
-  compares the characters as written, so `молоко` still finds `молоко́` and
-  leaves the stress mark, a character of its own, out of the match. A mark
-  belongs to the letter before it: Whole word looks past it, and a mark after
-  no letter, such as the one in the emoji `1️⃣`, is kept as typed. Any case also
-  takes `ς` for `σ`, as a word in capitals ends in `Σ`.
+  as Russian has `мой` and `мои`. The server and the find bar build the bases
+  from the same rule, over the same letters: U+00C0 to U+2FFF, from `À`, the
+  first letter with a mark, to the end of the alphabets, so the Japanese kana
+  and the CJK characters are left as they are.
+- Fuzzy takes every word to its bases, in the index and in the find bar, so
+  `μεγαλο` finds `μεγάλο`. An accent the query types is kept: a word typed with
+  one finds only the words that carry it on the same letter, inside it or as a
+  mark after it, and more accents are allowed. So `все` finds `все` and `всё`,
+  `всё` finds only `всё`, `замо́к` does not find `за́мок`, `ü` finds `ǘ` and `ά`
+  finds `ἄ`. A word found with a typo needs only the accents typed somewhere in
+  it, as its letters no longer line up. The server checks the accents at each
+  place a word stands before the words a prefix or a typo expands to are
+  merged, so a plain `cafe` gives `café` no boost, checks a title word by word,
+  as a title has no places, and checks every word of a phrase. A word with no
+  match that carries its accents is the one that looks for typos.
+- The plain search compares the characters as written, so `молоко` finds
+  `молоко́` and leaves the stress mark, a character of its own, out of the
+  match. A mark belongs to the letter before it: Whole word looks past it, and
+  a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
+  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word

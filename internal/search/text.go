@@ -1,7 +1,6 @@
 package search
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -39,33 +38,18 @@ const (
 	ownLetters    = "йЙїЇўЎ"
 	finalSigma    = 'ς'
 	sigma         = 'σ'
-	ypogegrammeni = '\u0345'
-	accentMarks   = `[^\x{345}\P{Inherited}]*`
 )
 
-type accentTable struct {
-	base     map[rune]rune
-	variants map[rune][]rune
-}
-
-var accents = sync.OnceValue(func() accentTable {
-	res := accentTable{base: make(map[rune]rune), variants: make(map[rune][]rune)}
+var accentBases = sync.OnceValue(func() map[rune]rune {
+	res := make(map[rune]rune)
 	for r := rune(firstAccented); r <= lastAccented; r++ {
 		if !unicode.IsLetter(r) || strings.ContainsRune(ownLetters, r) {
 			continue
 		}
 		parts := []rune(norm.NFD.String(string(r)))
-		if len(parts) < 2 || !allAccents(parts[1:]) {
-			continue
+		if len(parts) >= 2 && allAccents(parts[1:]) {
+			res[r] = unicode.ToLower(parts[0])
 		}
-		base := unicode.ToLower(parts[0])
-		res.base[r] = base
-		res.variants[base] = append(res.variants[base], r)
-	}
-	for base, list := range res.variants {
-		list = append(list, base)
-		slices.Sort(list)
-		res.variants[base] = slices.Compact(list)
 	}
 	return res
 })
@@ -88,7 +72,7 @@ func isAccent(r rune) bool {
 }
 
 func fold(r rune) rune {
-	if base, ok := accents().base[r]; ok {
+	if base, ok := accentBases()[r]; ok {
 		return base
 	}
 	if r == finalSigma {
@@ -97,30 +81,59 @@ func fold(r rune) rune {
 	return unicode.ToLower(r)
 }
 
-func accentFree(text string) string {
-	var b strings.Builder
-	afterLetter := false
-	for _, r := range text {
-		switch {
-		case afterLetter && isAccent(r) && r != ypogegrammeni:
-		case !unicode.IsLetter(r):
-			afterLetter = false
-			b.WriteString(regexp.QuoteMeta(string(r)))
-		default:
-			afterLetter = true
-			b.WriteString(letterClass(r))
-			b.WriteString(accentMarks)
-		}
+func marksOf(r rune) []rune {
+	if _, ok := accentBases()[r]; !ok {
+		return nil
 	}
-	return b.String()
+	return []rune(norm.NFD.String(string(r)))[1:]
 }
 
-func letterClass(r rune) string {
-	variants := accents().variants[fold(r)]
-	if len(variants) == 0 {
-		return regexp.QuoteMeta(string(r))
+func marksOfWord(word string) [][]rune {
+	var res [][]rune
+	typed := false
+	for _, r := range word {
+		switch {
+		case !ignorable(r):
+			res = append(res, marksOf(r))
+		case isAccent(r) && len(res) > 0:
+			res[len(res)-1] = append(res[len(res)-1], r)
+		default:
+			continue
+		}
+		typed = typed || len(res[len(res)-1]) > 0
 	}
-	return "[" + string(variants) + "]"
+	if !typed {
+		return nil
+	}
+	return res
+}
+
+func carries(want, have [][]rune, typo bool) bool {
+	if typo {
+		return len(missingMarks(slices.Concat(want...), slices.Concat(have...))) == 0
+	}
+	for i, letter := range want {
+		if len(letter) == 0 {
+			continue
+		}
+		if i >= len(have) || len(missingMarks(letter, have[i])) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func missingMarks(want, have []rune) []rune {
+	have = slices.Clone(have)
+	var res []rune
+	for _, m := range want {
+		if k := slices.Index(have, m); k >= 0 {
+			have = slices.Delete(have, k, k+1)
+		} else {
+			res = append(res, m)
+		}
+	}
+	return res
 }
 
 func ignorable(r rune) bool {
@@ -288,16 +301,16 @@ func skipGap(text string, at int) int {
 	return -1
 }
 
-func phraseAt(text string, terms []string, at int) bool {
+func phraseAt(text string, words []queryTerm, at int) bool {
 	pos := at
-	for i, term := range terms {
+	for i, word := range words {
 		if i > 0 {
 			if pos = skipGap(text, pos); pos < 0 {
 				return false
 			}
 		}
-		end := matchAt(text, term, pos)
-		if end < 0 {
+		end := matchAt(text, word.text, pos)
+		if end < 0 || !word.carriedAt(text, pos) {
 			return false
 		}
 		pos = end

@@ -58,7 +58,7 @@ module.exports = {
         empty: 'No notes match that.',
         results: 'results',
         regexHint: 'Regular expression over the text as shown, line by line',
-        exactHint: 'The text as typed, in any case, accents or not',
+        exactHint: 'The text as typed, in any case',
         caseHint: 'The text exactly as typed',
         fuzzyHint: 'Words in any order, typos and accents are fine',
         offline: 'Search needs the network',

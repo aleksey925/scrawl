@@ -124,9 +124,9 @@ test.describe('search', () => {
         await expect(lines).toHaveCount(1);
     });
 
-    test('a word typed without its accent is found, and Fuzzy forgives a typo too', async ({page}) => {
+    test('Fuzzy finds a word without its accent or with a typo, and the plain search keeps the accent', async ({page}) => {
         // arrange
-        writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο.\n');
+        writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο. Всё и все.\n');
         await indexed(page, 'σπίτι', MANY);
         await openSearch(page);
         const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
@@ -137,12 +137,18 @@ test.describe('search', () => {
         await page.keyboard.press('Alt+KeyF');
         await expect(lines.locator('mark')).toHaveText(['σπίτι']);
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.fuzzyHint);
-        await page.keyboard.press('Alt+KeyF');
         await page.getByTestId('search-input').fill('σπιτι');
         await expect(lines.locator('mark')).toHaveText(['σπίτι']);
+        await page.getByTestId('search-input').fill('всё');
+        await expect(lines.locator('mark')).toHaveText(['Всё']);
+        await page.keyboard.press('Alt+KeyF');
+        await page.getByTestId('search-input').fill('σπιτι');
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.exactHint);
+        await expect(page.getByTestId('search-empty')).toHaveText(text.search.empty);
+        await page.getByTestId('search-input').fill('σπίτι');
+        await expect(lines.locator('mark')).toHaveText(['σπίτι']);
         await lines.first().click();
-        await expect(page.getByTestId('doc-find-input')).toHaveValue('σπιτι');
+        await expect(page.getByTestId('doc-find-input')).toHaveValue('σπίτι');
         await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
     });
 
@@ -418,7 +424,7 @@ test.describe('find in the note', () => {
         await expect(counter).toHaveAttribute('data-total', '2');
     });
 
-    test('a word without its accent is found, and Fuzzy forgives a typo too', async ({page}) => {
+    test('Fuzzy finds a word without its accent or with a typo, and keeps an accent typed', async ({page}) => {
         // arrange
         const counter = page.getByTestId('doc-find-count');
         const input = page.getByTestId('doc-find-input');
@@ -426,24 +432,26 @@ test.describe('find in the note', () => {
 
         // act & assert
         await input.fill('σπιτι');
+        await expect(counter).toHaveText('No results');
+        await input.fill('σπίτι');
         await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
-        await page.getByTestId('doc-find-case').click();
-        await expect(counter).toHaveText('No results');
-        await page.getByTestId('doc-find-case').click();
-        await input.fill('σπτιι');
-        await expect(counter).toHaveText('No results');
-        await input.fill('τό');
-        await expect(page.getByTestId('find-hit')).toHaveText(['Το']);
         await input.fill('молоко');
-        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко́']);
-        await input.fill('мои');
-        await expect(counter).toHaveText('No results');
+        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко']);
         await input.fill('σπτιι');
+        await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyF');
         await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('doc-find-case')).toBeDisabled();
         await expect(page.getByTestId('doc-find-word')).toBeDisabled();
         await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
+        await input.fill('σπιτι');
+        await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
+        await input.fill('τό');
+        await expect(counter).toHaveText('No results');
+        await input.fill('молоко́');
+        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко́']);
+        await input.fill('мои');
+        await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyC');
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'false');
         await input.fill('дакументацыя');
@@ -467,10 +475,10 @@ test.describe('find in the note', () => {
         await input.fill('कल');
         await expect(counter).toHaveText('No results');
         await input.fill('محمد');
-        await expect(page.getByTestId('find-hit')).toHaveText(['مُحَمَّد']);
+        await expect(counter).toHaveText('No results');
         await input.fill('παδί');
         await expect(counter).toHaveText('No results');
-        await input.fill('ΠΑΙΔΙ');
+        await input.fill('ΠΑΙΔΊ');
         await expect(page.getByTestId('find-hit')).toHaveText(['παιδί']);
         await input.fill('ᾱ\u0345β');
         await expect(page.getByTestId('find-hit')).toHaveText(['ᾱ\u0345β']);
@@ -482,6 +490,8 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
         await input.fill('ως');
         await expect(page.getByTestId('find-hit')).toHaveText(['ΩΣ']);
+        await input.fill('محمد');
+        await expect(page.getByTestId('find-hit')).toHaveText(['مُحَمَّد']);
         await input.fill('за́');
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
         await input.fill('word other word');

@@ -106,7 +106,7 @@ func (ix *Index) Size() int64 {
 
 func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	if !term.prefix {
-		list := ix.postings[term.text]
+		list := ix.eligible(term, ix.postings[term.text])
 		return slot{list: list}, len(list) > 0
 	}
 
@@ -114,7 +114,7 @@ func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	if len(expanded) == 0 {
 		return slot{}, false
 	}
-	res := ix.mergeTerms(term.text, expanded)
+	res := ix.mergeTerms(term, expanded)
 	return res, len(res.list) > 0
 }
 
@@ -130,15 +130,15 @@ func (ix *Index) prefixMatches(p string) []string {
 	return res
 }
 
-func (ix *Index) mergeTerms(exact string, terms []string) slot {
+func (ix *Index) mergeTerms(sought queryTerm, terms []string) slot {
 	lists := make([][]posting, 0, len(terms))
 	exactAt := -1
 	for _, term := range terms {
-		list := ix.postings[term]
+		list := ix.eligible(sought, ix.postings[term])
 		if len(list) == 0 {
 			continue
 		}
-		if term == exact {
+		if term == sought.text {
 			exactAt = len(lists)
 		}
 		lists = append(lists, list)
@@ -417,14 +417,29 @@ func findPosting(list []posting, id uint32) (int, bool) {
 
 type queryTerm struct {
 	text   string
+	marks  [][]rune
 	prefix bool
 	typo   bool
+}
+
+func (t queryTerm) key() string {
+	var b strings.Builder
+	b.WriteString(t.text)
+	for _, letter := range t.marks {
+		b.WriteByte(0)
+		b.WriteString(string(letter))
+	}
+	return b.String()
+}
+
+func (t queryTerm) carriedAt(text string, at int) bool {
+	return t.marks == nil || carries(t.marks, marksOfWord(text[at:wordEndAt(text, at)]), t.typo)
 }
 
 type parsedQuery struct {
 	terms   []queryTerm
 	index   map[string]int
-	phrases [][]string
+	phrases [][]queryTerm
 }
 
 func parseQuery(query string) parsedQuery {
@@ -433,13 +448,15 @@ func parseQuery(query string) parsedQuery {
 
 	last, quoted := "", false
 	for i, part := range strings.Split(text, `"`) {
-		group := make([]string, 0, 4)
+		group := make([]queryTerm, 0, 4)
 		for _, t := range tokenize(part) {
-			group = append(group, t.term)
-			last, quoted = t.term, i%2 == 1
-			if _, seen := res.index[t.term]; !seen && len(res.terms) < maxQueryTerms {
-				res.index[t.term] = len(res.terms)
-				res.terms = append(res.terms, queryTerm{text: t.term})
+			term := queryTerm{text: t.term, marks: marksOfWord(part[t.off:wordEndAt(part, t.off)])}
+			key := term.key()
+			group = append(group, term)
+			last, quoted = key, i%2 == 1
+			if _, seen := res.index[key]; !seen && len(res.terms) < maxQueryTerms {
+				res.index[key] = len(res.terms)
+				res.terms = append(res.terms, term)
 			}
 		}
 		if i%2 == 1 && len(group) > 1 {
@@ -458,9 +475,36 @@ func endsWithWord(query string) bool {
 	return wordRune(r)
 }
 
+func (ix *Index) eligible(term queryTerm, list []posting) []posting {
+	if term.marks == nil {
+		return list
+	}
+	res := make([]posting, 0, len(list))
+	for _, p := range list {
+		doc := ix.docs[p.doc]
+		p.offs = slices.DeleteFunc(slices.Clone(p.offs), func(off int32) bool {
+			return !term.carriedAt(doc.plain, int(off))
+		})
+		if p.counts[fieldTitle] > 0 && !titleCarries(doc.title, term) {
+			p.counts[fieldTitle] = 0
+		}
+		if len(p.offs) > 0 || p.counts[fieldTitle] > 0 {
+			res = append(res, p)
+		}
+	}
+	return res
+}
+
+func titleCarries(title string, term queryTerm) bool {
+	text := normalize(title)
+	return slices.ContainsFunc(tokenize(text), func(tok token) bool {
+		return termMatches(term, tok.term) && term.carriedAt(text, tok.off)
+	})
+}
+
 func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 	for _, phrase := range q.phrases {
-		k, ok := q.index[phrase[0]]
+		k, ok := q.index[phrase[0].key()]
 		if !ok {
 			continue
 		}
@@ -479,7 +523,7 @@ func titleMatchesPhrases(title string, q parsedQuery) bool {
 	words := tokenize(text)
 	for _, phrase := range q.phrases {
 		found := slices.ContainsFunc(words, func(tok token) bool {
-			return tok.term == phrase[0] && phraseAt(text, phrase, tok.off)
+			return tok.term == phrase[0].text && phraseAt(text, phrase, tok.off)
 		})
 		if !found {
 			return false

@@ -11,12 +11,14 @@ The server's search and the note's find bar.
   looks for words: Match case and Whole word mean nothing there and are
   disabled, and Fuzzy and Regex turn each other off.
 - An accent is any combining mark of a letter's canonical decomposition, so `ά`
-  is `α` and `ё` is `е`, while `й` stays a letter of its own, as Russian has
-  `мой` and `мои`. A query letter becomes the class of every letter with the
-  same base, followed by any combining marks, which also finds a stress mark
-  written as a mark of its own, as in `молоко́`. A class keeps the offsets of
-  the text, so the marks and the line numbers need no mapping, and the server
-  and the find bar build it from the same rule.
+  is `α` and `ё` is `е`, while `й`, `ї` and `ў` stay letters of their own, as
+  Russian has `мой` and `мои`. A query letter becomes the class of every letter
+  with the same base, followed by any combining marks, which also finds a
+  stress mark written as a mark of its own, as in `молоко́`. A class keeps the
+  offsets of the text, so the marks and the line numbers need no mapping, and
+  the server and the find bar build it from the same rule. Match case compares
+  the characters as written, so `молоко` still finds `молоко́` and leaves the
+  stress mark, a character of its own, out of the match.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word

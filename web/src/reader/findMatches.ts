@@ -21,6 +21,7 @@ const maxMatches = 1000;
 const oneTypoChars = 4;
 const twoTypoChars = 8;
 const lastAccented = 0x2fff;
+const ownLetters = 'йЙїЇўЎ';
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -74,7 +75,7 @@ function accents(): AccentTable {
   const grouped = new Map<string, Set<string>>();
   for (let code = 0xc0; code <= lastAccented; code++) {
     const char = String.fromCodePoint(code);
-    if (!/\p{L}/u.test(char) || char === 'й' || char === 'Й') {
+    if (!/\p{L}/u.test(char) || ownLetters.includes(char)) {
       continue;
     }
     const [first = '', ...marks] = [...char.normalize('NFD')];
@@ -83,7 +84,7 @@ function accents(): AccentTable {
     }
     const lower = first.toLowerCase();
     base.set(char, lower);
-    grouped.set(lower, (grouped.get(lower) ?? new Set([lower, lower.toUpperCase()])).add(char));
+    grouped.set(lower, (grouped.get(lower) ?? new Set([lower])).add(char));
   }
   const variants = new Map<string, string>();
   for (const [lower, set] of grouped) {

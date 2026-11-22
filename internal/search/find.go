@@ -113,7 +113,7 @@ func compileQuery(q Query) (*regexp.Regexp, error) {
 }
 
 func (ix *Index) fuzzy(q Query, limit int) Found {
-	parsed := parseQuery(q.Text, true)
+	parsed := parseQuery(q.Text)
 	if len(parsed.terms) == 0 {
 		return Found{}
 	}
@@ -233,7 +233,7 @@ func editRow(a, b []rune, i int, before, prev, cur []int) int {
 
 func (d *document) fuzzyResult(terms []queryTerm, cand topDoc, titlesOnly bool) Result {
 	marks := d.matches(terms, cand.match)
-	snippet, _ := d.snippetOf(marks)
+	snippet := d.snippetOf(marks)
 	res := Result{
 		Path:       d.path,
 		Title:      d.title,

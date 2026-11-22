@@ -40,10 +40,10 @@ func TestSnippetEscapesDocumentText(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hits := ix.Search(tt.query, 5)
-			require.Len(t, hits, 1)
-			assert.Contains(t, string(hits[0].Snippet), tt.want)
-			assert.NotContains(t, string(hits[0].Snippet), tt.forbidden)
+			found := fuzzyFind(t, ix, tt.query, 5)
+			require.Len(t, found.Results, 1)
+			assert.Contains(t, string(found.Results[0].Snippet), tt.want)
+			assert.NotContains(t, string(found.Results[0].Snippet), tt.forbidden)
 		})
 	}
 }
@@ -53,12 +53,12 @@ func TestSnippetPrefersProseOverCode(t *testing.T) {
 	ix := loadNotes(t)
 
 	// act
-	hits := ix.Search("nginx", 5)
+	found := fuzzyFind(t, ix, "nginx", 5)
 
 	// assert
-	require.Len(t, hits, 1)
-	assert.Contains(t, string(hits[0].Snippet), "Образ <mark>nginx</mark> собирается")
-	assert.NotContains(t, string(hits[0].Snippet), "image:")
+	require.Len(t, found.Results, 1)
+	assert.Contains(t, string(found.Results[0].Snippet), "Образ <mark>nginx</mark> собирается")
+	assert.NotContains(t, string(found.Results[0].Snippet), "image:")
 }
 
 func TestSnippetWindow(t *testing.T) {
@@ -69,11 +69,11 @@ func TestSnippetWindow(t *testing.T) {
 	})
 
 	// act
-	hits := ix.Search("ключевоеслово", 5)
+	found := fuzzyFind(t, ix, "ключевоеслово", 5)
 
 	// assert
-	require.Len(t, hits, 1)
-	snippet := string(hits[0].Snippet)
+	require.Len(t, found.Results, 1)
+	snippet := string(found.Results[0].Snippet)
 	assert.True(t, strings.HasPrefix(snippet, ellipsis), snippet)
 	assert.True(t, strings.HasSuffix(snippet, ellipsis), snippet)
 	assert.Contains(t, snippet, "начало <mark>ключевоеслово</mark> хвост")
@@ -85,11 +85,11 @@ func TestSnippetShortDocumentHasNoEllipsis(t *testing.T) {
 	ix := indexOf(map[string]string{"a.md": "Заголовок\n=========\n\nкороткий текст заметки\n"})
 
 	// act
-	hits := ix.Search("короткий", 5)
+	found := fuzzyFind(t, ix, "короткий", 5)
 
 	// assert
-	require.Len(t, hits, 1)
-	assert.Equal(t, template.HTML("Заголовок <mark>короткий</mark> текст заметки"), hits[0].Snippet)
+	require.Len(t, found.Results, 1)
+	assert.Equal(t, template.HTML("Заголовок <mark>короткий</mark> текст заметки"), found.Results[0].Snippet)
 }
 
 func TestSnippetMarksEveryTerm(t *testing.T) {
@@ -97,11 +97,11 @@ func TestSnippetMarksEveryTerm(t *testing.T) {
 	ix := loadNotes(t)
 
 	// act
-	hits := ix.Search("резервное копирование", 1)
+	found := fuzzyFind(t, ix, "резервное копирование", 1)
 
 	// assert
-	require.Len(t, hits, 1)
-	assert.Contains(t, string(hits[0].Snippet), "<mark>Резервное</mark> <mark>копирование</mark>")
+	require.Len(t, found.Results, 1)
+	assert.Contains(t, string(found.Results[0].Snippet), "<mark>Резервное</mark> <mark>копирование</mark>")
 }
 
 func TestSnippetForTitleOnlyMatch(t *testing.T) {
@@ -109,12 +109,11 @@ func TestSnippetForTitleOnlyMatch(t *testing.T) {
 	ix := indexOf(map[string]string{"заметки/бэкап.md": "текст без совпадений\n"})
 
 	// act
-	hits := ix.Search("бэкап", 5)
+	found := fuzzyFind(t, ix, "бэкап", 5)
 
 	// assert
-	require.Len(t, hits, 1)
-	assert.Equal(t, template.HTML("текст без совпадений"), hits[0].Snippet)
-	assert.Equal(t, 1, hits[0].Line)
+	require.Len(t, found.Results, 1)
+	assert.Equal(t, template.HTML("текст без совпадений"), found.Results[0].Snippet)
 }
 
 func TestCollapseWindow(t *testing.T) {

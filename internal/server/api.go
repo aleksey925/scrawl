@@ -492,7 +492,7 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 		limit = min(parsed, searchPageLimit)
 	}
 
-	m.findSearch(w, r, find, limit, time.Now())
+	m.findSearch(w, r, find, limit)
 }
 
 func (m *mount) touch(paths ...string) {
@@ -574,16 +574,18 @@ func searchQueryOf(values url.Values) (search.Query, error) {
 	default:
 		return q, fmt.Errorf("mode must be %s or %s", search.ModeFuzzy, search.ModeExact)
 	}
-	for name, field := range map[string]*bool{"case": &q.Case, "word": &q.Word, "regex": &q.Regex, "titles": &q.TitlesOnly} {
-		*field = values.Get(name) == "1"
-	}
+	q.Case = values.Get("case") == "1"
+	q.Word = values.Get("word") == "1"
+	q.Regex = values.Get("regex") == "1"
+	q.TitlesOnly = values.Get("titles") == "1"
 	if q.Mode == search.ModeFuzzy && !q.Regex {
 		q.Text = strings.TrimSpace(q.Text)
 	}
 	return q, nil
 }
 
-func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int, start time.Time) {
+func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int) {
+	start := time.Now()
 	found := search.Found{}
 	if m.spc.Index != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)

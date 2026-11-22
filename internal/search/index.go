@@ -2,7 +2,6 @@ package search
 
 import (
 	"cmp"
-	"html/template"
 	"maps"
 	"math"
 	"slices"
@@ -27,14 +26,6 @@ const (
 
 	postingBytes = 48
 )
-
-type Hit struct {
-	Path    string
-	Title   string
-	Snippet template.HTML
-	Score   float64
-	Line    int
-}
 
 type posting struct {
 	doc    uint32
@@ -111,30 +102,6 @@ func (ix *Index) Size() int64 {
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
 	return ix.size
-}
-
-func (ix *Index) Search(query string, limit int) []Hit {
-	return ix.find(query, limit)
-}
-
-func (ix *Index) find(query string, limit int) []Hit {
-	q := parseQuery(query, false)
-	if len(q.terms) == 0 || limit <= 0 {
-		return nil
-	}
-
-	ix.mu.RLock()
-	defer ix.mu.RUnlock()
-
-	slots := make([]slot, len(q.terms))
-	for k, term := range q.terms {
-		s, ok := ix.slotFor(term)
-		if !ok {
-			return nil
-		}
-		slots[k] = s
-	}
-	return ix.rank(q, slots, limit)
 }
 
 func (ix *Index) slotFor(term queryTerm) (slot, bool) {
@@ -350,18 +317,6 @@ type topDoc struct {
 	match []*posting
 }
 
-func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
-	top := ix.top(q, slots, limit, false)
-	hits := make([]Hit, 0, len(top))
-	for _, cand := range top {
-		snippet, line := cand.doc.snippet(q.terms, cand.match)
-		hits = append(hits, Hit{
-			Path: cand.doc.path, Title: cand.doc.title, Snippet: snippet, Score: cand.score, Line: line,
-		})
-	}
-	return hits
-}
-
 func score(doc *document, idf []float64, match []*posting, boost []float64, avg float64) float64 {
 	lenNorm := 1 - bm25B + bm25B*float64(doc.length)/avg
 
@@ -472,7 +427,7 @@ type parsedQuery struct {
 	phrases [][]string
 }
 
-func parseQuery(query string, prefix bool) parsedQuery {
+func parseQuery(query string) parsedQuery {
 	text := normalize(query)
 	res := parsedQuery{index: make(map[string]int)}
 
@@ -492,7 +447,7 @@ func parseQuery(query string, prefix bool) parsedQuery {
 		}
 	}
 
-	if k, ok := res.index[last]; ok && prefix && !quoted && endsWithWord(text) {
+	if k, ok := res.index[last]; ok && !quoted && endsWithWord(text) {
 		res.terms[k].prefix = true
 	}
 	return res

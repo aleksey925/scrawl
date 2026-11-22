@@ -172,7 +172,7 @@ func TestFindExactOrder(t *testing.T) {
 
 func TestFindExact(t *testing.T) {
 	ix := findIndex(t, map[string]string{
-		"a.md": "# Notes\n\nfoo **bar** baz\n\nИндексы, индекс.\nиндексы\n",
+		"a.md": "# Notes\n\nfoo **bar** baz\n\nИндексы, индекс.\nиндексы\n\na.b axb (x) x\n",
 	})
 
 	tests := []struct {
@@ -187,6 +187,8 @@ func TestFindExact(t *testing.T) {
 			want: []string{"индекс"}},
 		{name: "whole word at a line start and after punctuation", query: Query{Text: "индексы", Mode: ModeExact, Word: true},
 			want: []string{"Индексы", "индексы"}},
+		{name: "a dot is a dot", query: Query{Text: "a.b", Mode: ModeExact}, want: []string{"a.b"}},
+		{name: "brackets are brackets", query: Query{Text: "(x)", Mode: ModeExact}, want: []string{"(x)"}},
 	}
 
 	for _, tc := range tests {
@@ -527,6 +529,9 @@ func TestWithinTypos(t *testing.T) {
 		{"настрйка", "настройки", true},
 		{"настрйка", "наастройкой", false},
 		{"vacum", "vcm", false},
+		{"тест", "тесл", true},
+		{"сервера", "сирвира", false},
+		{"документ", "дакумэнт", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.a+" "+tc.b, func(t *testing.T) {
@@ -538,7 +543,7 @@ func TestWithinTypos(t *testing.T) {
 
 func TestFindIgnoresAccents(t *testing.T) {
 	ix := findIndex(t, map[string]string{
-		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait.\n\nМолоко́ и мой дом.\n",
+		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n",
 	})
 
 	tests := []struct {
@@ -547,14 +552,16 @@ func TestFindIgnoresAccents(t *testing.T) {
 		want  []string
 	}{
 		{name: "exact without the accent", query: Query{Text: "σπιτι", Mode: ModeExact}, want: []string{"σπίτι"}},
-		{name: "exact with an accent the text lacks", query: Query{Text: "Το", Mode: ModeExact, Word: true},
+		{name: "exact with an accent the text lacks", query: Query{Text: "τό", Mode: ModeExact, Word: true},
 			want: []string{"Το"}},
 		{name: "exact in a capital", query: Query{Text: "CAFE", Mode: ModeExact}, want: []string{"Café"}},
 		{name: "exact over a stress mark", query: Query{Text: "молоко", Mode: ModeExact}, want: []string{"Молоко́"}},
 		{name: "match case keeps the accent", query: Query{Text: "σπιτι", Mode: ModeExact, Case: true}, want: []string{}},
 		{name: "a short i is a letter of its own", query: Query{Text: "мои", Mode: ModeExact}, want: []string{}},
+		{name: "a yi is a letter of its own", query: Query{Text: "\u0456жак", Mode: ModeExact}, want: []string{}},
 		{name: "fuzzy without the accent", query: Query{Text: "μεγαλο", Mode: ModeFuzzy}, want: []string{"μεγάλο"}},
-		{name: "fuzzy in a short word", query: Query{Text: "το", Mode: ModeFuzzy}, want: []string{"Το"}},
+		{name: "fuzzy in a short word", query: Query{Text: "ou", Mode: ModeFuzzy}, want: []string{"où"}},
+		{name: "an accent is never a typo", query: Query{Text: "σπιτη", Mode: ModeFuzzy}, want: []string{"σπίτι"}},
 		{name: "regex keeps the accent", query: Query{Text: "σπιτι", Regex: true}, want: []string{}},
 	}
 

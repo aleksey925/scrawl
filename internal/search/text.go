@@ -33,7 +33,10 @@ func normalize(s string) string {
 	return norm.NFC.String(s)
 }
 
-const lastAccented = 0x2fff
+const (
+	lastAccented = 0x2fff
+	ownLetters   = "йЙїЇўЎ"
+)
 
 type accentTable struct {
 	base     map[rune]rune
@@ -43,7 +46,7 @@ type accentTable struct {
 var accents = sync.OnceValue(func() accentTable {
 	res := accentTable{base: make(map[rune]rune), variants: make(map[rune][]rune)}
 	for r := rune(0xc0); r <= lastAccented; r++ {
-		if !unicode.IsLetter(r) || r == 'й' || r == 'Й' {
+		if !unicode.IsLetter(r) || strings.ContainsRune(ownLetters, r) {
 			continue
 		}
 		parts := []rune(norm.NFD.String(string(r)))
@@ -55,7 +58,7 @@ var accents = sync.OnceValue(func() accentTable {
 		res.variants[base] = append(res.variants[base], r)
 	}
 	for base, list := range res.variants {
-		list = append(list, base, unicode.ToUpper(base))
+		list = append(list, base)
 		slices.Sort(list)
 		res.variants[base] = slices.Compact(list)
 	}

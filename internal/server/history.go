@@ -336,7 +336,7 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, history.ErrNoVersion):
 		jsonError(w, http.StatusNotFound, "no such version")
 	case errors.Is(err, history.ErrUndoConflict):
-		jsonError(w, http.StatusConflict, "later changes touched the same lines, restore a version instead")
+		jsonError(w, http.StatusConflict, "later changes touched the same or nearby lines, restore a version instead")
 	case errors.Is(err, history.ErrNothingToUndo):
 		jsonError(w, http.StatusConflict, "this version changed no text to undo")
 	default:

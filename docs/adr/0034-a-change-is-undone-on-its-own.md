@@ -21,9 +21,9 @@ showed a change, and its one button acted on a version.
   theirs. The text on disk is hashed into the repository first, as the merge
   reads objects. The result is written through `store` and recorded like a
   restore.
-- A merge that conflicts is refused, with "later changes touched the same
-  lines, restore a version instead". Nothing is resolved, and no conflict
-  markers reach a note.
+- A merge that conflicts is refused, with "later changes touched the same or
+  nearby lines, restore a version instead". Nothing is resolved, and no
+  conflict markers reach a note.
 - Undo is disabled for a version with no change of text: the first one, a
   deletion and a rename alone.
 

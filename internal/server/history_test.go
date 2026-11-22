@@ -733,7 +733,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 			want    string
 		}{
 			{name: "later changes touched its lines", undoErr: history.ErrUndoConflict,
-				want: "later changes touched the same lines, restore a version instead"},
+				want: "later changes touched the same or nearby lines, restore a version instead"},
 			{name: "it changed no text", undoErr: history.ErrNothingToUndo, want: "this version changed no text to undo"},
 		}
 		for _, tc := range tests {

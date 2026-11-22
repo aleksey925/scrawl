@@ -120,7 +120,7 @@ test.describe.serial('history', () => {
         await expect.poll(() => readFixture(docPath, HISTORY)).toBe(lines('First line.', 'Last line, edited.'));
     });
 
-    test('Undo is refused when later changes touched the same lines', async ({page}) => {
+    test('Undo is refused when later changes touched the same or nearby lines', async ({page}) => {
         // arrange
         const {docPath, stamp} = freshDoc('undo-refused');
         await page.goto(HISTORY.url.edit(docPath));

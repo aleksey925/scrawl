@@ -22,7 +22,7 @@ module.exports = {
         restored: 'Restored',
         undone: 'Undone',
         undoFailed: 'Undo failed',
-        undoConflict: 'later changes touched the same lines, restore a version instead',
+        undoConflict: 'later changes touched the same or nearby lines, restore a version instead',
         created: 'Created',
         folderCreated: 'Created folder',
         moved: 'Moved',

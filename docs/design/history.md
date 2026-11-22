@@ -62,7 +62,8 @@ Git-backed versions of the notes, and how two versions are compared.
   nothing points to, and git's own gc removes it. `--object-id` needs git 2.43,
   and with an older git every undo is a `500`.
 - A merge that conflicts is refused with a `409`, and nothing is resolved: a
-  conflict marker never reaches a note. A version with no change of text to
+  conflict marker never reaches a note. Git takes a later change on a line next
+  to the undone ones as a conflict too. A version with no change of text to
   take out is a `409` too. `merge-file` reads no attribute and runs no merge
   driver ([quirks](../quirks.md#git-and-git-hosts)), so an adopted repository
   names no command here either.

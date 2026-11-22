@@ -11,7 +11,7 @@ const maxConflictExit = 127
 
 var (
 	ErrNothingToUndo = errors.New("this version changed no text to undo")
-	ErrUndoConflict  = errors.New("later changes touched the same lines")
+	ErrUndoConflict  = errors.New("later changes touched the same or nearby lines")
 )
 
 func Undoable(before, after string) bool {

@@ -54,6 +54,7 @@ module.exports = {
         empty: 'No notes match that.',
         results: 'results',
         regexHint: 'Regular expression over the text as shown, line by line',
+        offline: 'Search needs the network',
     },
 
     create: {

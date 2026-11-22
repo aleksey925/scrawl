@@ -1,22 +1,23 @@
-import { useEffect, type RefObject } from 'react';
+import { useLayoutEffect, type RefObject } from 'react';
 
 import { usePlatform } from '../platform';
 
 import { track } from './pending';
 import { preserveScroll } from './scroll';
-import { fontsReady, mathSelector, typeset, type Katex } from './typeset';
+import { fontsReady, mathSelector, typeset, typesetKept, type Katex } from './typeset';
 
 export function useKatex(rootRef: RefObject<HTMLDivElement | null>, html: string): void {
   const { loadKatex } = usePlatform();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = rootRef.current;
     if (root === null) {
       return undefined;
     }
     const items = Array.from(root.querySelectorAll<HTMLElement>(mathSelector))
       .filter((node) => !node.classList.contains('is-typeset'))
-      .map((node) => ({ node, tex: node.textContent ?? '' }));
+      .map((node) => ({ node, tex: node.textContent ?? '' }))
+      .filter((item) => !typesetKept(item.node, item.tex));
     if (items.length === 0) {
       return undefined;
     }

@@ -288,6 +288,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	g.HandleFunc("GET /history/{path...}", m.appHandler)
 	g.HandleFunc("GET /search", m.appHandler)
 	g.HandleFunc("GET /recent", m.appHandler)
+	g.HandleFunc("GET /profile", m.appHandler)
 	g.HandleFunc("GET /run/{path...}", m.appHandler)
 	g.HandleFunc("GET /raw/{path...}", m.rawHandler)
 	g.HandleFunc("GET /api/tree", m.apiTree)

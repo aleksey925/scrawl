@@ -140,7 +140,6 @@ function trackScroll(block: HTMLElement, code: HTMLElement): Teardown {
   const resized = new ResizeObserver(update);
   resized.observe(code);
   code.addEventListener('scroll', scrolled, { passive: true });
-  update();
   return () => {
     window.clearTimeout(hide);
     resized.disconnect();

@@ -24,12 +24,12 @@ Spaces, routes, settings and the guards on every request.
 ## Routes and URLs
 
 - Everything a space owns lives under `/s/<name>/`, including when there is
-  exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`, `/run/`,
-  `/api/` and `/raw/`. The root holds only what reads no store - `/ping`,
-  `/static/`, `/manifest.webmanifest`, `/sw.js`, `/login`, `/logout`,
-  `/api/login`, `/api/logout`, `/api/spaces` and the `/` redirect to the first
-  space. Every new endpoint answers one question, does it read a store, and
-  lands on one side.
+  exactly one: `/doc/`, `/edit/`, `/history/`, `/search`, `/recent`,
+  `/profile`, `/run/`, `/api/` and `/raw/`. The root holds only what reads no
+  store - `/ping`, `/static/`, `/manifest.webmanifest`, `/sw.js`, `/login`,
+  `/logout`, `/api/login`, `/api/logout`, `/api/spaces` and the `/` redirect to
+  the first space. Every new endpoint answers one question, does it read a
+  store, and lands on one side.
 - Two kinds of URL, and they must never be mixed. A **router-relative** one
   goes to `<Link to>` or `navigate()`, which prepend the space's basename
   themselves, so it carries no prefix - every builder in `view` produces one,

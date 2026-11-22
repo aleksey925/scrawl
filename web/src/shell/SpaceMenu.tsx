@@ -2,6 +2,7 @@ import { Badge, Menu, Text } from '@mantine/core';
 import type { JSX } from 'react';
 
 import { api } from '../api/client';
+import type { SpaceEntry } from '../api/types';
 import { useApi } from '../api/useApi';
 import { PopupMenu } from '../components/PopupMenu';
 import { IconCheck, IconEyeOff, IconLogin, IconLogout } from '../icons';
@@ -20,7 +21,7 @@ import { SpaceButton } from './SpaceButton';
 import { SpaceTile } from './SpaceTile';
 import { ThemePicker } from './ThemePicker';
 
-async function signOut(): Promise<void> {
+export async function signOut(): Promise<void> {
   await api.logout();
   await deleteOfflineData().catch(() => undefined);
   goToLogin();
@@ -45,8 +46,7 @@ export function SpaceMenuDropdown(): JSX.Element {
   const { openShortcuts } = useReaderLayout();
   const keyboard = useKeyboardPlace();
   const fromCopy = useReadingCopy();
-  const state = useApi((signal) => (fromCopy ? storedSpaces() : api.spaces({ signal })), [fromCopy]);
-  const spaces = state.data ?? [];
+  const spaces = useSpaces();
   const current = me?.space;
   const signedIn = me !== undefined && me.user !== '';
 
@@ -122,4 +122,10 @@ export function SpaceMenuDropdown(): JSX.Element {
       ))}
     </Menu.Dropdown>
   );
+}
+
+export function useSpaces(): SpaceEntry[] {
+  const fromCopy = useReadingCopy();
+  const state = useApi((signal) => (fromCopy ? storedSpaces() : api.spaces({ signal })), [fromCopy]);
+  return state.data ?? [];
 }

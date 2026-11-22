@@ -70,11 +70,14 @@ export const layout = {
   rowHeight: 30,
   iconSize: 20,
   iconSizeLarge: 22,
+  iconSizeRow: 24,
   iconSizeSmall: 16,
   iconSizeTool: 18,
   iconSizeColumn: 15,
   iconSizeTiny: 14,
   iconSizeTile: 26,
+  iconSizeClear: 17,
+  iconSizeToast: 18,
   controlHeight: 28,
   controlHeightLarge: 36,
   buttonHeight: 32,
@@ -88,7 +91,9 @@ export const layout = {
   menuWidthNarrow: 200,
   menuWidthWide: 280,
   popoverWidth: 320,
-  tabBarHeight: 56,
+  capsuleHeight: 62,
+  actionBarHeight: 52,
+  actionWidth: 52,
   inputFontSize: 16,
 } as const;
 
@@ -191,7 +196,9 @@ export const layoutVariables: Record<string, string> = {
   '--scrawl-input-font-size': `${layout.inputFontSize}px`,
   '--scrawl-menu-width': `${layout.menuWidth}px`,
   '--scrawl-popover-width': `${layout.popoverWidth}px`,
-  '--scrawl-tabbar-height': `${layout.tabBarHeight}px`,
+  '--scrawl-capsule-height': `${layout.capsuleHeight}px`,
+  '--scrawl-action-bar-height': `${layout.actionBarHeight}px`,
+  '--scrawl-action-width': `${layout.actionWidth}px`,
 };
 
 function blockVariables(blocks: BlockColors): Record<string, string> {

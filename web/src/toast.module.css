@@ -1,3 +1,34 @@
+.title,
+.message {
+  overflow-wrap: anywhere;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.title + .message {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lineText {
+  display: -webkit-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .withAction {
   display: flex;
   align-items: center;

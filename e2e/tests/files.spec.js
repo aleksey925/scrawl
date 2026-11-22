@@ -191,7 +191,7 @@ test.describe.serial('file management', () => {
         await shot(page, 'files-root-draft');
 
         await page.getByTestId('editor-save').click();
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} "${ROOT_PAGE}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} “${ROOT_PAGE}”`);
         await expect(page).toHaveURL(MAIN.url.doc(ROOT_PAGE));
         await expect(page.getByTestId('tree-ghost')).toHaveCount(0);
         await expect(page.locator(`[data-testid=tree-row][data-path="${ROOT_PAGE}"]`)).toHaveCount(1);
@@ -354,7 +354,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-rename-input').fill(nameOf(bare));
         await page.getByTestId('tree-rename-input').press('Enter');
         await expect(page.getByTestId('tree-rename')).toHaveCount(0);
-        await expect(toast).toContainText(`Renamed "${nameOf(note)}" to "${nameOf(bare)}"`);
+        await expect(toast).toContainText(`Renamed “${nameOf(note)}” to “${nameOf(bare)}”`);
         await expect(toast).toContainText(text.toast.notNoteNow);
         await expect(treeRow(note)).toHaveCount(0);
         await expect(treeRow(bare)).toHaveCount(0);
@@ -367,7 +367,7 @@ test.describe.serial('file management', () => {
         await startListRename(page, plain);
         await page.getByTestId('dir-rename-input').fill(nameOf(made));
         await page.getByTestId('dir-rename-input').press('Enter');
-        const entered = toast.filter({hasText: `Renamed "${nameOf(plain)}" to "${nameOf(made)}"`});
+        const entered = toast.filter({hasText: `Renamed “${nameOf(plain)}” to “${nameOf(made)}”`});
         await expect(entered).toHaveCount(1);
         await expect(entered).not.toContainText(text.toast.notNoteNow);
         await expect(treeRow(made)).toHaveCount(1);
@@ -453,7 +453,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page).toHaveURL(MAIN.url.doc(TAKEN_PAGE));
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} "${nameOf(TAKEN_PAGE)}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`${text.toast.created} “${nameOf(TAKEN_PAGE)}”`);
         expect(readFixture(PAGE)).toBe('# Тестовая страница\n\nmore\n');
         removeFixture(TAKEN_PAGE);
     });
@@ -494,7 +494,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText(`Renamed "${nameOf(PAGE)}" to "${nameOf(RENAMED)}"`);
+            .toContainText(`Renamed “${nameOf(PAGE)}” to “${nameOf(RENAMED)}”`);
         await expect(page).toHaveURL(MAIN.url.doc(RENAMED));
         expect(fs.existsSync(fixtureFile(PAGE))).toBe(false);
         expect(fs.existsSync(fixtureFile(RENAMED))).toBe(true);
@@ -599,7 +599,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText(`Renamed "${nameOf(note)}" to "${nameOf(renamed)}"`);
+            .toContainText(`Renamed “${nameOf(note)}” to “${nameOf(renamed)}”`);
         expect(fs.readdirSync(fixtureFile(RENAME_FOLDER)).filter((name) => name.includes('padded'))).toEqual([nameOf(renamed)]);
     });
 
@@ -615,7 +615,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-rename-input').press('Enter');
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Renamed "sub" to "moved-sub"');
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Renamed “sub” to “moved-sub”');
         await expect.poll(() => fs.existsSync(fixtureFile(`${RENAME_FOLDER}/moved-sub/inside.md`))).toBe(true);
         expect(fs.existsSync(fixtureFile(folder))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${RENAME_FOLDER}/moved-sub"]`)).toHaveCount(1);
@@ -791,7 +791,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect.poll(() => fs.existsSync(fixtureFile(done))).toBe(true);
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Renamed "${nameOf(first)}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Renamed “${nameOf(first)}”`);
         await expect(page.getByTestId('tree-rename-input')).toHaveValue(typed);
         await page.getByTestId('tree-rename-input').press('Escape');
         expect(fs.existsSync(fixtureFile(second))).toBe(true);
@@ -1038,7 +1038,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText(`Moved "${MOVED}" to "${OTHER}"`);
+            .toContainText(`Moved “${MOVED}” to “${OTHER}”`);
         await expect(page).toHaveURL(MAIN.url.doc(`${OTHER}/${MOVED}`));
         await expect(page.getByTestId('move-dialog')).toHaveCount(0);
         expect([`${FOLDER}/${MOVED}`, `${OTHER}/${MOVED}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([false, true]);
@@ -1061,7 +1061,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')
-            .filter({hasText: `Moved "${UNDONE}" back to "${FOLDER}"`})).toHaveCount(1);
+            .filter({hasText: `Moved “${UNDONE}” back to “${FOLDER}”`})).toHaveCount(1);
         await expect(page).toHaveURL(MAIN.url.doc(`${FOLDER}/${UNDONE}`));
         expect([`${FOLDER}/${UNDONE}`, `${OTHER}/${UNDONE}`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, false]);
     });
@@ -1332,7 +1332,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted "${nameOf(RENAMED)}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted “${nameOf(RENAMED)}”`);
         await expect(page.locator('.mantine-Modal-title')).toHaveCount(0);
         await expect(page).toHaveURL(atHome());
         await expect.poll(() => fs.existsSync(fixtureFile(RENAMED))).toBe(false);
@@ -1352,7 +1352,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Deleted "slow-delete.md"');
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText('Deleted “slow-delete.md”');
         await expect(page).toHaveURL(atHome());
         expect(fs.existsSync(fixtureFile(note))).toBe(true);
         release();
@@ -2176,7 +2176,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted "${FULL_FOLDER}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted “${FULL_FOLDER}”`);
         await expect(page).toHaveURL(atHome());
         expect(fs.existsSync(fixtureFile(FULL_FOLDER))).toBe(false);
         await expect(page.locator(`[data-testid=tree-row][data-path="${FULL_FOLDER}"]`)).toHaveCount(0);
@@ -2193,7 +2193,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted "${JUNK_FOLDER}"`);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(`Deleted “${JUNK_FOLDER}”`);
         expect(fs.existsSync(fixtureFile(JUNK_FOLDER))).toBe(false);
     });
 
@@ -2212,7 +2212,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Restored "${UNDELETED}"`}))
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Restored “${UNDELETED}”`}))
             .toHaveCount(1);
         await expect(page).toHaveURL(MAIN.url.doc(inner));
         expect([inner, `${UNDELETED}/.DS_Store`].map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, true]);
@@ -2256,7 +2256,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Restored "retried.md"'})).toHaveCount(1);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Restored “retried.md”'})).toHaveCount(1);
         await expect(page.getByTestId('toast-action')).toHaveCount(0);
         expect(fs.readFileSync(fixtureFile(note), 'utf8')).toBe('# Retried\n');
     });
@@ -2327,9 +2327,9 @@ test.describe.serial('file management', () => {
         // act & assert
         await page.locator(`[data-testid=move-place][data-path="${into}"]`).click();
         const warned = page.locator('[data-testid=toast][data-kind="warn"]');
-        await expect(warned.filter({hasText: 'Moved "unpushed.md" to'})).toContainText('Not pushed to the remote');
+        await expect(warned.filter({hasText: 'Moved “unpushed.md” to'})).toContainText('Not pushed to the remote');
         await page.getByTestId('toast-action').click();
-        await expect(warned.filter({hasText: 'Moved "unpushed.md" back'})).toContainText('Not pushed to the remote');
+        await expect(warned.filter({hasText: 'Moved “unpushed.md” back'})).toContainText('Not pushed to the remote');
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toHaveCount(0);
         await page.unroute('**/api/move');
     });
@@ -2353,7 +2353,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved "moved-again.md" back'}))
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: 'Moved “moved-again.md” back'}))
             .toHaveCount(1);
         await expect(page.getByTestId('toast-action')).toHaveCount(0);
         await expect(page).toHaveURL(MAIN.url.doc(note));
@@ -2404,7 +2404,7 @@ test.describe.serial('file management', () => {
         await page.getByTestId('tree-row-menu-delete').click();
         await expect.poll(() => fs.existsSync(fixtureFile(moved))).toBe(false);
         writeFixture(moved, '# Replacement\n');
-        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "replaced.md" to'});
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved “replaced.md” to'});
 
         // act
         await moveToast.getByTestId('toast-action').click();
@@ -2433,7 +2433,7 @@ test.describe.serial('file management', () => {
         await recorded;
         fs.rmSync(fixtureFile(moved));
         writeFixture(moved, '# Another note\n');
-        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved "swapped.md" to'});
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: 'Moved “swapped.md” to'});
 
         // act
         await moveToast.getByTestId('toast-action').click();
@@ -2490,7 +2490,7 @@ test.describe.serial('file management', () => {
         await page.locator(`[data-testid=tree-row][data-path="${into}"] [data-testid=tree-link]`).click();
         await page.locator(`[data-testid=tree-row][data-path="${replaced}"] [data-testid=tree-row-menu]`).click();
         await page.getByTestId('tree-row-menu-delete').click();
-        await expect(page.locator('[data-testid=toast]').filter({hasText: `${text.toast.deleted} "${PAIRED[0]}"`})).toHaveCount(1);
+        await expect(page.locator('[data-testid=toast]').filter({hasText: `${text.toast.deleted} “${PAIRED[0]}”`})).toHaveCount(1);
         await expect.poll(() => fs.existsSync(fixtureFile(replaced))).toBe(false);
         writeFixture(replaced, '# Replacement\n');
         release();
@@ -2550,13 +2550,13 @@ test.describe.serial('file management', () => {
         const rows = await selectPair(page, pair);
         await page.locator(rows[1]).dragTo(page.locator(`[data-testid=tree-row][data-path="${into}"]`));
         await expect(page.locator('[data-testid=toast][data-kind="error"]')).toContainText(text.nameTaken);
-        const moveToast = page.locator('[data-testid=toast]').filter({hasText: `Moved "${PAIRED[0]}" to`});
+        const moveToast = page.locator('[data-testid=toast]').filter({hasText: `Moved “${PAIRED[0]}” to`});
 
         // act
         await moveToast.getByTestId('toast-action').click();
 
         // assert
-        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Moved "${PAIRED[0]}" back`})).toHaveCount(1);
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]').filter({hasText: `Moved “${PAIRED[0]}” back`})).toHaveCount(1);
         const places = placesOf(pair, into);
         expect(places.map((p) => fs.existsSync(fixtureFile(p)))).toEqual([true, true, false, true]);
         expect(fs.readFileSync(fixtureFile(`${into}/${PAIRED[1]}`), 'utf8')).toBe('# Already there\n');
@@ -2603,7 +2603,7 @@ test.describe.serial('file management', () => {
 
         // assert
         await expect(page.locator('[data-testid=toast][data-kind="ok"]'))
-            .toContainText('Moved "dotted.md" to "into-dotted"');
+            .toContainText('Moved “dotted.md” to “into-dotted”');
         await expect.poll(() => fs.existsSync(fixtureFile(`${into}/dotted.md/note.md`))).toBe(true);
     });
 

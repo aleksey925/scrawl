@@ -69,6 +69,7 @@ func TestAppShellStatus(t *testing.T) {
 		{name: "the app root", path: "/", status: http.StatusOK},
 		{name: "the search page", path: "/search", status: http.StatusOK},
 		{name: "the notes opened last", path: "/recent", status: http.StatusOK},
+		{name: "the profile", path: "/profile", status: http.StatusOK},
 	}
 
 	for _, tc := range tests {

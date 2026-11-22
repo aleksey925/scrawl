@@ -37,6 +37,15 @@
   font-weight: 600;
 }
 
+.tabTitle {
+  padding-inline: 12px;
+  color: var(--scrawl-text-emphasis);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 40px;
+  letter-spacing: -0.5px;
+}
+
 .homeName,
 .upName {
   min-width: 0;

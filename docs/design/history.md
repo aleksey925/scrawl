@@ -76,4 +76,6 @@ Git-backed versions of the notes, and how two versions are compared.
   Unlike a version, a failure has no patch to fall back to and is an error.
 - The diff markup is written twice, by `web/src/diff/RenderedDiff.tsx` and by
   the templates of `page`, and `web/src/diff/diff.css` styles both. A change to
-  one is a change to the other, folding included.
+  one is a change to the other, folding included. The app puts the rows of an
+  unchanged stretch on the page only when it is first opened, so their formulas
+  and diagrams are not drawn before someone looks; the markup is then the same.

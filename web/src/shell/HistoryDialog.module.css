@@ -178,7 +178,6 @@
   line-height: 18px;
 }
 
-
 .foot {
   display: flex;
   flex: none;
@@ -200,33 +199,6 @@
   font-size: var(--mantine-font-size-sm);
 }
 
-@mixin smaller-than $mantine-breakpoint-sm {
-  .content {
-    height: 100dvh;
-  }
-
-  .body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 58fr) minmax(0, 42fr);
-  }
-
-  .bar {
-    padding-inline: 16px;
-  }
-
-  .diff {
-    padding: 20px 16px 40px;
-  }
-
-  .panel {
-    box-shadow: inset 0 1px var(--scrawl-sidebar-edge);
-  }
-
-  .row {
-    min-height: var(--scrawl-tap-target);
-  }
-}
-
 .list:focus {
   outline: none;
 }
@@ -241,4 +213,111 @@
   background: var(--scrawl-sidebar);
   font-family: var(--mantine-font-family-monospace);
   font-size: 12px;
+}
+
+.sheetCount {
+  color: var(--scrawl-text-secondary);
+  font-weight: 400;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sheetEmpty {
+  padding: 16px;
+  color: var(--scrawl-text-secondary);
+  font-size: 15px;
+  text-align: center;
+}
+
+.card {
+  flex: none;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: var(--scrawl-grouped-card);
+}
+
+.card[data-selected='true'] {
+  border-color: var(--scrawl-accent);
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-height: var(--scrawl-tap-target);
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: var(--scrawl-press-out);
+}
+
+.card:not([data-selected='true']) .cardHead:active {
+  background: var(--scrawl-pressed);
+  transition: var(--scrawl-press-in);
+}
+
+.card .time {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.card .current {
+  font-size: 13px;
+}
+
+.card .avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.card .actor {
+  color: var(--scrawl-text);
+  font-size: 15px;
+}
+
+.card .moved {
+  font-size: 13px;
+}
+
+.card .kind {
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 2px 12px 12px;
+}
+
+.cardTools {
+  --scrawl-segment-track: var(--scrawl-sheet-close);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardDiff {
+  min-width: 0;
+}
+
+.cardBody .reason {
+  margin-top: -4px;
+  font-size: 13px;
 }

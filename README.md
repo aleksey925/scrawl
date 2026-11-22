@@ -1,6 +1,12 @@
 # scrawl
 
-A web app for a folder of markdown files.
+[![Release](https://img.shields.io/github/v/release/aleksey925/scrawl?style=for-the-badge&labelColor=18191D&color=2f80ed)](https://github.com/aleksey925/scrawl/releases/latest)
+[![License](https://img.shields.io/github/license/aleksey925/scrawl?style=for-the-badge&labelColor=18191D&color=464A54)](LICENSE)
+![Go](https://img.shields.io/badge/Go-18191D?style=for-the-badge&logo=go&logoColor=00ADD8)
+[![Docker](https://img.shields.io/badge/Docker-18191D?style=for-the-badge&logo=docker&logoColor=2496ED)](https://github.com/aleksey925/scrawl/#docker)
+![PWA](https://img.shields.io/badge/PWA-18191D?style=for-the-badge&logo=pwa&logoColor=A97BFF)
+
+Markdown notes in any browser, from a folder or a git repository.
 
 scrawl lets you read and edit your notes from a browser, on a laptop or a
 phone. Point it at a folder or a git repository and it serves the notes there
@@ -11,15 +17,10 @@ anything.
 
 It ships as one static binary or a Docker image.
 
-![A note with a task list and a Mermaid diagram](docs/screenshots/desktop-note.webp)
-
-![On a phone: a note in light theme, a note in dark theme, the editor](docs/screenshots/phone.webp)
-
-<p>
-  <img src="docs/screenshots/desktop-editor.webp" width="32%" alt="The editor with the text and the preview side by side">
-  <img src="docs/screenshots/desktop-search.webp" width="32%" alt="Search across all notes">
-  <img src="docs/screenshots/desktop-history.webp" width="32%" alt="Two versions of a note compared">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.webp">
+  <img alt="One note with a diagram, a chart, a table and a task list, on a laptop and on a phone" src="docs/screenshots/hero-light.webp">
+</picture>
 
 ## Features
 
@@ -86,9 +87,9 @@ scrawl only reads.
   - [Use git repository](#use-git-repository)
 - [Installation](#installation)
   - [Docker](#docker)
+  - [Homebrew](#homebrew)
   - [mise](#mise)
   - [From source](#from-source)
-  - [Running binary](#running-binary)
 - [Markdown features](#markdown-features)
   - [Formatting](#formatting)
 - [How your changes are kept](#how-your-changes-are-kept)
@@ -206,6 +207,16 @@ docker pull ghcr.io/aleksey925/scrawl:latest
 [examples/docker-compose.yml](examples/docker-compose.yml) is a fuller
 deployment.
 
+### Homebrew
+
+```
+brew install aleksey925/apps/scrawl
+```
+
+This installs the latest
+[release](https://github.com/aleksey925/scrawl/releases) on macOS or Linux.
+`brew upgrade scrawl` updates it.
+
 ### mise
 
 ```
@@ -220,17 +231,6 @@ This installs the latest
 ```
 go install github.com/aleksey925/scrawl@latest
 ```
-
-### Running binary
-
-Without Docker, every setting is a flag. The local folder from
-[Quick start](#use-local-folder):
-
-```
-scrawl serve --space.dir ~/notes --space.name notes --auth.users 'admin:admin'
-```
-
-All settings are described in [Configuration](#configuration).
 
 ## Markdown features
 
@@ -631,9 +631,9 @@ A few rules:
   startup with an error.
 
 `/` redirects to the first space, and the space's button at the foot of the
-sidebar, or the Profile tab on a phone, opens a menu that switches to another
-one. Everything else is shared: one login, one session, one set of API tokens,
-and a search that searches the space you are in.
+sidebar opens a menu that switches to another one. On a phone the spaces are
+listed on the Profile tab. Everything else is shared: one login, one session,
+one set of API tokens, and a search that searches the space you are in.
 
 For full separation between spaces - separate users, separate processes - run
 one scrawl per folder behind a reverse proxy.

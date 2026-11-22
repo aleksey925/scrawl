@@ -10,9 +10,9 @@ copy", never "sync": sync is the git remote of a space
 
 - An installed app (`display-mode: standalone`, or `navigator.standalone` on an
   iPhone) has it on by default. A plain browser has it off, and the switch
-  "Offline access" in the space menu turns it on. A choice made with the switch
-  is kept per device in local storage, `scrawl.offline` (`on` or `off`), and
-  wins over the default.
+  "Offline access" in the space menu, or on Profile on a phone, turns it on. A
+  choice made with the switch is kept per device in local storage,
+  `scrawl.offline` (`on` or `off`), and wins over the default.
 - The service worker is registered only while it is on, so a browser where it
   is off runs the app exactly as without the feature.
 - It needs a secure page: a service worker, Cache Storage and `navigator.locks`
@@ -264,9 +264,11 @@ switch, inside the tap.
   screen, as it does for every source.
 - `NavProvider` gets the stored `me` with the space read-only, history off and
   the git sync fields empty, so every write control, history and the sync
-  control go with no change to them. The search provider gives no control, the
-  space menu reads the stored spaces and leaves out its `Read-only mode` row,
-  export to a file is hidden (print stays), and so is "Sign out".
+  control go with no change to them. The search provider gives no control on a
+  desktop, and on a phone one whose search shows only the recent notes
+  ([search](search.md)). The space menu and Profile read the stored spaces and
+  leave out their `Read-only mode` row, export to a file is hidden (print
+  stays), and so is "Sign out".
 - `/edit/`, `/history/` and `/search` opened offline show `Needs a network`. An
   editor already open stays open, so no typed text is lost.
 

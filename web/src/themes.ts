@@ -29,9 +29,18 @@ export interface Palette {
   menuHighlightText: string;
   menuHighlightMuted: string;
   overlay: string;
-  scrim: string;
   codeBg: string;
   draftBg: string;
+  groupedBg: string;
+  groupedCard: string;
+  groupedSeparator: string;
+  groupedField: string;
+  rowPressed: string;
+  sheetClose: string;
+  capsule: string;
+  capsuleBorder: string;
+  capsuleBorderGrouped: string;
+  tabCurrent: string;
   diagramPaper: string;
   link: string;
   linkLine: string;
@@ -46,6 +55,7 @@ export interface Palette {
   toastText: string;
   toastAction: string;
   toastHover: string;
+  toastSuccess: string;
   tooltip: string;
   tooltipText: string;
   tooltipTextSecondary: string;
@@ -86,6 +96,9 @@ export interface Shadows {
   small: string;
   medium: string;
   large: string;
+  capsule: string;
+  capsuleGrouped: string;
+  toastPhone: string;
 }
 
 export type Scheme = 'light' | 'dark';

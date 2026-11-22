@@ -1,31 +1,33 @@
-# Test Notes
+# Engineering notes
 
-Fixture corpus used by `make run` and by the tests. It is deliberately
-small but covers every markdown feature the renderer has to handle.
+Notes of a small backend team: the projects under way, how our databases work,
+and the references we keep coming back to.
 
-## Pages
+## Projects
 
-- [Guide](guide.md) - tables, code fences, task list, blockquote, details
-- [Notes index](notes/index.md) - the directory index
-- [Notes overview](notes.md) - a file that shares its name with `notes/`
-- [Cyrillic anchors](notes/cyrillic.md) - manual anchors and a TOC
-- [Deeply nested page](notes/deep/nested.md)
-- [Missing page](does-not-exist.md) - deliberately broken link
-
-## Showcase
-
-- [HTTP caching](showcase/http-caching.md) - every markup element on one
-  page, to see how a style change affects reading
-- [PlantUML](showcase/plantuml/index.md) - diagrams of many types and
-  sizes, the standard library included
+- [Move orders to PostgreSQL](projects/postgres-migration.md) - writes switch
+  on 30 Nov, step by step in the
+  [cutover runbook](projects/postgres-migration/cutover.md)
+- [Search for orders](projects/order-search.md) - not written yet
 
 ## Databases
 
-A folder with no index of its own and four notes:
+- [Data storage](databases/storage.md) - pages, indexes and the planner
+- [Vacuum](databases/vacuum.md) - where dead rows go
+- [Replication](databases/replication.md) - why a replica lags
+- [Locks](databases/locks.md) - and how deadlocks happen
 
-- [Data storage](db/storage.md) - a long page with an outline
-- [Vacuum](db/vacuum.md)
-- [Replication](db/replication.md)
-- [Locks](db/locks.md)
+## Mini apps
 
-![Logo](images/logo.png)
+- [PostgreSQL config](mini-apps/pg-config/index.html) - settings for a new
+  server from its memory, cores and load
+
+## Reference
+
+- [Caching in HTTP](reference/http-caching.md) - `Cache-Control`, `ETag` and
+  the rest
+- [Shell cookbook](reference/shell-cookbook.md) - commands worth remembering
+- [Шпаргалка по Docker](reference/шпаргалка-docker.md) - на русском
+- [PlantUML](reference/plantuml/index.md) - diagrams of every kind PlantUML
+  draws
+- [Writing notes](markdown.md) - the markdown a note can use

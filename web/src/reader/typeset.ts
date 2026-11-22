@@ -1,3 +1,5 @@
+import { BoundedMap } from './boundedMap';
+
 export type Katex = typeof import('katex').default;
 
 export const mathSelector = '.math';
@@ -11,6 +13,22 @@ export async function fontsReady(): Promise<void> {
   }
 }
 
+const kept = new BoundedMap<string, string>(512);
+
+function keyOf(node: HTMLElement, tex: string): string {
+  return `${node.classList.contains('math-display') ? 'display' : 'inline'}\n${tex}`;
+}
+
+export function typesetKept(node: HTMLElement, tex: string): boolean {
+  const html = kept.get(keyOf(node, tex));
+  if (html === undefined) {
+    return false;
+  }
+  node.innerHTML = html;
+  node.classList.add('is-typeset');
+  return true;
+}
+
 export function typeset(katex: Katex, node: HTMLElement, tex: string): void {
   try {
     katex.render(tex, node, {
@@ -21,6 +39,7 @@ export function typeset(katex: Katex, node: HTMLElement, tex: string): void {
       trust: false,
     });
     node.classList.add('is-typeset');
+    kept.set(keyOf(node, tex), node.innerHTML);
   } catch (error) {
     node.textContent = tex;
     node.classList.add('is-error');

@@ -49,6 +49,8 @@ function useKeepInView(activeId: string | null): (node: HTMLAnchorElement | null
 
 const indentStep = 14;
 
+const sheetBleed = 16;
+
 export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
   const floating = useAtLeast(layoutBreakpoints.miniOutline);
   const top = outline.entries.reduce((min, entry) => Math.min(min, entry.level), 6);
@@ -87,9 +89,10 @@ export function ReaderToc({ outline }: ReaderTocProps): JSX.Element {
                 minHeight: floating ? undefined : 'var(--scrawl-tap-target)',
                 paddingTop: floating ? 5 : 0,
                 paddingBottom: floating ? 5 : 0,
-                paddingLeft: 8 + Math.max(0, entry.level - top) * indentStep,
-                paddingRight: 8,
-                borderRadius: 'var(--mantine-radius-md)',
+                paddingLeft: 8 + (floating ? 0 : sheetBleed) + Math.max(0, entry.level - top) * indentStep,
+                paddingRight: 8 + (floating ? 0 : sheetBleed),
+                borderRadius: floating ? 'var(--mantine-radius-md)' : 0,
+                background: active && !floating ? 'var(--scrawl-accent-tint)' : undefined,
                 lineHeight: 1.3,
                 transition: 'color 120ms ease',
               }}

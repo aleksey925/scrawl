@@ -1,40 +1,47 @@
 import { ActionIcon, Button, Menu } from '@mantine/core';
 import { useEffect, useRef, useState, type JSX, type MouseEvent } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
-import { IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconPlay, IconTrash } from '../icons';
+import { SheetRow } from '../components/Sheet';
+import {
+  IconDots, IconDownload, IconEdit, IconFileOff, IconLink, IconMoveTo, IconPencil, IconPlay, IconTrash,
+} from '../icons';
 import { runState } from '../paths';
 import { usePlatform } from '../platform';
 import { useDocumentControls } from '../reader/useDocumentControls';
 import { openViewer } from '../reader/viewer';
-import { layout } from '../theme';
+import { layout, layoutBreakpoints, useBelow } from '../theme';
 
-import { useOfferEdit } from './BarEditProvider';
-import { EditAction } from './EditAction';
+import { Capsule, CapsuleAction } from './Capsule';
 import { useFileActions } from './fileActionsContext';
 import classes from './FileView.module.css';
 import { useAccount } from './NavContext';
 import { chromeOf, usePageChrome } from './PageChrome';
+import { PageSheet } from './PageSheet';
 import { useRunInTab } from './runInTab';
-import { PageActions } from './ShellSlots';
+import { PageActions, PageBar } from './ShellSlots';
 import { TopbarAction } from './TopbarAction';
 
 export function FileView({ file }: { file: FilePageResponse }): JSX.Element {
   const { physicalUrl } = usePlatform();
   const raw = physicalUrl(file.raw_url);
   usePageChrome(chromeOf(file.breadcrumbs, file.name, true));
-  useOfferEdit(file.edit_url);
+  const phone = useBelow(layoutBreakpoints.phone);
 
   return (
     <>
-      <PageActions>
-        <FileActionsBar file={file} raw={raw} />
-      </PageActions>
+      {phone ? (
+        <FileBar file={file} raw={raw} />
+      ) : (
+        <PageActions>
+          <FileActionsBar file={file} raw={raw} />
+        </PageActions>
+      )}
       <Page data-testid="file" data-type={file.type} variant={file.type === 'text' ? 'text' : 'note'}>
         <PageTitle testId="file-title">{file.name}</PageTitle>
         {file.type === 'image' && <Picture key={raw} file={file} raw={raw} />}
@@ -158,7 +165,7 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
 
   return (
     <>
-      {canWrite && file.edit_url !== undefined && <EditAction testId="file-edit" to={file.edit_url} />}
+      {canWrite && file.edit_url !== undefined && <TopbarAction testId="file-edit" label="Edit" to={file.edit_url} />}
       {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} onClick={runHere} />}
       <ActionIcon
         data-testid="file-download"
@@ -216,6 +223,57 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
           )}
         </Menu.Dropdown>
       </PopupMenu>
+    </>
+  );
+}
+
+function FileBar({ file, raw }: { file: FilePageResponse; raw: string }): JSX.Element {
+  const { canWrite } = useAccount();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const runInTab = useRunInTab();
+  const [menuOpened, setMenuOpened] = useState(false);
+  const runUrl = file.run_url;
+  const closeMenu = (): void => setMenuOpened(false);
+
+  return (
+    <>
+      <PageBar>
+        <Capsule testId="file-bar" label="File" kind="actions">
+          {runUrl !== undefined && (
+            <CapsuleAction
+              testId="file-bar-run"
+              label="Run"
+              icon={IconPlay}
+              onClick={() => {
+                if (runInTab === undefined) {
+                  void navigate(runUrl, { state: runState(location) });
+                } else {
+                  runInTab(file.path);
+                }
+              }}
+            />
+          )}
+          {canWrite && file.edit_url !== undefined && (
+            <CapsuleAction testId="file-bar-edit" label="Edit" icon={IconPencil} to={file.edit_url} />
+          )}
+          <CapsuleAction
+            testId="file-menu"
+            label="More actions"
+            icon={IconDots}
+            expanded={menuOpened}
+            onClick={() => setMenuOpened(true)}
+          />
+        </Capsule>
+      </PageBar>
+      <PageSheet
+        path={file.path}
+        title={file.name}
+        testPrefix="file-menu"
+        opened={menuOpened}
+        onClose={closeMenu}
+        lead={<SheetRow testId="file-download" icon={IconDownload} label="Download" href={raw} download={file.name} onClick={closeMenu} />}
+      />
     </>
   );
 }

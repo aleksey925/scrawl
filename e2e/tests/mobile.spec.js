@@ -5,10 +5,11 @@ const fs = require('fs');
 const docs = require('../support/docs');
 const {breakOrigin, restoreOrigin} = require('../support/git');
 const {
-    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, PAST_DRAFT_DELAY_MS, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
+    DIALOG_TITLE, HISTORY, MAIN, MOVE_WAIT_MS, MULTI, PAST_DRAFT_DELAY_MS, READONLY, atHome, dialogButtons, expectNoHorizontalScroll, fixtureFile, headingAnchorGeometry, inStep,
     holdRoute, mockMe, nameOf, okToast, readFixture, recordMoves, refuseDrafts, removeFixture, rgb, routes, save, setSource, shot, signIn, sourceText, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
+const {user} = require('../support/env');
 const lightTheme = require('../../theme/themes/light.json');
 
 const MIN_TAP = 44;
@@ -53,27 +54,30 @@ async function openedMenu(page, testId) {
 async function namingBand(row) {
     return row.evaluate((el) => {
         const rect = el.getBoundingClientRect();
+        const group = el.parentElement.getBoundingClientRect();
         const below = el.nextElementSibling;
-        const lineOf = (item) => getComputedStyle(item).borderBottomColor;
+        const separatorOf = (item) => getComputedStyle(item, '::after').display;
         return {
             band: {
                 edges: [rect.left, rect.right],
                 background: getComputedStyle(el).backgroundColor,
                 height: rect.height,
-                lines: [lineOf(el.previousElementSibling), lineOf(el), lineOf(below)],
+                separators: [separatorOf(el), separatorOf(below)],
             },
+            group: [group.left, group.right],
             rowHeight: below.getBoundingClientRect().height,
         };
     });
 }
 
-async function tapSpaceMenu(page) {
+async function openProfile(page) {
     await page.goto(routes.home());
     await page.getByTestId('tab-profile').tap();
-    await openedMenu(page, 'space-menu-dropdown');
+    await expect(page.getByTestId('profile-page')).toBeVisible();
 }
 
 const LONG_PRESS_HOLD = 700;
+const SETTLE_WAIT_MS = 800;
 
 async function longPress(page, x, y) {
     const cdp = await page.context().newCDPSession(page);
@@ -182,6 +186,17 @@ function moveVisibleArea(page, top, height) {
     }, {offsetTop: top, visible: height});
 }
 
+function readingPlace(page, note = '[data-testid=doc]') {
+    return page.evaluate((selector) => {
+        const top = document.querySelector('header').getBoundingClientRect().bottom;
+        const root = document.querySelector(selector);
+        const block = root === null ? undefined : [...root.children].find((child) => child.getBoundingClientRect().bottom > top);
+        return block === undefined
+            ? null
+            : {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)};
+    }, note);
+}
+
 async function settled(page) {
     await expect.poll(() => page.evaluate(() => document.getAnimations()
         .filter((animation) => animation.playState === 'running').length)).toBe(0);
@@ -198,30 +213,37 @@ test.describe('mobile', () => {
         removeFixture(DIAGRAM_NOTE);
     });
 
-    test('the tab bar sits at the bottom with Notes, Search, Edit, Recent and Profile on a note', async ({page}) => {
+    test('the tab bar floats at the bottom with Notes, Search and Profile, and the round New beside it', async ({page}) => {
         // act
-        await page.goto(routes.doc(DOC));
+        await page.goto(routes.home());
 
         // assert
         const bar = page.getByTestId('tab-bar');
-        await expect(bar.locator('button, a')).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
+        await expect(bar.locator(':scope > :is(button, a) > :last-child')).toHaveText(['Notes', 'Search', 'Profile']);
+        const {width, height} = page.viewportSize();
         const box = await bar.boundingBox();
-        expect(Math.round(box.y + box.height)).toBe(page.viewportSize().height);
-        await expect(page.locator('[data-screen]')).toHaveCSS('padding-bottom', `${Math.round(box.height) + 16}px`);
+        const plus = await page.getByTestId('tab-new').boundingBox();
+        expect([Math.round(box.x), Math.round(plus.x + plus.width)]).toEqual([16, width - 16]);
+        expect(Math.round(box.x + box.width)).toBeLessThan(Math.round(plus.x));
+        expect([Math.round(box.y + box.height), Math.round(plus.y + plus.height)]).toEqual([height - 8, height - 8]);
+        expect([Math.round(plus.width), Math.round(plus.height)]).toEqual([Math.round(box.height), Math.round(box.height)]);
+        await expect(page.getByTestId('tab-new')).toHaveAttribute('aria-label', 'New');
+        await expect(bar).toHaveCSS('border-radius', `${box.height / 2}px`);
+        await expect(page.locator('[data-screen]')).toHaveCSS('padding-bottom', `${Math.round(height - box.y) + 12 + 16}px`);
         await expect(page.getByTestId('sidebar')).toHaveCount(0);
         await expect(page.getByTestId('topbar-burger')).toHaveCount(0);
-        expect(await tooSmall(page, '[data-testid=tab-bar] :is(button, a)')).toEqual([]);
+        expect(await tooSmall(page, ':is([data-testid=tab-bar] button, [data-testid=tab-new])')).toEqual([]);
         await shot(page, 'mobile-tab-bar');
     });
 
-    test('the current tab is the accent with a filled icon and a bold label, the others gray', async ({page}) => {
+    test('the current tab is an accent pill with a filled icon and a bold label, the others plain', async ({page}) => {
         // arrange
-        const names = ['notes', 'search', 'new', 'recent', 'profile'];
+        const names = ['notes', 'search', 'profile'];
         const look = (name) => page.getByTestId(`tab-${name}`).evaluate((el) => {
             const style = getComputedStyle(el);
             return {
                 color: style.color,
-                weight: getComputedStyle(el.querySelector('span')).fontWeight,
+                weight: getComputedStyle(el.lastElementChild).fontWeight,
                 ground: style.backgroundColor,
                 border: style.borderStyle,
                 shadow: style.boxShadow,
@@ -231,32 +253,29 @@ test.describe('mobile', () => {
         const looks = async () => Object.fromEntries(
             await Promise.all(names.map(async (tab) => [tab, await look(tab)])));
         const drawing = (name) => page.getByTestId(`tab-${name}`).locator('svg').innerHTML();
-        const bare = {ground: NO_LINE, border: 'none', shadow: 'none', outline: 'none'};
+        const bare = {border: 'none', shadow: 'none', outline: 'none'};
         const expected = (current) => Object.fromEntries(names.map((tab) => [tab, tab === current
-            ? {...bare, color: rgb(lightTheme.palette.accent), weight: '600'}
-            : {...bare, color: rgb(lightTheme.palette.textTertiary), weight: '400'}]));
+            ? {...bare, color: rgb(lightTheme.palette.accent), weight: '600', ground: rgb(lightTheme.palette.tabCurrent)}
+            : {...bare, color: rgb(lightTheme.palette.icon), weight: '400', ground: NO_LINE}]));
         await page.goto(routes.home());
         await expect(page.getByTestId('tab-notes')).toHaveAttribute('data-current', 'true');
 
         // act
         const seen = {notes: await looks()};
         await shot(page, 'mobile-tab-current');
-        const filled = {notes: await drawing('notes')};
-        const regular = {search: await drawing('search'), recent: await drawing('recent')};
-        await page.getByTestId('tab-recent').tap();
-        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
-        seen.recent = await looks();
-        filled.recent = await drawing('recent');
-        regular.notes = await drawing('notes');
-        await page.getByTestId('tab-search').tap();
-        await expect(page.getByTestId('tab-search')).toHaveAttribute('data-current', 'true');
-        seen.search = await looks();
-        filled.search = await drawing('search');
+        const filled = await drawing('notes');
+        await page.getByTestId('tab-profile').tap();
+        await expect(page).toHaveURL(routes.profile());
+        await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
+        await settled(page);
+        seen.profile = await looks();
+        const regular = await drawing('notes');
 
         // assert
-        expect(seen).toEqual({notes: expected('notes'), recent: expected('recent'), search: expected('search')});
-        expect(['notes', 'search', 'recent'].map((name) => filled[name] === regular[name]))
-            .toEqual([false, false, false]);
+        expect(seen).toEqual({notes: expected('notes'), profile: expected('profile')});
+        expect(filled).not.toBe(regular);
+        const user = await page.getByTestId('profile-user').textContent();
+        await expect(page.getByTestId('tab-profile').getByTestId('avatar')).toHaveText(user.charAt(0).toUpperCase());
     });
 
     test('the keyboard focus ring of a tab stays inside the screen', async ({page}) => {
@@ -317,107 +336,169 @@ test.describe('mobile', () => {
     test.describe('the action of the tab bar', () => {
         const cells = (page) => page.getByTestId('tab-bar').locator(':scope > :is(button, a)');
 
-        test('is Edit on a note and a text file, a disabled Edit on a picture and New in a list', async ({page}) => {
+        test('a note and a file have their own action bar in place of the tabs, and the top bar keeps no action', async ({page}) => {
             // arrange
             const picture = 'e2e-mobile/action/picture.png';
             const textFile = 'e2e-mobile/action/plain.txt';
+            const app = 'e2e-mobile/action/index.html';
             writeFixture(picture, 'not really a png');
             writeFixture(textFile, 'just text\n');
-            const edit = page.getByTestId('tab-edit');
+            writeFixture(app, '<!doctype html><h1>App</h1>\n');
+            const actionsOf = (testId) => page.getByTestId(testId).locator(':scope > :is(button, a)')
+                .evaluateAll((items) => items.map((el) => el.dataset.testid));
+            const topActions = page.getByTestId('topbar-actions').locator('a, button');
 
             // act & assert
             await page.goto(routes.doc(DOC));
-            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
-            await expect(edit).toHaveAttribute('href', routes.edit(DOC));
-            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
-            await expect(page.getByTestId('tab-new')).toHaveCount(0);
-            await shot(page, 'mobile-tab-edit');
+            await expect.poll(() => actionsOf('note-bar')).toEqual(['note-bar-outline', 'note-bar-find', 'note-bar-edit', 'note-menu']);
+            await expect(page.getByTestId('note-bar-edit')).toHaveAttribute('href', routes.edit(DOC));
+            await expect(page.getByTestId('tab-bar')).toHaveCount(0);
+            await expect(topActions).toHaveCount(0);
+            expect(await tooSmall(page, '[data-testid=note-bar] > *')).toEqual([]);
+            await shot(page, 'mobile-note-bar');
 
             await page.goto(routes.doc(textFile));
             await expect(page.getByTestId('file')).toBeVisible();
-            await expect(edit).toHaveAttribute('href', routes.edit(textFile));
-            await expect(edit).not.toHaveAttribute('aria-disabled');
+            await expect.poll(() => actionsOf('file-bar')).toEqual(['file-bar-edit', 'file-menu']);
+            await expect(page.getByTestId('file-bar-edit')).toHaveAttribute('href', routes.edit(textFile));
+            await expect(topActions).toHaveCount(0);
+
+            await page.goto(routes.doc(app));
+            await expect.poll(() => actionsOf('file-bar')).toEqual(['file-bar-run', 'file-bar-edit', 'file-menu']);
 
             await page.goto(routes.doc(picture));
             await expect(page.getByTestId('file')).toHaveAttribute('data-type', 'image');
-            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Edit', 'Recent', 'Profile']);
-            await expect(edit).toHaveAttribute('aria-disabled', 'true');
-            await expect(edit).not.toHaveAttribute('href');
-            await expect(edit).toHaveCSS('color', rgb(lightTheme.palette.textFaint));
-            await edit.tap({force: true});
-            await expect(page).toHaveURL(routes.doc(picture));
-
-            await page.getByTestId('tab-notes').tap();
-            await expect(page).toHaveURL(atHome());
-            await expect(cells(page)).toHaveText(['Notes', 'Search', 'New', 'Recent', 'Profile']);
-            await expect(page.getByTestId('tab-new')).toHaveCSS('color', rgb(lightTheme.palette.textTertiary));
-            await expect(edit).toHaveCount(0);
-            const boxes = await cells(page).evaluateAll((items) => items.map((el) => Math.round(el.getBoundingClientRect().width)));
-            expect(new Set(boxes).size).toBe(1);
+            await expect.poll(() => actionsOf('file-bar')).toEqual(['file-menu']);
+            await expect(page.getByTestId('tab-bar')).toHaveCount(0);
             removeFixture('e2e-mobile/action');
         });
 
-        test('is gone in a read-only space, and the four tabs share the width', async ({page}) => {
+        test('the bar of a note or a file hugs its buttons in the middle, on the line of the tab bar', async ({page}) => {
+            // arrange
+            const app = 'e2e-mobile/hug/index.html';
+            writeFixture(app, '<!doctype html><h1>App</h1>\n');
+            const width = page.viewportSize().width;
+            const geometryOf = (testId) => page.getByTestId(testId).evaluate((bar) => {
+                const box = bar.getBoundingClientRect();
+                const buttons = Array.from(bar.children).map((el) => {
+                    const rect = el.getBoundingClientRect();
+                    return [rect.width, rect.height];
+                });
+                return {left: box.left, right: box.right, height: box.height, bottom: box.bottom, buttons};
+            });
+            await page.goto(routes.home());
+            const tabs = await page.getByTestId('tab-bar').boundingBox();
+
+            // act
+            await page.goto(routes.doc(DOC));
+            await expect(page.getByTestId('note-menu')).toBeVisible();
+            const note = await geometryOf('note-bar');
+            await page.goto(routes.doc(app));
+            await expect(page.getByTestId('file-bar-run')).toBeVisible();
+            const file = await geometryOf('file-bar');
+
+            // assert
+            expect(note).toEqual({
+                left: (width - 216) / 2, right: (width + 216) / 2, height: 52, bottom: tabs.y + tabs.height,
+                buttons: [[52, 44], [52, 44], [52, 44], [52, 44]],
+            });
+            expect(file).toEqual({
+                left: (width - 164) / 2, right: (width + 164) / 2, height: 52, bottom: tabs.y + tabs.height,
+                buttons: [[52, 44], [52, 44], [52, 44]],
+            });
+            removeFixture('e2e-mobile/hug');
+        });
+
+        test('a reader of a read-only space sees no Edit in the bar of a note and no write in its sheet', async ({page}) => {
+            // arrange
+            await mockMe(page, {}, {read_only: true});
+            await page.goto(routes.doc(DOC));
+
+            // act
+            await page.getByTestId('note-menu').tap();
+
+            // assert
+            await openedMenu(page, 'note-menu-dropdown');
+            const actionsOf = page.getByTestId('note-bar').locator(':scope > :is(button, a)');
+            expect(await actionsOf.evaluateAll((items) => items.map((el) => el.dataset.testid)))
+                .toEqual(['note-bar-outline', 'note-bar-find', 'note-menu']);
+            for (const testId of ['note-menu-rename', 'note-menu-move', 'note-menu-delete']) {
+                await expect(page.getByTestId(testId)).toHaveCount(0);
+            }
+            await expect(page.getByTestId('note-menu-copy-link')).toBeVisible();
+        });
+
+        test('a reader of a read-only space sees no Edit in the bar of a text file and no write in its sheet', async ({page}) => {
+            // arrange
+            const textFile = 'e2e-mobile/reader/plain.txt';
+            writeFixture(textFile, 'just text\n');
+            await mockMe(page, {}, {read_only: true});
+            await page.goto(routes.doc(textFile));
+            await expect(page.getByTestId('file')).toBeVisible();
+
+            // act
+            await page.getByTestId('file-menu').tap();
+
+            // assert
+            await openedMenu(page, 'file-menu-dropdown');
+            const actionsOf = page.getByTestId('file-bar').locator(':scope > :is(button, a)');
+            expect(await actionsOf.evaluateAll((items) => items.map((el) => el.dataset.testid))).toEqual(['file-menu']);
+            for (const testId of ['file-menu-rename', 'file-menu-move', 'file-menu-delete']) {
+                await expect(page.getByTestId(testId)).toHaveCount(0);
+            }
+            await expect(page.getByTestId('file-download')).toBeVisible();
+            removeFixture('e2e-mobile/reader');
+        });
+
+        test('New is gone in a read-only space, and the tab bar takes the whole width', async ({page}) => {
             // arrange
             await mockMe(page, {}, {read_only: true});
 
             // act
-            await page.goto(routes.doc(DOC));
+            await page.goto(routes.home());
 
             // assert
-            await expect(cells(page)).toHaveText(['Notes', 'Search', 'Recent', 'Profile']);
+            await expect(cells(page).locator(':scope > :last-child')).toHaveText(['Notes', 'Search', 'Profile']);
+            await expect(page.getByTestId('tab-new')).toHaveCount(0);
             const width = page.viewportSize().width;
-            const boxes = await cells(page).evaluateAll((items) => items.map((el) => el.getBoundingClientRect().width));
-            expect(boxes.map((px) => Math.round(px * 4))).toEqual(Array(4).fill(width));
+            const bar = await page.getByTestId('tab-bar').boundingBox();
+            expect([Math.round(bar.x), Math.round(bar.x + bar.width)]).toEqual([16, width - 16]);
+            const boxes = await cells(page).evaluateAll((items) => items.map((el) => Math.round(el.getBoundingClientRect().width)));
+            expect(new Set(boxes).size).toBe(1);
         });
 
-        test('New opens two tiles over the bar, a tap on the scrim or a tab only closes them, and so does Escape', async ({page}) => {
+        test('New opens the create sheet with two tiles, a tap on the scrim only closes it, and so does Escape', async ({page}) => {
             // arrange
             const folder = 'e2e-mobile/tiles';
             writeFixture(`${folder}/under.md`, '# Under\n');
             await page.goto(routes.dir(folder));
-            const tiles = page.getByTestId('new-menu');
+            const sheet = page.getByTestId('new-menu');
 
             // act & assert
             await page.getByTestId('tab-new').tap();
             await openedMenu(page, 'new-menu');
-            await expect(tiles.getByRole('menuitem')).toHaveText([text.create.folder, text.create.note]);
-            await expect(page.getByTestId('new-menu-folder')).toBeFocused();
+            await expect(sheet.getByRole('heading')).toHaveText(`Create in ${nameOf(folder)}`);
+            await expect(sheet.locator('[data-testid^=new-menu-]')).toHaveText([text.create.folder, text.create.note]);
+            await expect(sheet.locator(':focus')).toHaveCount(1);
             const width = page.viewportSize().width;
-            const bar = await page.getByTestId('tab-bar').boundingBox();
-            const folderTile = await page.getByTestId('new-menu-folder').boundingBox();
             const noteTile = await page.getByTestId('new-menu-note').boundingBox();
-            expect([folderTile.x, Math.round(noteTile.x + noteTile.width)]).toEqual([8, width - 8]);
-            expect([folderTile.height, noteTile.height]).toEqual([88, 88]);
-            expect(Math.round(folderTile.y + folderTile.height)).toBe(Math.round(bar.y) - 8);
-            await expect(page.getByTestId('new-menu-note')).toHaveCSS('font-size', '15px');
-            await expect(page.getByTestId('new-menu-note')).toHaveCSS('border-radius', '10px');
-            await expect(page.getByTestId('new-menu-note')).toHaveCSS('font-weight', '500');
-            await expect(page.getByTestId('new-menu-note')).toHaveCSS('background-color', rgb(lightTheme.palette.menu));
+            const folderTile = await page.getByTestId('new-menu-folder').boundingBox();
+            expect([Math.round(folderTile.x), Math.round(noteTile.x + noteTile.width)]).toEqual([16, width - 16]);
+            expect([folderTile.y, folderTile.height]).toEqual([noteTile.y, noteTile.height]);
+            await expect(page.getByTestId('new-menu-note')).toHaveCSS('background-color', rgb(lightTheme.palette.groupedCard));
+            await expect(page.getByTestId('new-menu-folder')).toHaveCSS('background-color', rgb(lightTheme.palette.groupedCard));
             const icon = await page.getByTestId('new-menu-note').locator('svg').boundingBox();
             expect([icon.width, icon.height]).toEqual([26, 26]);
-            await shot(page, 'mobile-new-tiles');
-            await pressedBand(page, '[data-testid=new-menu-note]');
-            await expect(page.getByTestId('new-menu-note')).toHaveCSS('background-color', rgb(lightTheme.palette.menu));
-            expect(await page.getByTestId('new-menu-note').evaluate((el) => getComputedStyle(el, '::before').backgroundColor))
-                .toBe(rgb(lightTheme.palette.pressed));
+            await shot(page, 'mobile-new-sheet');
 
-            const row = await page.locator(`[data-testid=dir-row][data-path="${folder}/under.md"]`).boundingBox();
-            await page.touchscreen.tap(row.x + 40, row.y + row.height / 2);
-            await expect(tiles).toHaveCount(0);
-            await stays(() => new URL(page.url()).pathname, routes.dir(folder), MOVE_WAIT_MS);
-
-            const recent = await page.getByTestId('tab-recent').boundingBox();
-            await page.getByTestId('tab-new').tap();
-            await openedMenu(page, 'new-menu');
-            await page.touchscreen.tap(recent.x + recent.width / 2, recent.y + recent.height / 2);
-            await expect(tiles).toHaveCount(0);
+            await page.getByTestId('new-scrim').tap({position: {x: 40, y: 40}});
+            await expect(sheet).toHaveCount(0);
             await stays(() => new URL(page.url()).pathname, routes.dir(folder), MOVE_WAIT_MS);
 
             await page.getByTestId('tab-new').tap();
             await openedMenu(page, 'new-menu');
             await page.keyboard.press('Escape');
-            await expect(tiles).toHaveCount(0);
+            await expect(sheet).toHaveCount(0);
             await expect(page.getByTestId('tab-new')).toBeFocused();
             removeFixture(folder);
         });
@@ -432,7 +513,7 @@ test.describe('mobile', () => {
             await page.goto(routes.doc('e2e-mobile/app/index.html'));
 
             // act
-            await page.getByTestId('file-run').tap();
+            await page.getByTestId('file-bar-run').tap();
 
             // assert
             await expect(page.frameLocator('[data-testid=run-frame]').locator('#title')).toHaveText('Phone app');
@@ -456,7 +537,7 @@ test.describe('mobile', () => {
             const titleSize = await page.getByTestId('topbar-title').evaluate((el) => getComputedStyle(el).fontSize);
 
             // act
-            await page.getByTestId('file-run').tap();
+            await page.getByTestId('file-bar-run').tap();
 
             // assert
             await expect(page.getByTestId('run-bar')).toBeVisible();
@@ -525,8 +606,8 @@ test.describe('mobile', () => {
         const box = await row.boundingBox();
         await longPress(page, box.x + 80, box.y + box.height / 2);
         await openedMenu(page, 'tree-row-menu-dropdown');
-        await expect(page.getByTestId('tree-row-menu-dropdown').getByRole('menuitem'))
-            .toHaveText(['Open', 'Run', 'Rename', 'Move to', 'Copy link', 'Delete']);
+        await expect(page.getByTestId('tree-row-menu-dropdown').locator('[data-testid^="tree-row-menu-"]'))
+            .toHaveText(['Open', 'Run', 'Rename', 'Move to…', 'Copy link', 'Delete']);
         const [fromMenu] = await Promise.all([context.waitForEvent('page'), page.getByTestId('tree-row-menu-run').tap()]);
         await expect(fromMenu.locator('#title')).toHaveText('Folder app');
         await fromMenu.close();
@@ -539,7 +620,7 @@ test.describe('mobile', () => {
 
     test('Notes opens the root list, a folder opens its list, and the back link goes up', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(DOC));
+        await page.goto(routes.dir(docs.deep.folder));
 
         // act & assert
         await page.getByTestId('tab-notes').tap();
@@ -557,22 +638,47 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(atHome());
     });
 
-    test('a pressed row is one band from edge to edge of the screen', async ({page}) => {
+    test('a pressed row of a list fills its row inside the white group', async ({page}) => {
         // arrange
         await page.goto(routes.home());
+        const selector = `[data-testid=dir-row][data-path="${docs.folder.path}"]`;
 
         // act
-        const edges = await pressedBand(page, `[data-testid=dir-row][data-path="${docs.folder.path}"]`);
+        const edges = await pressedBand(page, selector);
 
         // assert
-        expect(edges).toEqual([0, page.viewportSize().width]);
+        const group = await page.getByTestId('dir-table').boundingBox();
+        expect(edges).toEqual([group.x, group.x + group.width]);
+        await expect.poll(() => page.locator(selector).evaluate((el) => getComputedStyle(el, '::before').backgroundColor))
+            .toBe(rgb(lightTheme.palette.rowPressed));
+    });
+
+    test('a list is one white group on the gray page, its separators starting at the text', async ({page}) => {
+        // act
+        await page.goto(routes.home());
+
+        // assert
+        const table = page.getByTestId('dir-table');
+        await expect(table).toBeVisible();
+        await expect(page.locator('main')).toHaveCSS('background-color', rgb(lightTheme.palette.groupedBg));
+        await expect(table).toHaveCSS('background-color', rgb(lightTheme.palette.groupedCard));
+        await expect(table).toHaveCSS('border-radius', '12px');
+        const box = await table.boundingBox();
+        expect([box.x, box.x + box.width]).toEqual([16, page.viewportSize().width - 16]);
+        const separators = await table.locator('[data-testid=dir-row]').evaluateAll((rows) => rows.map((row) => {
+            const line = getComputedStyle(row, '::after');
+            return line.display === 'none' || line.content === 'none' ? 'none' : `${line.left} ${line.borderTopColor}`;
+        }));
+        const line = `52px ${rgb(lightTheme.palette.groupedSeparator)}`;
+        expect(separators).toEqual(['none', ...separators.slice(1).map(() => line)]);
+        await expect(page.getByTestId('dir-row').first().locator('[data-testid=dir-row-name]')).toHaveCSS('font-size', '17px');
     });
 
     test('a pressed row of Recent is one band from edge to edge of the screen too', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
         await expect(page.getByTestId('doc')).toBeVisible();
-        await page.getByTestId('tab-recent').tap();
+        await page.goto(routes.recent());
 
         // act
         const edges = await pressedBand(page, '[data-testid=recent-item]');
@@ -644,8 +750,8 @@ test.describe('mobile', () => {
         await page.getByTestId('topbar-up').tap();
         await expect(page).toHaveURL(atHome());
         await expect.poll(moves).toEqual(['translateX(28%)', 'translateX(-28%)']);
-        await page.getByTestId('tab-recent').tap();
-        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        await page.getByTestId('tab-profile').tap();
+        await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
         await page.getByTestId('tab-notes').tap();
         await expect(page).toHaveURL(atHome());
         expect(await moves()).toEqual(['translateX(28%)', 'translateX(-28%)']);
@@ -674,7 +780,7 @@ test.describe('mobile', () => {
         await page.goto(MAIN.url.dir(docs.doc.folder));
         await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
         await expect.poll(moves).toEqual(['translateX(28%)']);
-        await page.getByTestId('tab-edit').tap();
+        await page.getByTestId('note-bar-edit').tap();
         await expect(page.getByTestId('editor')).toBeVisible();
 
         // act
@@ -818,6 +924,7 @@ test.describe('mobile', () => {
                     await new Promise((resolve) => setTimeout(resolve, 16));
                 }
                 window.layer = document.querySelector('[data-screen]')?.style.willChange;
+                window.shift = document.querySelector('[data-screen]')?.style.transform;
                 send(end);
                 return taken;
             }, {start, moves, end});
@@ -1029,6 +1136,57 @@ test.describe('mobile', () => {
             removeFixture(note);
         });
 
+        test('a swipe back while Find is open slides away the line that was being read', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.long.path));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+            await page.getByTestId('note-bar-find').tap();
+            await expect(page.getByTestId('doc-find')).toBeVisible();
+            const read = await readingPlace(page);
+            await page.evaluate(() => {
+                window.addEventListener('touchend', () => {
+                    const top = document.querySelector('header').getBoundingClientRect().bottom;
+                    const copy = document.querySelector('[data-leaving] .markdown-document');
+                    const block = copy === null ? undefined : [...copy.children].find((child) => child.getBoundingClientRect().bottom > top);
+                    window.copied = block === undefined
+                        ? null
+                        : {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)};
+                }, {once: true});
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.copied)).toEqual(read);
+        });
+
+        test('a swipe back while Find is open at the top of a note slides away a copy as tall as the screen', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            await page.goto(MAIN.url.doc(docs.long.path));
+            await expect(page.getByTestId('doc')).toBeVisible();
+            await settled(page);
+            await page.getByTestId('note-bar-find').tap();
+            await expect(page.getByTestId('doc-find')).toBeVisible();
+            const screen = await page.locator('[data-screen]').evaluate((element) => Math.round(element.getBoundingClientRect().height));
+            await page.evaluate(() => {
+                window.addEventListener('touchend', () => {
+                    const copy = document.querySelector('[data-leaving] > *');
+                    window.copiedHeight = copy === null ? null : Math.round(copy.getBoundingClientRect().height);
+                }, {once: true});
+            });
+
+            // act
+            await swipe(page, 300);
+
+            // assert
+            await expect.poll(() => page.evaluate(() => window.copiedHeight)).toBe(screen);
+        });
+
         test('a drag from the edge asks for the folder above before the page is let go', async ({page}) => {
             // arrange
             await asStandalone(page);
@@ -1058,7 +1216,7 @@ test.describe('mobile', () => {
             held.release();
         });
 
-        test('a drag from the edge while the New tiles are open is no swipe back', async ({page}) => {
+        test('a drag from the edge while the create sheet is open is no swipe back', async ({page}) => {
             // arrange
             await asStandalone(page);
             await page.goto(folder());
@@ -1066,11 +1224,11 @@ test.describe('mobile', () => {
             await openedMenu(page, 'new-menu');
 
             // act
-            const taken = await touchesFrom(page, [[4, 400], [7, 399], [10, 398], [20, 396], [40, 395], [80, 394]]);
+            await touchesFrom(page, [[4, 400], [7, 399], [10, 398], [20, 396], [40, 395], [80, 394]]);
 
             // assert
-            expect(taken).toEqual([false, false, false, false, false]);
-            expect(await page.evaluate(() => window.layer)).toBe('');
+            expect(await page.evaluate(() => [window.layer, window.shift])).toEqual(['', '']);
+            await expect(page.getByTestId('new-menu')).toBeVisible();
             await expect(page).toHaveURL(folder());
         });
 
@@ -1271,7 +1429,7 @@ test.describe('mobile', () => {
             await page.goto(MAIN.url.dir(docs.doc.folder));
             await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
             await expect(page.getByTestId('doc')).toBeVisible();
-            await page.getByTestId('tab-edit').tap();
+            await page.getByTestId('note-bar-edit').tap();
             await page.getByTestId('editor-cancel').tap();
             await expect(page).toHaveURL(MAIN.url.doc(DOC));
             await expect(page.getByTestId('doc')).toBeVisible();
@@ -1304,13 +1462,13 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('dir-row').first()).toBeVisible();
 
             // act
-            await swipeAndTap(page, 'tab-recent');
+            await swipeAndTap(page, 'tab-profile');
 
             // assert
             expect(await page.evaluate(() => window.tappedMoving)).toBe(true);
-            await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+            await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
             await settled(page);
-            await stays(() => page.getByTestId('tab-recent').getAttribute('data-current'), 'true', 500);
+            await stays(() => page.getByTestId('tab-profile').getAttribute('data-current'), 'true', 500);
             await page.goBack();
             await expect(page).toHaveURL(atHome());
         });
@@ -1318,8 +1476,8 @@ test.describe('mobile', () => {
         test('a tab tapped while the swiped page leaves keeps its place while its screen loads', async ({page}) => {
             // arrange
             await inStandalone(page);
-            await page.goto(routes.doc(DOC));
-            await expect(page.locator('[data-screen]')).toBeVisible();
+            await page.goto(MAIN.url.dir(docs.deep.folder));
+            await expect(page.getByTestId('dir-row').first()).toBeVisible();
             await page.route(/\/api\/(dir|page)\//, async (route) => {
                 await new Promise((resolve) => setTimeout(resolve, 1000));
                 await route.continue();
@@ -1380,6 +1538,8 @@ test.describe('mobile', () => {
             await sub.tap();
             await expect(page).toHaveURL(MAIN.url.dir(docs.deep.folder));
             await held.reached;
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            await expect.poll(() => page.locator('[data-screen]').evaluate((screen) => screen.getAnimations().length)).toBe(0);
 
             // act
             await swipe(page, 300);
@@ -1536,35 +1696,46 @@ test.describe('mobile', () => {
             held.release();
         });
 
-        test('Recent, a tab, has no way up and no swipe', async ({page}) => {
+        test('Recent and Profile, places of the tab bar, have no way up and no swipe', async ({page}) => {
             // arrange
             await asStandalone(page);
             await page.goto(routes.doc(DOC));
             await expect(page.getByTestId('doc')).toBeVisible();
-            await page.getByTestId('tab-recent').tap();
-            await expect(page.getByTestId('recent')).toBeVisible();
-
-            // act
-            await swipe(page, 300);
-
-            // assert
-            await expect(page.getByTestId('topbar-up')).toHaveCount(0);
-            await stays(() => new URL(page.url()).pathname, routes.recent(), MOVE_WAIT_MS);
-        });
-
-        test('Recent at an address with a trailing slash or capitals is the Recent tab too', async ({page}) => {
-            // arrange
-            await asStandalone(page);
-            const addresses = [`${routes.recent()}/`, routes.recent().replace('/recent', '/Recent')];
 
             // act & assert
-            for (const typed of addresses) {
+            await page.goto(routes.recent());
+            await expect(page.getByTestId('recent')).toBeVisible();
+            await swipe(page, 300);
+            await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+            await stays(() => new URL(page.url()).pathname, routes.recent(), MOVE_WAIT_MS);
+
+            await page.getByTestId('tab-profile').tap();
+            await expect(page.getByTestId('profile-page')).toBeVisible();
+            await swipe(page, 300);
+            await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+            await stays(() => new URL(page.url()).pathname, routes.profile(), MOVE_WAIT_MS);
+        });
+
+        test('Recent and Profile at an address with a trailing slash or capitals are their tabs too', async ({page}) => {
+            // arrange
+            await asStandalone(page);
+            const recent = [`${routes.recent()}/`, routes.recent().replace('/recent', '/Recent')];
+            const profile = [`${routes.profile()}/`, routes.profile().replace('/profile', '/Profile')];
+
+            // act & assert
+            for (const typed of recent) {
                 await page.goto(typed);
                 await expect(page.getByTestId('recent')).toBeVisible();
-                await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+                await expect(page.getByTestId('tab-search')).toHaveAttribute('data-current', 'true');
+                await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+            }
+            for (const typed of profile) {
+                await page.goto(typed);
+                await expect(page.getByTestId('profile-page')).toBeVisible();
+                await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
                 await expect(page.getByTestId('topbar-up')).toHaveCount(0);
                 const entries = await page.evaluate(() => window.history.length);
-                await page.getByTestId('tab-recent').tap();
+                await page.getByTestId('tab-profile').tap();
                 await stays(() => page.evaluate(() => window.history.length), entries, MOVE_WAIT_MS);
             }
         });
@@ -1968,13 +2139,13 @@ test.describe('mobile', () => {
             await page.goto(MAIN.url.doc(docs.folder.entry));
             await expect(page.getByTestId('doc')).toBeVisible();
             await settled(page);
-            await page.route(new RegExp(`/api/dir/${docs.folder.path}$`), async (route) => {
-                await new Promise((resolve) => setTimeout(resolve, 600));
-                await route.continue();
-            });
+            const held = await holdRoute(page, new RegExp(`/api/dir/${docs.folder.path}$`));
 
             // act
             await swipe(page, 300);
+            await held.reached;
+            await expect(page.locator('[data-leaving]')).toHaveCount(0);
+            held.release();
 
             // assert
             await expect(page.locator(`[data-screen] [data-testid=dir-row][data-path="${docs.folder.entry}"]`)).toBeVisible();
@@ -2341,68 +2512,65 @@ test.describe('mobile', () => {
         const FOLDER = 'e2e-mobile/menu';
         const rowOf = (page, path) => page.locator(`[data-testid=dir-row][data-path="${path}"]`);
 
-        test('a long press lifts the row, opens its menu from it, and Delete takes the file away', async ({page}) => {
+        test('a long press opens the sheet of the row, which names it and its folder, and Delete takes the file away', async ({page}) => {
             // arrange
             const file = `${FOLDER}/drop-me.md`;
             writeFixture(file, '# Drop me\n');
             await page.goto(MAIN.url.dir(FOLDER));
+            const sheet = page.getByTestId('tree-row-menu-dropdown');
             const box = await rowOf(page, file).boundingBox();
 
             // act
             await longPress(page, box.x + 80, box.y + box.height / 2);
 
             // assert
-            await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
-            await expect(page.getByTestId('row-lift')).toContainText('drop-me.md');
-            await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'true');
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await expect(sheet).toContainText(nameOf(file));
+            await expect(sheet).toContainText(`/ ${FOLDER.split('/').join(' / ')}`);
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
             await shot(page, 'mobile-row-menu');
             await page.getByTestId('tree-row-menu-delete').tap();
-            await expect(page.getByTestId('row-lift')).toHaveCount(0);
+            await expect(sheet).toHaveCount(0);
             await expect(rowOf(page, file)).toHaveCount(0);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
         });
 
-        test('the menu of a lifted row hangs at the row\'s right edge wherever the finger rests', async ({page}) => {
+        test('a long press opens the same sheet as the row\'s ⋯', async ({page}) => {
             // arrange
-            const file = `${FOLDER}/hang-right.md`;
-            writeFixture(file, '# Hang right\n');
+            const file = `${FOLDER}/same-sheet.md`;
+            writeFixture(file, '# Same sheet\n');
             await page.goto(MAIN.url.dir(FOLDER));
-            const width = page.viewportSize().width;
-            const row = await rowOf(page, file).boundingBox();
-            const button = await rowOf(page, file).getByTestId('tree-row-menu').boundingBox();
-            const rightAfterLift = async (x) => {
-                await longPress(page, x, row.y + row.height / 2);
-                await openedMenu(page, 'tree-row-menu-dropdown');
-                const menu = await page.getByTestId('tree-row-menu-dropdown').boundingBox();
-                await page.touchscreen.tap(width / 2, 60);
-                await expect(page.getByTestId('row-lift')).toHaveCount(0);
-                return Math.round(menu.x + menu.width);
-            };
+            const sheet = page.getByTestId('tree-row-menu-dropdown');
+            const items = sheet.locator('[data-testid^="tree-row-menu-"]');
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            const fromButton = await items.allTextContents();
+            await sheet.getByTestId('sheet-close').tap();
+            await expect(sheet).toHaveCount(0);
+            const box = await rowOf(page, file).boundingBox();
 
             // act
-            const fromLeft = await rightAfterLift(40);
-            const fromRight = await rightAfterLift(button.x - 16);
+            await longPress(page, box.x + 80, box.y + box.height / 2);
 
             // assert
-            expect([fromLeft, fromRight]).toEqual([Math.round(row.x + row.width), Math.round(row.x + row.width)]);
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await expect(items).toHaveText(fromButton);
         });
 
-        test('a tap beside a lifted row sets it back down and opens nothing', async ({page}) => {
+        test('a tap on the scrim of a row\'s sheet closes it and opens nothing', async ({page}) => {
             // arrange
             const file = `${FOLDER}/lift-me.md`;
             writeFixture(file, '# Lift me\n');
             await page.goto(MAIN.url.dir(FOLDER));
             const box = await rowOf(page, file).boundingBox();
             await longPress(page, box.x + 80, box.y + box.height / 2);
-            await expect(page.getByTestId('row-lift')).toBeVisible();
+            await openedMenu(page, 'tree-row-menu-dropdown');
 
             // act
             await page.touchscreen.tap(30, 120);
 
             // assert
-            await expect(page.getByTestId('row-lift')).toHaveCount(0);
-            await expect(rowOf(page, file)).toHaveAttribute('data-lifted', 'false');
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
         });
 
@@ -2420,11 +2588,10 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('topbar-title').getByTestId('page-rename-input')).toBeFocused();
         }
 
-        test('Rename turns the name of the row into a field, Done saves, a tap outside saves and the ✕ cancels', async ({page}) => {
+        test('Rename turns the name of the row into a field with the cursor before the extension, Done saves, a tap outside cancels and ✕ clears', async ({page}) => {
             // arrange
             const file = `${FOLDER}/rename-me.md`;
             const renamed = `${FOLDER}/renamed-here.md`;
-            const tapped = `${FOLDER}/tapped-out.md`;
             writeFixture(file, '# Rename me\n');
             await page.goto(MAIN.url.dir(FOLDER));
             const input = page.getByTestId('dir-rename-input');
@@ -2433,69 +2600,124 @@ test.describe('mobile', () => {
             // act & assert
             await startRowRename(page, file);
             await expect(input).toHaveValue(nameOf(file));
-            await expect(input).toHaveAttribute('enterkeyhint', 'done');
-            expect(await input.evaluate((field) => getComputedStyle(field).fontSize)).toBe('16px');
-            await expect(page.getByTestId('dir-rename-cancel')).toBeVisible();
+            expect(await input.evaluate((field) => [field.selectionStart, field.selectionEnd]))
+                .toEqual([nameOf(file).length - '.md'.length, nameOf(file).length - '.md'.length]);
+            expect(await input.evaluate((field) => ({
+                enterkeyhint: field.getAttribute('enterkeyhint'),
+                autocomplete: field.getAttribute('autocomplete'),
+                autocorrect: field.getAttribute('autocorrect'),
+                autocapitalize: field.getAttribute('autocapitalize'),
+                spellcheck: field.getAttribute('spellcheck'),
+                name: field.name,
+                id: field.id,
+                fontSize: getComputedStyle(field).fontSize,
+            }))).toEqual({
+                enterkeyhint: 'done',
+                autocomplete: 'off',
+                autocorrect: 'off',
+                autocapitalize: 'off',
+                spellcheck: 'false',
+                name: '',
+                id: '',
+                fontSize: '17px',
+            });
+            await expect(rowOf(page, file).getByTestId('tree-row-menu')).toHaveCount(0);
             await expect(page.locator('.mantine-Modal-content')).toHaveCount(0);
             await shot(page, 'mobile-rename');
+            await page.getByTestId('dir-rename-clear').tap();
+            await expect(input).toHaveValue('');
+            await expect(input).toBeFocused();
+            await expect(page.getByTestId('dir-rename-clear')).toHaveCount(0);
             await input.fill('dropped.md');
-            await page.getByTestId('dir-rename-cancel').tap();
+            await page.getByTestId('dir-title').tap();
             await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
             await stays(() => moves, [], MOVE_WAIT_MS);
             expect(fs.existsSync(fixtureFile(`${FOLDER}/dropped.md`))).toBe(false);
 
             await startRowRename(page, file);
+            await input.fill('escaped.md');
+            await input.press('Escape');
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+
+            await startRowRename(page, file);
             await input.fill(nameOf(renamed));
             await input.press('Enter');
             await expect(rowOf(page, renamed)).toHaveCount(1);
-
-            await startRowRename(page, renamed);
-            await input.fill(nameOf(tapped));
-            await page.getByTestId('dir-title').tap();
-            await expect(rowOf(page, tapped)).toHaveCount(1);
             await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
-            expect([file, renamed, tapped].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([false, false, true]);
+            expect([file, renamed, `${FOLDER}/escaped.md`].map((path) => fs.existsSync(fixtureFile(path))))
+                .toEqual([false, true, false]);
         });
 
-        test('the row being renamed is one gray band from edge to edge, with no line above or below it', async ({page}) => {
+        test('the row being renamed keeps its look and its separators, its name a gray field of 36px with 8px corners', async ({page}) => {
             // arrange
             const folder = `${FOLDER}/band`;
             const files = ['a-first', 'b-middle', 'c-last'].map((name) => `${folder}/${name}.md`);
             files.forEach((path) => writeFixture(path, `# ${nameOf(path)}\n`));
             await page.goto(MAIN.url.dir(folder));
+            const look = (row) => row.evaluate((el) => {
+                const rect = el.getBoundingClientRect();
+                const icon = el.querySelector('svg').getBoundingClientRect();
+                return {
+                    height: rect.height,
+                    iconLeft: icon.left,
+                    background: getComputedStyle(el).backgroundColor,
+                    separators: [getComputedStyle(el, '::after').display, getComputedStyle(el.nextElementSibling, '::after').display],
+                };
+            });
+            const before = await look(rowOf(page, files[1]));
 
             // act
             await startRowRename(page, files[1]);
 
             // assert
-            const {band, rowHeight} = await namingBand(rowOf(page, files[1]));
-            expect(band).toEqual({
-                edges: [0, page.viewportSize().width],
-                background: rgb(lightTheme.palette.hover),
-                height: rowHeight,
-                lines: [NO_LINE, NO_LINE, rgb(lightTheme.palette.borderLight)],
-            });
+            expect(await look(rowOf(page, files[1]))).toEqual(before);
+            expect(before.separators).toEqual(['block', 'block']);
+            const box = page.getByTestId('dir-rename-input').locator('..');
+            expect(await box.evaluate((el) => {
+                const style = getComputedStyle(el);
+                return {height: el.getBoundingClientRect().height, radius: style.borderRadius, background: style.backgroundColor};
+            })).toEqual({height: 36, radius: '8px', background: rgb(lightTheme.palette.groupedField)});
+            const clear = await page.getByTestId('dir-rename-clear').locator('svg').boundingBox();
+            expect([clear.width, clear.height]).toEqual([17, 17]);
         });
 
-        test('a tap outside saves the field even when the field keeps the focus', async ({page}) => {
+        test('a tap outside cancels the field even when the field keeps the focus', async ({page}) => {
             // arrange
             const file = `${FOLDER}/kept-focus.md`;
-            const renamed = `${FOLDER}/kept-focus-saved.md`;
             writeFixture(file, '# Kept focus\n');
             await page.goto(MAIN.url.dir(FOLDER));
+            const moves = recordMoves(page);
             await startRowRename(page, file);
-            await page.getByTestId('dir-rename-input').fill(nameOf(renamed));
+            await page.getByTestId('dir-rename-input').fill('kept-focus-dropped.md');
 
             // act
             await page.getByTestId('dir-title').dispatchEvent('click');
 
             // assert
-            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
-            await expect(rowOf(page, renamed)).toHaveCount(1);
-            expect(fs.existsSync(fixtureFile(file))).toBe(false);
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            await stays(() => moves, [], MOVE_WAIT_MS);
+            expect(fs.existsSync(fixtureFile(file))).toBe(true);
         });
 
-        test('after a failed save a tap outside does not send the same name again', async ({page}) => {
+        test('a field that lost the focus stays open and sends nothing', async ({page}) => {
+            // arrange
+            const file = `${FOLDER}/blurred.md`;
+            writeFixture(file, '# Blurred\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            const moves = recordMoves(page);
+            await startRowRename(page, file);
+            const input = page.getByTestId('dir-rename-input');
+            await input.fill('blurred-typed.md');
+
+            // act
+            await input.blur();
+
+            // assert
+            await stays(() => moves, [], MOVE_WAIT_MS);
+            await expect(input).toHaveValue('blurred-typed.md');
+        });
+
+        test('after a failed save a tap outside cancels and sends nothing again', async ({page}) => {
             // arrange
             const file = `${FOLDER}/fail-once.md`;
             const taken = `${FOLDER}/fail-taken.md`;
@@ -2513,32 +2735,83 @@ test.describe('mobile', () => {
             await page.getByTestId('dir-title').tap();
 
             // assert
-            await stays(() => moves, [{from: file, to: taken}], MOVE_WAIT_MS);
-            await expect(input).toHaveValue(nameOf(taken));
-            await page.getByTestId('dir-rename-cancel').tap();
             await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            await stays(() => moves, [{from: file, to: taken}], MOVE_WAIT_MS);
             expect([file, taken].map((path) => fs.existsSync(fixtureFile(path)))).toEqual([true, true]);
         });
 
-        test('Rename from a lifted row sets the card down at once, and the first tap outside saves', async ({page}) => {
+        test('Rename from the sheet of a long press closes it at once, and the first tap outside cancels', async ({page}) => {
             // arrange
             const file = `${FOLDER}/lift-rename.md`;
-            const renamed = `${FOLDER}/lift-renamed.md`;
             writeFixture(file, '# Lift rename\n');
             await page.goto(MAIN.url.dir(FOLDER));
             const box = await rowOf(page, file).boundingBox();
             await longPress(page, box.x + 80, box.y + box.height / 2);
             await openedMenu(page, 'tree-row-menu-dropdown');
             const input = page.getByTestId('dir-rename-input');
+            const moves = recordMoves(page);
 
             // act & assert
             await page.getByTestId('tree-row-menu-rename').tap();
-            expect(await page.getByTestId('row-lift').count()).toBe(0);
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
             await expect(input).toBeFocused();
-            await input.fill(nameOf(renamed));
+            await input.fill('lift-dropped.md');
             await page.getByTestId('dir-title').tap();
-            await expect.poll(() => fs.existsSync(fixtureFile(renamed))).toBe(true);
-            await expect(rowOf(page, renamed)).toHaveCount(1);
+            await expect(page.getByTestId('dir-rename-field')).toHaveCount(0);
+            await stays(() => moves, [], MOVE_WAIT_MS);
+        });
+
+        test.describe('with the keyboard up', () => {
+            const KEYBOARD = 320;
+
+            async function withKeyboard(page) {
+                await page.addInitScript(() => {
+                    const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+                    Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+                });
+            }
+
+            async function raiseKeyboard(page) {
+                await page.evaluate((keyboard) => {
+                    window.visualViewport.height = window.innerHeight - keyboard;
+                    window.visualViewport.dispatchEvent(new Event('resize'));
+                }, KEYBOARD);
+            }
+
+            test('a row the keyboard leaves free does not scroll the page', async ({page}) => {
+                // arrange
+                const folder = `${FOLDER}/free`;
+                const file = `${folder}/top.md`;
+                writeFixture(file, '# Top\n');
+                await withKeyboard(page);
+                await page.goto(MAIN.url.dir(folder));
+                await startRowRename(page, file);
+
+                // act
+                await raiseKeyboard(page);
+
+                // assert
+                await stays(() => page.evaluate(() => window.scrollY), 0, 300);
+            });
+
+            test('a row the keyboard would cover scrolls just above it, 16px over the keys', async ({page}) => {
+                // arrange
+                const folder = `${FOLDER}/covered`;
+                const files = Array.from({length: 9}, (_, index) => `${folder}/row-${index}.md`);
+                files.forEach((path) => writeFixture(path, `# ${nameOf(path)}\n`));
+                await withKeyboard(page);
+                await page.goto(MAIN.url.dir(folder));
+                const last = files[files.length - 1];
+                await startRowRename(page, last);
+
+                // act
+                await raiseKeyboard(page);
+
+                // assert
+                await expect.poll(() => rowOf(page, last).evaluate((el, keyboard) =>
+                    Math.round(window.innerHeight - keyboard - el.getBoundingClientRect().bottom), KEYBOARD)).toBe(16);
+                await expect(page.getByTestId('topbar')).toBeInViewport();
+            });
         });
 
         test('Rename from the menu of an opened note puts the field in the place of the bar\'s title', async ({page}) => {
@@ -2556,7 +2829,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('topbar')).toHaveAttribute('data-renaming', 'true');
             await expect(page.getByTestId('topbar-up')).toBeHidden();
             await expect(page.getByTestId('topbar-actions')).toBeHidden();
-            await expect(page.getByTestId('note-menu')).toBeHidden();
+            await expect(page.getByTestId('note-menu-dropdown')).toHaveCount(0);
             await shot(page, 'mobile-rename-bar');
             await input.fill('bar-dropped.md');
             await page.getByTestId('page-rename-cancel').tap();
@@ -2572,7 +2845,7 @@ test.describe('mobile', () => {
                 .toEqual([false, false, true]);
         });
 
-        test('Move to fills the screen and moves the file into the folder tapped', async ({page}) => {
+        test('Move to is a sheet as wide as the screen, a tap picks a folder and its button moves the file', async ({page}) => {
             // arrange
             const file = `${FOLDER}/move-me.md`;
             const into = `${FOLDER}/into`;
@@ -2586,14 +2859,45 @@ test.describe('mobile', () => {
                 .toBe(page.viewportSize().width);
             await shot(page, 'mobile-move');
 
-            // act
             await page.getByTestId('move-input').fill('into');
             await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await expect(page.getByTestId('move-submit')).toHaveText(`Move to ${nameOf(into)}`);
+
+            // act
+            await page.getByTestId('move-submit').tap();
 
             // assert
             await expect(page.getByTestId('move-dialog')).toHaveCount(0);
             await expect.poll(() => fs.existsSync(fixtureFile(`${into}/move-me.md`))).toBe(true);
             expect(fs.existsSync(fixtureFile(file))).toBe(false);
+        });
+
+        test('Move to keeps its button off for the folder the file is in and for a folder that holds its name', async ({page}) => {
+            // arrange
+            const name = 'twin.md';
+            const file = `${FOLDER}/${name}`;
+            const other = `${FOLDER}/holds-twin`;
+            writeFixture(file, '# Twin\n');
+            writeFixture(`${other}/${name}`, '# Other twin\n');
+            await page.goto(MAIN.url.dir(FOLDER));
+            await rowOf(page, file).getByTestId('tree-row-menu').tap();
+            await openedMenu(page, 'tree-row-menu-dropdown');
+            await page.getByTestId('tree-row-menu-move').tap();
+            await page.getByTestId('move-input').fill(nameOf(FOLDER));
+            const here = page.locator(`[data-testid=move-place][data-path="${FOLDER}"]`);
+            await expect(here).toHaveAttribute('data-current', 'true');
+
+            // act & assert
+            await here.tap({force: true});
+            await expect(page.getByTestId('move-submit')).toHaveText('Move');
+            await expect(page.getByTestId('move-submit')).toBeDisabled();
+
+            await page.getByTestId('move-input').fill(nameOf(other));
+            await page.locator(`[data-testid=move-place][data-path="${other}"]`).tap();
+            await expect(page.getByTestId('move-taken')).toHaveText(`${nameOf(other)} already holds ${name}`);
+            await expect(page.getByTestId('move-submit')).toBeDisabled();
+            removeFixture(other);
+            removeFixture(file);
         });
 
         test('Cancel in Move to closes it and moves nothing', async ({page}) => {
@@ -2607,7 +2911,7 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('move-dialog')).toBeVisible();
 
             // act
-            await page.getByTestId('move-close').tap();
+            await page.getByTestId('move-dialog').getByTestId('sheet-close').tap();
 
             // assert
             await expect(page.getByTestId('move-dialog')).toHaveCount(0);
@@ -2627,6 +2931,7 @@ test.describe('mobile', () => {
             await page.getByTestId('tree-row-menu-move').tap();
             await page.getByTestId('move-input').fill('into');
             await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await page.getByTestId('move-submit').tap();
             await expect(page.getByTestId('toast-link')).toBeVisible();
 
             // act
@@ -2650,6 +2955,7 @@ test.describe('mobile', () => {
             await page.getByTestId('tree-row-menu-move').tap();
             await page.getByTestId('move-input').fill('into');
             await page.locator(`[data-testid=move-place][data-path="${into}"]`).tap();
+            await page.getByTestId('move-submit').tap();
             await expect.poll(() => fs.existsSync(fixtureFile(`${into}/undo-me.md`))).toBe(true);
             await shot(page, 'mobile-move-undo');
 
@@ -2684,11 +2990,12 @@ test.describe('mobile', () => {
 
         test('a tap on a row below an open menu only closes the menu', async ({page}) => {
             // arrange
-            const files = ['first', 'second', 'third', 'fourth'].map((name) => `${FOLDER}/below-${name}.md`);
+            const folder = 'e2e-mobile/below';
+            const files = ['first', 'second', 'third', 'fourth'].map((name) => `${folder}/below-${name}.md`);
             for (const path of files) {
                 writeFixture(path, '# Below\n');
             }
-            await page.goto(MAIN.url.dir(FOLDER));
+            await page.goto(MAIN.url.dir(folder));
             await rowOf(page, files[0]).getByTestId('tree-row-menu').tap();
             await openedMenu(page, 'tree-row-menu-dropdown');
             const box = await rowOf(page, files[3]).boundingBox();
@@ -2698,7 +3005,8 @@ test.describe('mobile', () => {
 
             // assert
             await expect(page.getByTestId('tree-row-menu-dropdown')).toHaveCount(0);
-            await expect(page).toHaveURL(MAIN.url.dir(FOLDER));
+            await expect(page).toHaveURL(MAIN.url.dir(folder));
+            removeFixture(folder);
         });
 
         test('a finger resting beside an open menu leaves the row of the menu as it is', async ({page}) => {
@@ -2720,7 +3028,7 @@ test.describe('mobile', () => {
 
             // assert
             await expect(row).toHaveAttribute('data-holding', 'false');
-            await expect(row).toHaveAttribute('data-lifted', 'false');
+            await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchCancel', touchPoints: []});
         });
 
@@ -2736,7 +3044,6 @@ test.describe('mobile', () => {
             // assert
             await expect(page.getByTestId('tree-row-menu-dropdown')).toBeVisible();
             await expect(page.getByTestId('tree-row-menu-rename')).toBeVisible();
-            await expect(page.getByTestId('row-lift')).toHaveCount(0);
             expect(await rowOf(page, file).evaluate((el) => getComputedStyle(el, '::before').opacity)).toBe('0');
         });
     });
@@ -2746,7 +3053,7 @@ test.describe('mobile', () => {
         await page.goto(routes.doc(DOC));
 
         // assert
-        await expect(page.getByTestId('tab-bar')).toHaveCSS('user-select', 'none');
+        await expect(page.getByTestId('note-bar')).toHaveCSS('user-select', 'none');
         await expect(page.getByTestId('topbar')).toHaveCSS('user-select', 'none');
         await expect(page.getByTestId('doc')).toHaveCSS('user-select', 'text');
     });
@@ -2757,10 +3064,10 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc')).toBeVisible();
 
         // act
-        await page.getByTestId('tab-recent').tap();
+        await page.goto(routes.recent());
 
         // assert
-        await expect(page.getByTestId('tab-recent')).toHaveAttribute('data-current', 'true');
+        await expect(page.getByTestId('tab-search')).toHaveAttribute('data-current', 'true');
         await expect(page.getByTestId('recent-item').first()).toHaveAttribute('data-path', DOC);
         await page.reload();
         await expect(page.getByTestId('recent-item').first()).toHaveAttribute('data-path', DOC);
@@ -2800,7 +3107,7 @@ test.describe('mobile', () => {
         // act & assert
         await page.getByTestId('tab-new').tap();
         await openedMenu(page, 'new-menu');
-        await expect(page.getByTestId('new-menu').getByRole('menuitem')).toHaveText([text.create.folder, text.create.note]);
+        await expect(page.getByTestId('new-menu').locator('[data-testid^=new-menu-]')).toHaveText([text.create.folder, text.create.note]);
         await page.getByTestId('new-menu-note').tap();
         await expect(page).toHaveURL(MAIN.url.draft(`${folder}/${text.create.untitled}`));
         await expect(page.locator('[data-testid=editor-source] .cm-content')).toBeFocused();
@@ -2820,7 +3127,7 @@ test.describe('mobile', () => {
         removeFixture(folder);
     });
 
-    test('New folder from the New tiles of a missing note shows a row after the folders of its folder, with a ✕ to drop it', async ({page}) => {
+    test('New folder from the create sheet of a missing note shows a row after the folders of its folder, with a ✕ to drop it', async ({page}) => {
         // arrange
         const folder = 'e2e-mobile/new-folder';
         fs.mkdirSync(fixtureFile(`${folder}/inner`), {recursive: true});
@@ -2849,7 +3156,7 @@ test.describe('mobile', () => {
         removeFixture(folder);
     });
 
-    test('the row of a new folder is one gray band from edge to edge, with no line above or below it', async ({page}) => {
+    test('the row of a new folder fills its row of the group in gray, with no separator above or below it', async ({page}) => {
         // arrange
         await page.goto(routes.home());
 
@@ -2860,16 +3167,16 @@ test.describe('mobile', () => {
         // assert
         const draft = page.getByTestId('dir-draft');
         await expect(draft).toBeVisible();
-        const {band, rowHeight} = await namingBand(draft);
+        const {band, group, rowHeight} = await namingBand(draft);
         expect(band).toEqual({
-            edges: [0, page.viewportSize().width],
+            edges: group,
             background: rgb(lightTheme.palette.hover),
             height: rowHeight,
-            lines: [NO_LINE, NO_LINE, rgb(lightTheme.palette.borderLight)],
+            separators: ['none', 'none'],
         });
     });
 
-    test('the note menu opens under its button, on the screen', async ({page}) => {
+    test('the note menu is a sheet from the bottom: the export tiles, the actions, Delete apart and the word count', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
 
@@ -2878,26 +3185,133 @@ test.describe('mobile', () => {
 
         // assert
         await openedMenu(page, 'note-menu-dropdown');
-        const button = await boxOf(page, 'note-menu');
+        const sheet = page.getByTestId('note-menu-dropdown');
         const menu = await boxOf(page, 'note-menu-dropdown');
-        expect(menu.top).toBeGreaterThanOrEqual(button.bottom);
-        expect(menu.top - button.bottom).toBeLessThan(16);
-        expect([menu.left >= 0, menu.right <= page.viewportSize().width]).toEqual([true, true]);
-        await expect(page.getByTestId('note-menu-find')).toBeVisible();
-        await expect(page.getByTestId('note-menu-outline')).toBeVisible();
+        const view = page.viewportSize();
+        expect([menu.left, menu.right, menu.bottom].map(Math.round)).toEqual([0, view.width, view.height]);
+        expect(await sheet.locator('[data-testid^=doc-export-], [data-testid^=note-menu-]')
+            .evaluateAll((items) => items.map((el) => el.dataset.testid))).toEqual([
+            'doc-export-md', 'doc-export-html', 'doc-export-pdf',
+            'note-menu-copy-link', 'note-menu-rename', 'note-menu-move', 'note-menu-delete', 'note-menu-about',
+        ]);
+        await expect(sheet.locator('[data-testid^=doc-export-]')).toHaveText(['Markdown', 'HTML', 'PDF']);
+        await expect(page.getByTestId('note-menu-about')).toHaveText(/^[\d,]+ words · Last edited /);
+        await expect(page.getByTestId('note-menu-delete')).toHaveCSS('color', rgb(lightTheme.blocks.red.text));
+        expect(await tooSmall(page, '[data-testid=note-menu-dropdown] :is(button, a)')).toEqual([]);
         await shot(page, 'mobile-note-menu-open');
     });
 
-    test('the Profile tab opens the space menu over it', async ({page}) => {
+    test('a tap on Copy link in the note sheet closes it and copies the link of the note', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await page.getByTestId('note-menu').tap();
+        await openedMenu(page, 'note-menu-dropdown');
+
         // act
-        await tapSpaceMenu(page);
+        await page.getByTestId('note-menu-copy-link').tap();
 
         // assert
-        const tab = await boxOf(page, 'tab-profile');
-        const menu = await boxOf(page, 'space-menu-dropdown');
-        expect(menu.bottom).toBeLessThanOrEqual(tab.top);
-        expect(menu.right).toBeGreaterThan(page.viewportSize().width / 2);
+        await expect(page.getByTestId('note-menu-dropdown')).toHaveCount(0);
+        await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(routes.doc(DOC));
+    });
+
+    test('the Profile tab opens the profile page with the account, the spaces, the theme and Sign out', async ({page}) => {
+        // act
+        await openProfile(page);
+
+        // assert
+        await expect(page).toHaveURL(routes.profile());
+        await expect(page.getByTestId('topbar-tab-title')).toHaveText('Profile');
+        await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
+        await expect(page.getByTestId('profile-user')).toHaveText(user);
+        await expect(page.getByTestId('profile-account').getByTestId('avatar')).toHaveText(user.charAt(0).toUpperCase());
+        await expect(page.getByTestId('profile-space-item').filter({has: page.getByTestId('profile-space-current')}))
+            .toHaveText(MAIN.space);
+        await expect(page.getByTestId('profile-theme')).toBeVisible();
+        await expect(page.getByTestId('profile-signout')).toBeVisible();
         await expect(page.getByTestId('space-menu-shortcuts')).toHaveCount(0);
+        await expect(page.getByTestId('topbar-up')).toHaveCount(0);
+        await expect(page.locator('main')).toHaveCSS('background-color', rgb(lightTheme.palette.groupedBg));
+        expect(await tooSmall(page, '[data-testid=profile-page] :is(a, button)')).toEqual([]);
+        await shot(page, 'mobile-profile');
+    });
+
+    test('Sign out on the profile page leads to the sign-in screen', async ({page}) => {
+        // arrange
+        await openProfile(page);
+
+        // act
+        await page.getByTestId('profile-signout').tap();
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login\\?from=`));
+        await expect(page.locator('form.login-box')).toBeVisible();
+    });
+
+    test('the profile page of a read-only space names the mode in a row of its own', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {read_only: true});
+
+        // act
+        await openProfile(page);
+
+        // assert
+        await expect(page.getByTestId('profile-readonly')).toHaveText('Read-only mode');
+        await expect(page.getByTestId('profile-signout')).toBeVisible();
+    });
+
+    test('the profile page of no user offers Sign in, which leads to the sign-in screen', async ({page}) => {
+        // arrange
+        await mockMe(page, {}, {user: ''});
+        await openProfile(page);
+        await expect(page.getByTestId('profile-signout')).toHaveCount(0);
+        await page.context().clearCookies();
+
+        // act
+        await page.getByTestId('profile-signin').tap();
+
+        // assert
+        await expect(page).toHaveURL(new RegExp(`^${MAIN.baseURL}/login`));
+        await expect(page.locator('form.login-box')).toBeVisible();
+    });
+
+    test('Offline access and Sign out are one-line rows of 48px in groups of their own, the icon and the switch centered', async ({page}) => {
+        // act
+        await openProfile(page);
+
+        // assert
+        const geometry = await page.evaluate(() => {
+            const middle = (element) => {
+                const box = element.getBoundingClientRect();
+                return box.top + box.height / 2;
+            };
+            const device = document.querySelector('[data-testid=profile-device]');
+            const offlineGroup = device.firstElementChild;
+            const signOut = document.querySelector('[data-testid=profile-signout]');
+            return {
+                offlineHeight: offlineGroup.getBoundingClientRect().height,
+                offlineRows: offlineGroup.childElementCount,
+                iconOff: Math.abs(middle(offlineGroup.querySelector('svg')) - middle(offlineGroup)),
+                switchOff: Math.abs(middle(offlineGroup.querySelector('.mantine-Switch-track')) - middle(offlineGroup)),
+                signOutHeight: signOut.getBoundingClientRect().height,
+                signOutRows: signOut.parentElement.childElementCount,
+                signOutIconOff: Math.abs(middle(signOut.querySelector('svg')) - middle(signOut)),
+                gap: signOut.parentElement.getBoundingClientRect().top - device.getBoundingClientRect().bottom,
+            };
+        });
+        expect(geometry).toEqual({
+            offlineHeight: 48,
+            offlineRows: 1,
+            iconOff: expect.any(Number),
+            switchOff: expect.any(Number),
+            signOutHeight: 48,
+            signOutRows: 1,
+            signOutIconOff: expect.any(Number),
+            gap: 14,
+        });
+        expect(Math.max(geometry.iconOff, geometry.switchOff, geometry.signOutIconOff)).toBeLessThanOrEqual(1);
+        await expect(page.getByTestId('profile-offline-status')).toHaveCount(0);
+        await expect(page.getByTestId('profile-signout')).toHaveCSS('color', rgb(lightTheme.blocks.red.text));
     });
 
     test('a tap beside an open menu closes it and opens nothing', async ({page}) => {
@@ -2922,7 +3336,7 @@ test.describe('mobile', () => {
         await page.goto(MAIN.url.dir(docs.doc.folder));
         await page.locator(`[data-testid=dir-row][data-path="${DOC}"]`).tap();
         await expect(page.getByTestId('doc')).toBeVisible();
-        await page.getByTestId('tab-edit').tap();
+        await page.getByTestId('note-bar-edit').tap();
         await page.getByTestId('editor-cancel').tap();
         await expect(page.getByTestId('doc')).toBeVisible();
 
@@ -2975,7 +3389,7 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
 
         // act
-        await page.getByTestId('tab-edit').tap();
+        await page.getByTestId('note-bar-edit').tap();
 
         // assert
         await expect(page).toHaveURL(MAIN.url.edit(DOC));
@@ -2984,8 +3398,13 @@ test.describe('mobile', () => {
 
     test('the tab bar stays where it is while the page scrolls', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(docs.long.path));
-        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.goto(routes.home());
+        await expect(page.getByTestId('dir-row').first()).toBeVisible();
+        await page.evaluate(() => {
+            const filler = document.createElement('div');
+            filler.style.height = '3000px';
+            document.querySelector('.mantine-AppShell-main').append(filler);
+        });
         const barTop = async () => Math.round((await page.getByTestId('tab-bar').boundingBox()).y);
         const before = await barTop();
 
@@ -3027,9 +3446,10 @@ test.describe('mobile', () => {
         expect(room).toBeLessThanOrEqual(0);
     });
 
-    test('the search takes the whole screen, its field at the bottom, and Cancel puts it away', async ({page}) => {
+    test('the search takes the whole screen over the tab bar, its card at the bottom, and Cancel puts it away', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(DOC));
+        await page.goto(routes.home());
+        const {width, height} = page.viewportSize();
 
         // act
         await page.getByTestId('tab-search').tap();
@@ -3037,18 +3457,56 @@ test.describe('mobile', () => {
         // assert
         await expect(page.getByTestId('search-input')).toBeVisible();
         const dialog = await boxOf(page, 'search-dialog');
-        expect([dialog.top, dialog.bottom]).toEqual([0, page.viewportSize().height]);
+        expect([dialog.top, dialog.bottom]).toEqual([0, height]);
+        const card = await boxOf(page, 'search-card');
+        expect([card.left, card.right, card.bottom]).toEqual([8, width - 8, height - 8]);
         const field = await boxOf(page, 'search-input');
-        expect(field.top).toBeGreaterThan(page.viewportSize().height * 0.75);
-        await expect(page.getByTestId('search-footer')).not.toContainText('Select');
         const mode = await boxOf(page, 'search-mode');
+        const hint = await boxOf(page, 'search-hint');
+        expect(mode.bottom).toBeLessThanOrEqual(hint.top);
+        expect(hint.bottom).toBeLessThanOrEqual(field.top);
+        await expect(page.getByTestId('search-footer')).toHaveCount(0);
         const titles = await boxOf(page, 'search-titles');
         expect([mode.bottom - mode.top, titles.bottom - titles.top]).toEqual([CHOICE_HEIGHT, CHOICE_HEIGHT]);
+        await expect(page.getByTestId('search-titles')).toHaveCSS('border-radius', `${CHOICE_HEIGHT / 2}px`);
+        const sizes = [];
+        for (const name of ['search-case', 'search-word', 'search-regex', 'search-close']) {
+            const box = await boxOf(page, name);
+            sizes.push(box.right - box.left >= CHOICE_HEIGHT && box.bottom - box.top >= MIN_TAP);
+        }
+        expect(sizes).toEqual([true, true, true, true]);
+        const covered = await page.evaluate(() => {
+            const bar = document.querySelector('[data-testid=tab-bar]')?.getBoundingClientRect();
+            return bar === undefined
+                || document.querySelector('[data-testid=search-dialog]').contains(document.elementFromPoint(bar.x + bar.width / 2, bar.y + bar.height / 2));
+        });
+        expect(covered).toBe(true);
         await shot(page, 'mobile-search-open');
 
         await page.getByTestId('search-close').tap();
         await expect(page.getByTestId('search-dialog')).toHaveCount(0);
-        await expect(page).toHaveURL(MAIN.url.doc(DOC));
+        await expect(page).toHaveURL(atHome());
+    });
+
+    test('the search lists the notes opened last, the path under the title, and Clear empties the list', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.goto(routes.home());
+        await page.getByTestId('tab-search').tap();
+        const item = page.getByTestId('search-recent-item').first();
+        await expect(item).toHaveAttribute('data-path', DOC);
+        const lines = await item.evaluate((el) => Array.from(el.querySelectorAll('span > span'))
+            .map((part) => Math.round(part.getBoundingClientRect().top)));
+        expect(lines[0]).toBeLessThan(lines[1]);
+        await shot(page, 'mobile-search-recent');
+
+        // act
+        await page.getByTestId('search-recent-clear').tap();
+
+        // assert
+        await expect(page.getByTestId('search-recent-item')).toHaveCount(0);
+        await expect(page.getByTestId('search-recent-empty')).toBeVisible();
     });
 
     test('the bar shows the title of a note once its own has scrolled away', async ({page}) => {
@@ -3124,23 +3582,26 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('doc')).toContainText('новый текст');
     });
 
-    test('the way back of the editor is drawn as the reader\'s, and its strip is as tall as the tab bar', async ({page}) => {
+    test('the way back of the editor is drawn as the reader\'s, and its layout tabs are a pill 16px from the edges', async ({page}) => {
         // arrange
         writeFixture(SCRATCH, '# Заметка\n\nтекст\n');
         await page.goto(routes.doc(SCRATCH));
         const reader = await wayBack(page, 'topbar-up');
-        const tabBar = await page.getByTestId('tab-bar').boundingBox();
+        const {width, height} = page.viewportSize();
 
         // act
         await page.goto(routes.edit(SCRATCH));
 
         // assert
         expect(await wayBack(page, 'editor-cancel')).toEqual(reader);
-        expect((await textEdges(page, 'editor-save')).right).toBe(page.viewportSize().width - reader.left);
+        expect((await textEdges(page, 'editor-save')).right).toBe(width - reader.left);
         const strip = await boxOf(page, 'editor-strip');
         const tabs = await boxOf(page, 'editor-tabs');
-        expect(strip.bottom - strip.top).toBe(Math.round(tabBar.height));
-        expect(tabs.top - strip.top).toBe(strip.bottom - tabs.bottom);
+        expect(strip.bottom).toBe(height);
+        expect([tabs.left, tabs.right, tabs.bottom - tabs.top]).toEqual([16, width - 16, MIN_TAP]);
+        await expect(page.getByTestId('editor-tabs')).toHaveCSS('border-radius', '999px');
+        const chosen = page.getByTestId('editor-tab-source').locator('xpath=ancestor::label');
+        await expect(chosen).toHaveCSS('font-weight', '600');
     });
 
     test('the draft offer of the editor starts and ends on the line of the reader\'s way back', async ({page}) => {
@@ -3246,8 +3707,11 @@ test.describe('mobile', () => {
         await page.locator('[data-testid=editor-source] .cm-line').nth(2).tap();
         await expect(keyboardBar).toBeVisible();
         await expect(tabs).toHaveCount(0);
-        const barBox = await keyboardBar.boundingBox();
-        expect(Math.round(barBox.y + barBox.height)).toBe(height);
+        const barBox = await boxOf(page, 'editor-keyboard-bar');
+        expect([barBox.left, barBox.right, barBox.bottom, barBox.bottom - barBox.top])
+            .toEqual([8, page.viewportSize().width - 8, height - 8, 50]);
+        const hide = await boxOf(page, 'editor-hide-keyboard');
+        expect(barBox.right - hide.right).toBeLessThanOrEqual(8);
         await expect(page.getByTestId('editor-wrap')).toBeVisible();
         await expect(page.getByTestId('editor-toolbar-bold')).toHaveCSS('color', rgb(lightTheme.palette.icon));
         await page.keyboard.type('!');
@@ -3281,11 +3745,13 @@ test.describe('mobile', () => {
                 const boxOfId = (testId) => document.querySelector(`[data-testid="${testId}"]`).getBoundingClientRect();
                 const strip = boxOfId('editor-strip');
                 const source = boxOfId('editor-source');
+                const bar = boxOfId('editor-keyboard-bar');
                 return {
                     top: Math.round(boxOfId('topbar').top),
                     sourceOverStrip: Math.round(source.bottom) <= Math.round(strip.top),
                     bottom: Math.round(strip.bottom),
-                    height: Math.round(strip.height),
+                    barGap: Math.round(strip.bottom - bar.bottom),
+                    barHeight: Math.round(bar.height),
                     keyboard: document.querySelector('[data-testid=editor]').dataset.keyboard,
                     moved: document.querySelector('.mantine-AppShell-main').style.translate !== ''
                         || getComputedStyle(document.querySelector('.mantine-AppShell-main')).translate !== 'none',
@@ -3301,8 +3767,8 @@ test.describe('mobile', () => {
 
         // assert
         expect({raised, lowered}).toEqual({
-            raised: {top: raisedTop, sourceOverStrip: true, bottom: raisedTop + raisedVisible, height: 50, keyboard: 'true', moved: true},
-            lowered: {top: 0, sourceOverStrip: true, bottom: height, height: 50, keyboard: 'false', moved: false},
+            raised: {top: raisedTop, sourceOverStrip: true, bottom: raisedTop + raisedVisible, barGap: 8, barHeight: 50, keyboard: 'true', moved: true},
+            lowered: {top: 0, sourceOverStrip: true, bottom: height, barGap: 8, barHeight: 50, keyboard: 'false', moved: false},
         });
     });
 
@@ -3445,7 +3911,7 @@ test.describe('mobile', () => {
 
     test('a tap leaves no gray highlight of the browser on a link or a tab', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(DOC));
+        await page.goto(routes.dir(docs.folder.path));
         await expect(page.getByTestId('topbar-up')).toBeVisible();
 
         // act
@@ -3580,7 +4046,7 @@ test.describe('mobile', () => {
         const before = await onPage();
 
         // act
-        await page.getByTestId('tab-edit').dispatchEvent('click');
+        await page.getByTestId('note-bar-edit').dispatchEvent('click');
         const inEditor = () => page.locator('.cm-line', {hasText: '## Середина'}).evaluate((line) =>
             Math.round(line.getBoundingClientRect().top - line.closest('[data-testid=editor-source]').getBoundingClientRect().top));
 
@@ -3660,7 +4126,7 @@ test.describe('mobile', () => {
 
         for (let round = 0; round < 2; round++) {
             // act
-            await page.getByTestId('tab-edit').dispatchEvent('click');
+            await page.getByTestId('note-bar-edit').dispatchEvent('click');
 
             // assert
             const lineHeight = await editorLine.evaluate((line) => line.getBoundingClientRect().height);
@@ -3857,17 +4323,16 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(MAIN.url.dir(docs.deep.path.split('/').slice(0, -1).join('/')));
     });
 
-    test('the top bar icons and the page text share both edges', async ({page}) => {
+    test('the way back and the page text start on one line, and the text keeps the same room on the right', async ({page}) => {
+        // act
         await page.goto(routes.doc(DOC));
 
+        // assert
         const width = page.viewportSize().width;
         const back = await page.getByTestId('topbar-up').locator('svg').boundingBox();
-        const dots = await page.getByTestId('note-menu').locator('svg').boundingBox();
         const heading = await page.getByTestId('doc').locator('h1').first().boundingBox();
         const left = Math.round(back.x);
-        const right = Math.round(width - dots.x - dots.width);
-        expect(right).toBe(left);
-        expect([Math.round(heading.x), Math.round(width - heading.x - heading.width)]).toEqual([left, right]);
+        expect([Math.round(heading.x), Math.round(width - heading.x - heading.width)]).toEqual([left, left]);
     });
 
     test('a note at the root goes back to the list of the space', async ({page}) => {
@@ -3883,9 +4348,9 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('topbar-up')).toHaveCount(0);
     });
 
-    test('the root, a folder and a note start their title on one line, which the bar does not repeat', async ({page}) => {
+    test('a folder and a note start their title on one line, which the bar does not repeat', async ({page}) => {
         // arrange
-        const screens = [routes.home(), routes.dir(docs.folder.path), routes.doc(DOC)];
+        const screens = [routes.dir(docs.folder.path), routes.doc(DOC)];
         const heading = page.locator('.mantine-AppShell-main h1').first();
         const tops = [];
         const shown = [];
@@ -3899,16 +4364,38 @@ test.describe('mobile', () => {
         }
 
         // assert
-        expect(tops).toEqual([tops[0], tops[0], tops[0]]);
-        expect(shown).toEqual(['false', 'false', 'false']);
+        expect(tops).toEqual([tops[0], tops[0]]);
+        expect(shown).toEqual(['false', 'false']);
     });
 
-    test('the root names the space in the bar, beside the logo', async ({page}) => {
+    test('the root and Profile start their header on one line, Profile as a large title in the bar', async ({page}) => {
+        // arrange
+        const middleOf = async (testId) => {
+            const box = await page.getByTestId(testId).boundingBox();
+            return Math.round(box.y + box.height / 2);
+        };
+        await page.goto(routes.home());
+        const root = await middleOf('topbar-home');
+
+        // act
+        await page.getByTestId('tab-profile').tap();
+
+        // assert
+        await expect(page.getByTestId('topbar-tab-title')).toHaveText('Profile');
+        expect(await middleOf('topbar-tab-title')).toBe(root);
+        await expect(page.getByTestId('topbar-tab-title')).toHaveCSS('font-size', '34px');
+        await expect(page.locator('.mantine-AppShell-main h1')).toHaveCount(0);
+        await expect(page.getByTestId('topbar-title')).toHaveAttribute('data-shown', 'false');
+    });
+
+    test('the root names the space in the bar, beside the logo, and has no large title', async ({page}) => {
         // act
         await page.goto(routes.home());
 
         // assert
-        await expect(page.getByTestId('dir-title')).toHaveText(MAIN.space);
+        await expect(page.getByTestId('dir-row').first()).toBeVisible();
+        await expect(page.getByTestId('dir-title')).toHaveCount(0);
+        await expect(page.locator('.mantine-AppShell-main h1')).toHaveCount(0);
         await expect(page.getByTestId('topbar-home')).toHaveText(MAIN.space);
         await expect(page.getByTestId('topbar-home').locator('svg')).toBeVisible();
     });
@@ -3935,8 +4422,23 @@ test.describe('mobile', () => {
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.linkCopied);
         const copied = await page.evaluate(() => window.copied);
         const toast = await page.getByTestId('toast').boundingBox();
-        expect(Math.abs(toast.x + toast.width / 2 - page.viewportSize().width / 2)).toBeLessThan(2);
-        expect(toast.y).toBeLessThan(40);
+        await expect.poll(async () => {
+            const pillBox = await page.getByTestId('toast-box').boundingBox();
+            const width = page.viewportSize().width;
+            return {
+                centered: Math.abs(pillBox.x - (width - pillBox.x - pillBox.width)) < 1,
+                hugs: pillBox.x > 16,
+                height: pillBox.height,
+            };
+        }).toEqual({centered: true, hugs: true, height: 48});
+        await expect(page.getByTestId('toast-box')).toHaveCSS('background-color', rgb(lightTheme.palette.capsule));
+        await expect(page.getByTestId('toast-box')).toHaveCSS('border-radius', '24px');
+        const bar = await page.getByTestId('tab-bar').boundingBox();
+        await expect.poll(async () => {
+            const pill = await page.getByTestId('toast-box').boundingBox();
+            return Math.round(bar.y - (pill.y + pill.height));
+        }).toBe(8);
+        expect(toast.y).toBeGreaterThan(page.viewportSize().height / 2);
         await expect(page.getByTestId('toast').locator('.mantine-Notification-closeButton')).toHaveCount(0);
         expect(copied).toEqual([`copy:${new URL(MAIN.url.dir(docs.folder.path)).href}`]);
     });
@@ -3984,6 +4486,82 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('toast-box')).toBeVisible();
         }
 
+        async function noteLinkCopied(page) {
+            await page.goto(routes.doc(DOC));
+            await page.getByTestId('note-menu').tap();
+            await page.getByTestId('note-menu-copy-link').tap();
+            await expect(page.getByTestId('toast-box')).toBeVisible();
+        }
+
+        const pillLook = (page) => page.getByTestId('toast-box').evaluate((el) => {
+            const style = getComputedStyle(el);
+            return {
+                border: style.borderTopColor,
+                shadow: style.boxShadow,
+                background: style.backgroundColor,
+                color: style.color,
+                padding: style.padding,
+                icon: getComputedStyle(el.querySelector('svg')).color,
+                iconSize: el.querySelector('svg').getBoundingClientRect().width,
+            };
+        });
+
+        test('on a note it stands in the middle over the note bar, as wide as its content', async ({page}) => {
+            // act
+            await noteLinkCopied(page);
+
+            // assert
+            const width = page.viewportSize().width;
+            const bar = await page.getByTestId('note-bar').boundingBox();
+            await expect.poll(async () => {
+                const pill = await page.getByTestId('toast-box').boundingBox();
+                return Math.round(bar.y - (pill.y + pill.height));
+            }).toBe(8);
+            const pill = await page.getByTestId('toast-box').boundingBox();
+            const content = await page.getByTestId('toast-box').evaluate((el) => {
+                const icon = el.querySelector('svg').getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(el.querySelector('[data-toast-text]'));
+                return {left: icon.left, right: range.getBoundingClientRect().right};
+            });
+            expect({
+                centered: Math.abs(pill.x - (width - pill.x - pill.width)) < 1,
+                hugs: pill.x > 16,
+                left: Math.round(content.left - pill.x),
+                right: Math.round(pill.x + pill.width - content.right),
+                height: pill.height,
+            }).toEqual({centered: true, hugs: true, left: 15, right: 19, height: 48});
+        });
+
+        test('has one look on a list and on a note: a white pill, a green check and its own shadow', async ({page}) => {
+            // arrange
+            await copied(page);
+            const onList = await pillLook(page);
+
+            // act
+            await noteLinkCopied(page);
+
+            // assert
+            expect(await pillLook(page)).toEqual(onList);
+            const shadow = await page.evaluate((value) => {
+                const probe = document.createElement('div');
+                probe.style.boxShadow = value;
+                document.body.append(probe);
+                const drawn = getComputedStyle(probe).boxShadow;
+                probe.remove();
+                return drawn;
+            }, lightTheme.shadows.toastPhone);
+            expect(onList).toEqual({
+                border: rgb(lightTheme.palette.capsuleBorderGrouped),
+                shadow,
+                background: rgb(lightTheme.palette.capsule),
+                color: rgb(lightTheme.palette.text),
+                padding: '4px 18px 4px 14px',
+                icon: rgb(lightTheme.palette.toastSuccess),
+                iconSize: 18,
+            });
+        });
+
         test('leaves the bar beside it to take a tap, and goes on its own after one', async ({page}) => {
             // arrange
             await page.goto(routes.doc(DOC));
@@ -4029,11 +4607,29 @@ test.describe('mobile', () => {
 
             // assert
             await expect(page.getByTestId('toast-action')).toBeVisible();
+            await settled(page);
             const box = await page.getByTestId('toast-box').boundingBox();
             const action = await page.getByTestId('toast-action').boundingBox();
             const width = page.viewportSize().width;
             expect([box.x >= 0, box.x + box.width <= width, action.x >= box.x, action.x + action.width <= box.x + box.width])
                 .toEqual([true, true, true, true]);
+            const icon = await page.getByTestId('toast-box').locator('svg').first().boundingBox();
+            const word = await page.getByTestId('toast-action').evaluate((el) => {
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                return range.getBoundingClientRect().right;
+            });
+            expect(Math.round(box.x + box.width - word)).toBe(Math.round(icon.x - box.x));
+            await expect(page.getByTestId('toast-action')).toHaveCSS('color', rgb(lightTheme.palette.accent));
+            await expect(page.getByTestId('toast-box')).toContainText(`Deleted “${file.split('/').pop()}”`);
+            expect([action.height, Math.round(action.y + action.height / 2), box.width]).toEqual([
+                40, Math.round(box.y + box.height / 2), width - 32,
+            ]);
+            const lines = await page.getByTestId('toast-box').locator('[data-toast-text]').evaluate((el) => ({
+                lines: Math.round(el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight)),
+                cut: el.scrollHeight > el.clientHeight,
+            }));
+            expect(lines).toEqual({lines: 2, cut: true});
         });
 
         test('goes at a tap on it', async ({page}) => {
@@ -4047,7 +4643,31 @@ test.describe('mobile', () => {
             await expect(page.getByTestId('toast')).toHaveCount(0, {timeout: 1500});
         });
 
-        test('goes at a flick up', async ({page}) => {
+        test('stands over the keyboard while one is up, in the same event', async ({page}) => {
+            // arrange
+            await page.addInitScript(() => {
+                const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+                Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+            });
+            await copied(page);
+            const keyboard = 300;
+            const pan = 40;
+
+            // act
+            const placed = await page.evaluate(({keyboard, pan}) => {
+                window.visualViewport.height = window.innerHeight - keyboard;
+                window.visualViewport.offsetTop = pan;
+                window.visualViewport.dispatchEvent(new Event('resize'));
+                const box = document.querySelector('[data-testid="toast-box"]').getBoundingClientRect();
+                return {bottom: box.bottom, visible: pan + window.innerHeight - keyboard};
+            }, {keyboard, pan});
+
+            // assert
+            expect(placed.bottom).toBeLessThan(placed.visible);
+            expect(placed.bottom).toBeGreaterThan(placed.visible - 150);
+        });
+
+        test('goes at a flick down', async ({page}) => {
             // arrange
             await copied(page);
             const box = await page.getByTestId('toast-box').boundingBox();
@@ -4055,9 +4675,9 @@ test.describe('mobile', () => {
             const cdp = await page.context().newCDPSession(page);
 
             // act
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y: box.y + 20}]});
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 5}]});
-            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y - 20}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [{x, y: box.y + 10}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 25}]});
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x, y: box.y + 50}]});
             await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
 
             // assert
@@ -4065,18 +4685,25 @@ test.describe('mobile', () => {
         });
     });
 
-    test('the menu switches the theme and names the account', async ({page}) => {
-        await tapSpaceMenu(page);
-        await shot(page, 'mobile-more-menu');
+    test('the profile page switches the theme on a pill track of Auto, Light and Dark', async ({page}) => {
+        // arrange
+        await openProfile(page);
+        const theme = page.getByTestId('profile-theme');
 
-        const theme = page.getByTestId('space-menu-theme');
+        // act
         await theme.getByText('Dark', {exact: true}).tap();
+
+        // assert
+        await expect(theme.locator('label')).toHaveText(['Auto', 'Light', 'Dark']);
         await expect(theme).toHaveAttribute('data-theme', 'dark');
         await expect(page.locator('html')).toHaveAttribute('data-mantine-color-scheme', 'dark');
-        await expect(page.getByTestId('space-menu-signout')).toBeVisible();
+        const box = await theme.boundingBox();
+        expect(Math.round(box.height)).toBe(CHOICE_HEIGHT);
+        await expect(theme).toHaveCSS('border-radius', `${CHOICE_HEIGHT / 2}px`);
+        await shot(page, 'mobile-profile-dark');
     });
 
-    test('the history fills the screen, the versions under the version, Restore big enough to tap', async ({page}) => {
+    test('the history is a sheet, the picked version holds its change, and Restore is big enough to tap', async ({page}) => {
         // arrange
         const wide = 'x'.repeat(200);
         await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(HISTORY_DOC)});
@@ -4091,18 +4718,21 @@ test.describe('mobile', () => {
 
         // assert
         await expectNoHorizontalScroll(page);
+        await expect(page.getByTestId('history-dialog')).toBeVisible();
+        const picked = page.getByTestId('version').nth(1);
+        await picked.tap();
+        await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveAttribute(
+            'data-rev', await picked.getAttribute('data-rev'),
+        );
+        await expect(page.getByTestId('history-version')).toHaveCount(1);
+        const head = await picked.boundingBox();
         const version = await page.getByTestId('history-version').boundingBox();
-        const list = await page.getByTestId('history-list').boundingBox();
-        expect(list.y, 'the versions sit under the version').toBeGreaterThanOrEqual(version.y + version.height - 1);
+        expect(version.y, 'the change sits under its version').toBeGreaterThanOrEqual(head.y + head.height - 1);
         const viewport = page.viewportSize().width;
         const box = await page.getByTestId('version-restore').boundingBox();
+        expect(box.y, 'Restore sits under the change').toBeGreaterThanOrEqual(version.y + version.height - 1);
         expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
         expect(await tooSmall(page, '[data-testid=version-restore]', BUTTON_HEIGHT)).toEqual([]);
-
-        await page.getByTestId('version').nth(1).tap();
-        await expect(page.locator('[data-testid=version][data-selected="true"]')).toHaveAttribute(
-            'data-rev', await page.getByTestId('version').nth(1).getAttribute('data-rev'),
-        );
         await expect(page.getByTestId('rendered-diff')).toBeVisible();
         await expectNoHorizontalScroll(page);
         await page.getByTestId('history-diff-view').getByText('Source').tap();
@@ -4120,9 +4750,58 @@ test.describe('mobile', () => {
         await shot(page, 'mobile-history');
     });
 
-    test('the search opens from its tab and navigates', async ({page}) => {
+    test('Restore in the history sheet asks first and then brings the picked version back', async ({page}) => {
         // arrange
-        await page.goto(routes.doc(DOC));
+        const note = `${HISTORY_FOLDER}/restored-${Date.now()}.md`;
+        const first = '# Первая\n';
+        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+        for (const body of [first, '# Вторая\n']) {
+            await setSource(page, body);
+            await save(page);
+        }
+        await page.goto(HISTORY.url.history(note));
+        await expect(page.getByTestId('version')).toHaveCount(2);
+        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
+        await expect(page.getByTestId('version-restore')).toBeDisabled();
+
+        // act
+        await page.getByTestId('version').nth(1).tap();
+        await page.getByTestId('version-restore').tap();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
+        await page.getByTestId('modal-confirm').tap();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
+        await expect.poll(() => readFixture(note, HISTORY)).toBe(first);
+        await expect(page.getByTestId('version')).toHaveCount(3);
+    });
+
+    test('the history sheet of a read-only space lists the versions and offers no Restore', async ({page}) => {
+        // act
+        await signIn(page, {baseURL: READONLY.baseURL, from: routes.history(DOC)});
+
+        // assert
+        await expect(page.getByTestId('history-dialog')).toBeVisible();
+        await expect(page.getByTestId('version').first()).toBeVisible();
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+    });
+
+    test('the search field has the focus as soon as the search opens, and keeps it', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
+        await expect(page.getByTestId('dir-row').first()).toBeVisible();
+
+        // act
+        await page.getByTestId('tab-search').tap();
+
+        // assert
+        await expect(page.getByTestId('search-input')).toBeFocused();
+        await stays(() => page.getByTestId('search-input').evaluate((el) => el === document.activeElement), true, SETTLE_WAIT_MS);
+    });
+
+    test('the search opens from its tab on the list and navigates', async ({page}) => {
+        // arrange
+        await page.goto(routes.home());
         await page.waitForLoadState('networkidle');
 
         // act & assert
@@ -4136,33 +4815,341 @@ test.describe('mobile', () => {
         await expect(page).toHaveURL(new RegExp(`${routes.doc(docs.search.palette.path)}\\?q=`));
     });
 
-    test('the outline sheet opens from the note menu', async ({page}) => {
+    test('the outline sheet opens from the bar of the note, its current heading tinted with the accent', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
-        await page.getByTestId('note-menu').tap();
 
         // act
-        await page.getByTestId('note-menu-outline').tap();
+        await page.getByTestId('note-bar-outline').tap();
 
         // assert
         await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+        const current = page.locator('[data-testid=toc-entry][data-active="true"]');
+        await expect(current).toHaveCount(1);
+        await expect(current).toHaveCSS('color', rgb(lightTheme.palette.accent));
+        await expect(current).toHaveCSS('background-color', rgb(lightTheme.palette.accentTint));
         await shot(page, 'mobile-toc-sheet');
 
         await page.getByTestId('toc-entry').first().tap();
         await expect(page.getByTestId('toc-entry')).toHaveCount(0);
     });
 
+    test('the outline sheet scrolls only up and down, its rows as wide as the sheet', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+
+        // act
+        await page.getByTestId('note-bar-outline').tap();
+
+        // assert
+        await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+        const sheet = await page.getByTestId('toc-drawer').boundingBox();
+        const row = await page.getByTestId('toc-entry').first().boundingBox();
+        expect([row.x, row.width]).toEqual([sheet.x, sheet.width]);
+        const sideways = await page.getByTestId('toc-drawer').evaluate((root) => [root, ...root.querySelectorAll('*')]
+            .filter((el) => el.scrollWidth > el.clientWidth && getComputedStyle(el).overflowX !== 'visible')
+            .map((el) => el.className));
+        expect(sideways).toEqual([]);
+    });
+
     test('the outline sheet keeps the room of a focus ring under its title, and is as tall there as a dialog', async ({page}) => {
         // arrange
         await page.goto(routes.doc(DOC));
-        await page.getByTestId('note-menu').tap();
 
         // act
-        await page.getByTestId('note-menu-outline').tap();
+        await page.getByTestId('note-bar-outline').tap();
         await expect(page.getByTestId('toc-entry').first()).toBeVisible();
 
         // assert
         expect(await titleRoom(page.getByTestId('toc'))).toEqual(DIALOG_TITLE);
+    });
+
+    test('Find in note opens from the bar of the note as a card at the bottom, and the bar is hidden while it is open', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(DOC));
+        const view = page.viewportSize();
+
+        // act
+        await page.getByTestId('note-bar-find').tap();
+
+        // assert
+        await expect(page.getByTestId('doc-find-input')).toBeFocused();
+        await expect(page.getByTestId('note-bar')).toHaveCount(0);
+        const card = await boxOf(page, 'doc-find');
+        expect([card.left, view.width - card.right, view.height - card.bottom]).toEqual([8, 8, 8]);
+        expect(await tooSmall(page, '[data-testid=doc-find] button')).toEqual([]);
+        await shot(page, 'mobile-find-card');
+        await page.getByTestId('doc-find-close').tap();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await expect(page.getByTestId('note-bar')).toBeVisible();
+    });
+
+    test('Find in note keeps the place being read, scrolls the note instead of the page, and gives the place back when closed', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await page.evaluate(() => window.scrollTo({top: 1200, behavior: 'instant'}));
+        const read = await readingPlace(page);
+
+        // act
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const opened = {place: await readingPlace(page), pageY: await page.evaluate(() => window.scrollY)};
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 300, behavior: 'instant'}));
+        const moved = await readingPlace(page);
+        await page.getByTestId('doc-find-close').tap();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+
+        // assert
+        expect(opened).toEqual({place: read, pageY: 0});
+        expect(await readingPlace(page)).toEqual(moved);
+        expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(1200);
+    });
+
+    test('a match found on a phone stands in the middle of the note, above the find card', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+
+        // act
+        await page.getByTestId('doc-find-input').fill('awk');
+
+        // assert
+        const active = page.locator('[data-testid=find-hit][data-active="true"]');
+        await expect(active).toBeVisible();
+        const place = await active.evaluate((hit) => {
+            const note = hit.closest('[data-screen]').getBoundingClientRect();
+            const box = hit.getBoundingClientRect();
+            const card = document.querySelector('[data-testid=doc-find]').getBoundingClientRect();
+            return {
+                centered: Math.abs(box.top + box.height / 2 - (note.top + note.height / 2)) <= 1,
+                aboveCard: box.bottom <= card.top,
+                pageY: window.scrollY,
+            };
+        });
+        expect(place).toEqual({centered: true, aboveCard: true, pageY: 0});
+    });
+
+    test('with the keyboard up, the note scrolls under a find card that stays over the keyboard', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const {height} = page.viewportSize();
+        await moveVisibleArea(page, 120, height - 300);
+        const card = await boxOf(page, 'doc-find');
+
+        // act
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 400, behavior: 'instant'}));
+
+        // assert
+        const after = {card: await boxOf(page, 'doc-find'), pageY: await page.evaluate(() => window.scrollY)};
+        expect({...after, bottom: card.bottom}).toEqual({card, pageY: 0, bottom: 120 + height - 300 - 8});
+    });
+
+    test('the steps and the toggles of the find card leave the field focused, so the keyboard stays up', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await page.getByTestId('doc-find-input').fill('awk');
+        const counter = page.getByTestId('doc-find-count');
+        await expect(counter).toHaveAttribute('data-position', '1');
+
+        // act
+        await page.getByTestId('doc-find-next').tap();
+        await expect(counter).toHaveAttribute('data-position', '2');
+        const stepped = await page.evaluate(() => document.activeElement?.dataset.testid);
+        await page.getByTestId('doc-find-case').tap();
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        const toggled = await page.evaluate(() => document.activeElement?.dataset.testid);
+
+        // assert
+        expect({stepped, toggled}).toEqual({stepped: 'doc-find-input', toggled: 'doc-find-input'});
+    });
+
+    test('closing Find with the keyboard up gives back the line being read, not one moved by the keyboard', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const {height} = page.viewportSize();
+        await moveVisibleArea(page, 120, height - 300);
+        await page.locator('[data-screen]').evaluate((screen) => screen.scrollBy({top: 1200, behavior: 'instant'}));
+        const read = await readingPlace(page);
+
+        // act
+        await page.getByTestId('doc-find-close').tap();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+
+        // assert
+        expect(await readingPlace(page)).toEqual(read);
+    });
+
+    test('a link followed while Find is open gives the page the line being read before it leaves, and opens the next page at its top', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.linked.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const link = page.locator(`[data-testid=doc] a[href$="/${docs.linked.missing}"]`);
+        await link.evaluate((anchor) => anchor.scrollIntoView({block: 'center', behavior: 'instant'}));
+        const read = await readingPlace(page);
+        await page.evaluate(() => {
+            window.addEventListener('click', () => {
+                const top = document.querySelector('header').getBoundingClientRect().bottom;
+                const block = [...document.querySelector('[data-testid=doc]').children].find((child) => child.getBoundingClientRect().bottom > top);
+                window.leftAt = {
+                    place: {text: block.textContent.trim().slice(0, 40), offset: Math.round(block.getBoundingClientRect().top - top)},
+                    pageScrolled: window.scrollY > 0,
+                };
+            }, {once: true});
+        });
+
+        // act
+        await link.tap();
+        await expect(page.getByTestId('doc-missing')).toBeVisible();
+
+        // assert
+        expect({left: await page.evaluate(() => window.leftAt), opened: await page.evaluate(() => window.scrollY)})
+            .toEqual({left: {place: read, pageScrolled: true}, opened: 0});
+    });
+
+    test('a match found before the keyboard comes up stays in view above the card', async ({page}) => {
+        // arrange
+        await fakeVisibleArea(page);
+        await page.goto(`${routes.doc(docs.long.path)}?q=awk`);
+        const active = page.locator('[data-testid=find-hit][data-active="true"]');
+        await expect(active).toBeVisible();
+        const {height} = page.viewportSize();
+
+        // act
+        await moveVisibleArea(page, 0, height - 300);
+
+        // assert
+        await expect.poll(() => active.evaluate((hit) => {
+            const box = hit.getBoundingClientRect();
+            const note = hit.closest('[data-screen]').getBoundingClientRect();
+            const card = document.querySelector('[data-testid=doc-find]').getBoundingClientRect();
+            return box.top >= note.top && box.bottom <= card.top;
+        })).toBe(true);
+    });
+
+    test('a note printed while Find is open on a phone prints whole', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+
+        // act
+        await page.emulateMedia({media: 'print'});
+
+        // assert
+        const printed = await page.locator('[data-screen]').evaluate((screen) => ({
+            note: getComputedStyle(screen).overflowY,
+            root: getComputedStyle(document.documentElement).overflowY,
+            whole: screen.scrollHeight === screen.clientHeight,
+        }));
+        expect(printed).toEqual({note: 'visible', root: 'visible', whole: true});
+    });
+
+    test('the find card stays right over a phone keyboard while the visible area shrinks and pans, in the same event', async ({page}) => {
+        // arrange
+        await page.addInitScript(() => {
+            const view = Object.assign(new EventTarget(), {offsetTop: 0, height: window.innerHeight});
+            Object.defineProperty(window, 'visualViewport', {value: view, configurable: true});
+        });
+        await page.goto(routes.doc(DOC));
+        await page.getByTestId('note-bar-find').tap();
+        await expect(page.getByTestId('doc-find')).toBeVisible();
+        const keyboard = 300;
+        const pan = 120;
+
+        // act
+        const placed = await page.evaluate(({keyboard, pan}) => {
+            window.visualViewport.height = window.innerHeight - keyboard;
+            window.visualViewport.offsetTop = pan;
+            window.visualViewport.dispatchEvent(new Event('resize'));
+            const bottom = document.querySelector('[data-testid="doc-find"]').getBoundingClientRect().bottom;
+            return {bottom: Math.round(bottom), visible: pan + window.innerHeight - keyboard};
+        }, {keyboard, pan});
+
+        // assert
+        expect(placed.bottom).toBe(placed.visible - 8);
+    });
+
+    test.describe('with a home indicator', () => {
+        const indicator = 34;
+        const keyboard = 300;
+
+        test.beforeEach(async ({page}) => {
+            const cdp = await page.context().newCDPSession(page);
+            await cdp.send('Emulation.setSafeAreaInsetsOverride', {insets: {bottom: indicator}});
+            await fakeVisibleArea(page);
+        });
+
+        for (const [shrinks, way] of [[false, 'the window keeps its height'], [true, 'the window shrinks and the visible area is panned to the bottom']]) {
+        for (const [name, open, card] of [
+            ['the search card', async (page) => {
+                await page.goto(routes.home());
+                await page.getByTestId('tab-search').tap();
+            }, 'search-card'],
+            ['the find card', async (page) => {
+                await page.goto(routes.doc(DOC));
+                await page.getByTestId('note-bar-find').tap();
+            }, 'doc-find'],
+        ]) {
+            test(`${name} stands 8px over the keyboard, with no room for the home indicator under it, when ${way}`, async ({page}) => {
+                // arrange
+                if (shrinks) {
+                    await page.addInitScript(() => {
+                        Object.defineProperty(window, 'innerHeight', {
+                            get: () => window.visualViewport.height,
+                            configurable: true,
+                        });
+                    });
+                }
+                await open(page);
+                await expect(page.getByTestId(card)).toBeVisible();
+                await settled(page);
+                const {height} = page.viewportSize();
+                await moveVisibleArea(page, 0, height);
+                const restingGap = height - (await boxOf(page, card)).bottom;
+
+                // act
+                const pan = shrinks ? keyboard : 0;
+                await moveVisibleArea(page, pan, height - keyboard);
+                const overKeyboard = pan + height - keyboard - (await boxOf(page, card)).bottom;
+                await moveVisibleArea(page, 0, height);
+
+                // assert
+                await expect.poll(async () => height - (await boxOf(page, card)).bottom).toBe(restingGap);
+                expect({overKeyboard, restingGap: restingGap >= indicator}).toEqual({overKeyboard: 8, restingGap: true});
+            });
+        }
+        }
+    });
+
+    test('the menu of a file is a sheet with Download, and the top bar of the file keeps no action', async ({page}) => {
+        // arrange
+        const file = 'e2e-mobile/file-sheet/plain.txt';
+        writeFixture(file, 'just text\n');
+        await page.goto(routes.doc(file));
+        await expect(page.getByTestId('file')).toBeVisible();
+
+        // act
+        await page.getByTestId('file-menu').tap();
+
+        // assert
+        await openedMenu(page, 'file-menu-dropdown');
+        expect(await page.getByTestId('file-menu-dropdown').locator('[data-testid^=file-]')
+            .evaluateAll((items) => items.map((el) => el.dataset.testid))).toEqual([
+            'file-download', 'file-menu-copy-link', 'file-menu-rename', 'file-menu-move', 'file-menu-delete',
+        ]);
+        await expect(page.getByTestId('file-download')).toHaveAttribute('download', nameOf(file));
+        await expect(page.getByTestId('topbar-actions').locator('a, button')).toHaveCount(0);
+        await shot(page, 'mobile-file-sheet');
+        removeFixture('e2e-mobile/file-sheet');
     });
 
     test('a sheet that closed leaves the page live behind it', async ({page}) => {
@@ -4179,6 +5166,130 @@ test.describe('mobile', () => {
 
         await page.getByTestId('doc-image').first().tap();
         await expect(page.getByTestId('doc-lightbox-image')).toBeVisible();
+    });
+
+    test.describe('a sheet dragged down by its head', () => {
+        async function openNoteSheet(page) {
+            await page.goto(routes.doc(DOC));
+            await page.getByTestId('note-menu').tap();
+            await openedMenu(page, 'note-menu-dropdown');
+            return page.getByTestId('note-menu-dropdown').boundingBox();
+        }
+
+        test('slowly past a quarter of its height closes it', async ({page}) => {
+            // arrange
+            const box = await openNoteSheet(page);
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+
+            // act
+            await touchDrag(page, head, {x: head.x, y: head.y + box.height * 0.4}, {steps: 20, pauseMs: 40});
+
+            // assert
+            await expect(page.getByTestId('note-menu-dropdown')).toHaveCount(0);
+        });
+
+        test('a little and let go slowly comes back and stays open', async ({page}) => {
+            // arrange
+            const sheet = page.getByTestId('note-menu-dropdown');
+            const box = await openNoteSheet(page);
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+
+            // act
+            await touchDrag(page, head, {x: head.x, y: head.y + 40}, {steps: 4, pauseMs: 40});
+
+            // assert
+            await expect.poll(() => sheet.evaluate((el) => getComputedStyle(el).translate)).toBe('none');
+            await stays(() => sheet.isVisible(), true, SETTLE_WAIT_MS);
+            expect(await sheet.boundingBox()).toEqual(box);
+        });
+
+        test('by a fast flick closes it', async ({page}) => {
+            // arrange
+            const box = await openNoteSheet(page);
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+
+            // act
+            await touchDrag(page, head, {x: head.x, y: head.y + box.height * 0.2}, {steps: 3});
+
+            // assert
+            await expect(page.getByTestId('note-menu-dropdown')).toHaveCount(0);
+        });
+
+        test('fast, then held still and let go, comes back and stays open', async ({page}) => {
+            // arrange
+            const sheet = page.getByTestId('note-menu-dropdown');
+            const box = await openNoteSheet(page);
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+            const cdp = await page.context().newCDPSession(page);
+
+            // act
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchStart', touchPoints: [head]});
+            for (const step of [20, 40, 60]) {
+                await cdp.send('Input.dispatchTouchEvent', {type: 'touchMove', touchPoints: [{x: head.x, y: head.y + step}]});
+            }
+            await page.waitForTimeout(MOVE_WAIT_MS);
+            await cdp.send('Input.dispatchTouchEvent', {type: 'touchEnd', touchPoints: []});
+
+            // assert
+            await expect.poll(() => sheet.evaluate((el) => getComputedStyle(el).translate)).toBe('none');
+            await stays(() => sheet.isVisible(), true, SETTLE_WAIT_MS);
+        });
+
+        test('closes the outline too', async ({page}) => {
+            // arrange
+            await page.goto(routes.doc(DOC));
+            await page.getByTestId('note-bar-outline').tap();
+            await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+            const box = await page.getByTestId('toc-drawer').boundingBox();
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+
+            // act
+            await touchDrag(page, head, {x: head.x, y: head.y + box.height * 0.4}, {steps: 20, pauseMs: 40});
+
+            // assert
+            await expect(page.getByTestId('toc-entry')).toHaveCount(0);
+        });
+
+        test('a drag down on a long outline scrolled to its end scrolls it back and leaves it open', async ({page}) => {
+            // arrange
+            const doc = 'e2e-mobile/long-outline/note.md';
+            const sections = Array.from({length: 40}, (_, index) => `## Part ${index + 1}\n\ntext\n`).join('\n');
+            writeFixture(doc, `# Long outline\n\n${sections}`);
+            await page.goto(routes.doc(doc));
+            await page.getByTestId('note-bar-outline').tap();
+            await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+            const list = page.getByTestId('toc-drawer').locator('.mantine-Drawer-body');
+            const end = await list.evaluate((el) => {
+                el.scrollTop = el.scrollHeight;
+                return el.scrollTop;
+            });
+            expect(end).toBeGreaterThan(0);
+            const box = await list.boundingBox();
+            const middle = {x: box.x + box.width / 2, y: box.y + box.height / 3};
+
+            // act
+            await touchDrag(page, middle, {x: middle.x, y: middle.y + box.height / 2}, {steps: 20, pauseMs: 40});
+
+            // assert
+            await stays(() => page.getByTestId('toc-entry').first().isVisible(), true, SETTLE_WAIT_MS);
+            await expect(page.getByTestId('toc-drawer')).toHaveCSS('translate', 'none');
+            await expect.poll(() => list.evaluate((el) => el.scrollTop)).toBeLessThan(end);
+        });
+
+        test('a little leaves the outline open', async ({page}) => {
+            // arrange
+            await page.goto(routes.doc(DOC));
+            await page.getByTestId('note-bar-outline').tap();
+            await expect(page.getByTestId('toc-entry').first()).toBeVisible();
+            const box = await page.getByTestId('toc-drawer').boundingBox();
+            const head = {x: box.x + box.width / 2, y: box.y + 24};
+
+            // act
+            await touchDrag(page, head, {x: head.x, y: head.y + 40}, {steps: 4, pauseMs: 40});
+
+            // assert
+            await stays(() => page.getByTestId('toc-entry').first().isVisible(), true, SETTLE_WAIT_MS);
+        });
     });
 
     test('the image viewer stays on a tap on the picture and closes on a tap beside it', async ({page}) => {
@@ -4481,18 +5592,11 @@ test.describe('mobile', () => {
 
     test('the rows of every menu are big enough to tap', async ({page}) => {
         // act & assert
-        await tapSpaceMenu(page);
-        await expect(page.getByTestId('space-menu-theme')).toBeVisible();
-        expect(await tooSmall(page, '[role=menuitem]'), 'the space menu').toEqual([]);
-        const themes = await page.getByTestId('space-menu-theme').boundingBox();
-        expect(Math.round(themes.height), 'the theme picker').toBe(CHOICE_HEIGHT);
-        await page.keyboard.press('Escape');
-
         await page.goto(routes.doc(DOC));
         await page.getByTestId('note-menu').tap();
         await openedMenu(page, 'note-menu-dropdown');
         await shot(page, 'mobile-note-menu');
-        expect(await tooSmall(page, '[role=menuitem]'), 'the note menu').toEqual([]);
+        expect(await tooSmall(page, '[data-testid=note-menu-dropdown] :is(button, a)'), 'the note menu').toEqual([]);
     });
 
     test('the editor toolbar moves along one axis and shows where it goes on', async ({page}) => {
@@ -4589,7 +5693,7 @@ test.describe('mobile sync state', () => {
 
     async function saveStuck(page, contentPath, source) {
         await page.goto(WIKI.edit(contentPath));
-        await setSource(page, source);
+        await setSource(page, `${source}\nsaved at ${Date.now()}.\n`);
         await save(page);
     }
 
@@ -4615,9 +5719,31 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-sheet');
     });
 
+    test('the Sync group of the profile page names the files not sent, and a tap on one opens it', async ({page}) => {
+        // arrange
+        breakOrigin(wiki.origin);
+        await saveStuck(page, SYNC_DOC, '# Mobile sync\n\nstuck.\n');
+        await page.goto(WIKI.home());
+
+        // act
+        await page.getByTestId('tab-profile').tap();
+
+        // assert
+        await expect(page).toHaveURL(WIKI.profile());
+        await expect(page.getByTestId('profile-sync-status')).toBeVisible();
+        await expect(page.getByTestId('profile-sync-path')).toHaveText([SYNC_DOC]);
+        await expect(page.getByTestId('tab-profile')).toHaveAttribute('data-current', 'true');
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
+        await expect(page.getByTestId('sync-control')).toHaveAttribute('data-state', 'warning');
+        await shot(page, 'mobile-sync-profile');
+
+        await page.getByTestId('profile-sync-path').tap();
+        await expect(page).toHaveURL(WIKI.doc(SYNC_DOC));
+    });
+
     test('an index note reaches the control on a phone too', async ({page}) => {
         breakOrigin(wiki.origin);
-        await saveStuck(page, 'index.md', `# Remote page\n\nthe root index on a phone, stuck at ${Date.now()}.\n`);
+        await saveStuck(page, 'index.md', '# Remote page\n\nthe root index on a phone, stuck.\n');
         await saveStuck(page, `${SYNC_FOLDER}/index.md`, '# Guide\n\nthe folder index, stuck.\n');
 
         await page.goto(WIKI.doc('index.md'));
@@ -4706,6 +5832,31 @@ test.describe('mobile sync state', () => {
         await shot(page, 'mobile-sync-diverged');
     });
 
+    test('the profile page of a diverged space names the conflicting files and offers the reset', async ({page}) => {
+        // arrange
+        await mockMe(page, {
+            unpublished: true,
+            diverged: true,
+            sync_error: 'merge: the branch has diverged from origin/main',
+            unsynced: {paths: [SYNC_DOC], many: false},
+        });
+        await page.goto(WIKI.home());
+
+        // act
+        await page.getByTestId('tab-profile').tap();
+
+        // assert
+        await expect(page).toHaveURL(WIKI.profile());
+        const details = page.getByTestId('profile-sync');
+        await expect(details.getByTestId('profile-sync-status')).toContainText('Conflict with the remote repository');
+        await expect(details).toContainText('Conflicting files');
+        await expect(details.getByTestId('profile-sync-facts')).toBeVisible();
+        await expect(details.getByTestId('profile-sync-path')).toHaveText([SYNC_DOC]);
+        await expect(details.getByTestId('sync-reset')).toBeVisible();
+        await expect(page.getByTestId('space-alert')).toHaveCount(0);
+        await shot(page, 'mobile-sync-diverged-profile');
+    });
+
     test('a narrow phone with a long title still fits the control', async ({page}) => {
         // arrange
         await page.setViewportSize({width: 320, height: 640});
@@ -4757,12 +5908,18 @@ test.describe('mobile offline access', () => {
         removeFixture(FOLDER);
     });
 
-    test('the row is under the Profile tab and the mark sits in the bar on top', async ({page, context}) => {
+    test('the switch is on the profile page and the mark sits in the bar on top', async ({page, context}) => {
         // arrange
-        await tapSpaceMenu(page);
-        const row = page.getByTestId('space-menu-offline');
-        await row.tap();
-        await expect(page.getByTestId('space-menu-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
+        await openProfile(page);
+        await page.getByTestId('profile-offline').tap();
+        await expect(page.getByTestId('profile-offline')).toBeChecked();
+        await expect(page.getByTestId('profile-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
+        await expect(page.getByTestId('profile-offline-status')).toHaveCSS('font-size', '13px');
+        await expect(page.getByTestId('profile-offline-status')).toHaveCSS('padding', '6px 16px 0px');
+        expect(await page.getByTestId('profile-offline-status').evaluate((footer) => ({
+            under: footer.previousElementSibling.contains(document.querySelector('[data-testid=profile-offline]')),
+            height: footer.previousElementSibling.getBoundingClientRect().height,
+        }))).toEqual({under: true, height: 48});
         await shot(page, 'mobile-offline-row');
         await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
             {timeout: 60_000}).toBe('activated');
@@ -4775,5 +5932,32 @@ test.describe('mobile offline access', () => {
         await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Carried note');
         await expect(page.getByTestId('topbar').getByTestId('offline-mark')).toBeVisible();
         await shot(page, 'mobile-offline-mark');
+    });
+
+    test('offline the Search tab stays and opens the notes opened last, with the field off', async ({page, context}) => {
+        // arrange
+        await openProfile(page);
+        await page.getByTestId('profile-offline').tap();
+        await expect(page.getByTestId('profile-offline-status')).toContainText(text.offline.updated, {timeout: 60_000});
+        await expect.poll(() => page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.active?.state),
+            {timeout: 60_000}).toBe('activated');
+        await page.goto(routes.doc(NOTE));
+        await expect(page.getByTestId('doc')).toBeVisible();
+        await context.setOffline(true);
+        await page.goto(routes.home());
+        await expect(page.getByTestId('tab-search')).toBeVisible();
+
+        // act
+        await page.getByTestId('tab-search').tap();
+
+        // assert
+        await expect(page.getByTestId('search-offline')).toHaveText(text.search.offline);
+        await expect(page.getByTestId('search-input')).toBeDisabled();
+        await expect(page.getByTestId('search-mode')).toHaveCount(0);
+        await expect(page.getByTestId('search-case')).toHaveCount(0);
+        await expect(page.getByTestId('search-recent-item').first()).toHaveAttribute('data-path', NOTE);
+        await shot(page, 'mobile-offline-search');
+        await page.getByTestId('search-recent-item').first().tap();
+        await expect(page.getByTestId('doc').locator('h1').first()).toContainText('Carried note');
     });
 });

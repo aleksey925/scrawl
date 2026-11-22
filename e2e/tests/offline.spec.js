@@ -2,9 +2,10 @@ const fs = require('fs');
 
 const {expect, test} = require('../support/test');
 
+const docs = require('../support/docs');
 const {otherUser, user} = require('../support/env');
 const {
-    MAIN, MULTI, fixtureFile, holdRoute, jsonRequest, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
+    MAIN, MULTI, fixtureFile, holdRoute, jsonRequest, nameOf, openSpaceMenu, readFixture, removeFixture, routes, save, setSource, shot,
     signIn, stays, submitCredentials, switchCopy, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -14,15 +15,17 @@ const NOTE = `${FOLDER}/everything.md`;
 const PDF = `${FOLDER}/paper.pdf`;
 const ARCHIVE = `${FOLDER}/archive.bin`;
 const TEXT = `${FOLDER}/data.txt`;
-const PICTURE = 'images/logo.png';
+const PICTURE = docs.illustrated.image;
 const ODD_NAME = 'odd $&+,:;=@ б.png';
+const PAGE_IN_FOLDER = new RegExp(`/api/page/${docs.deep.folder}/`);
+const ENTRY_PAGE = `/s/notes/api/page/${docs.deep.path}`;
 
 const EVERYTHING = [
     '# Offline note',
     '',
     'only the copy has it.',
     '',
-    '![logo](../images/logo.png)',
+    `![logo](../${PICTURE})`,
     '',
     `![odd](<./${ODD_NAME}>)`,
     '',
@@ -252,8 +255,8 @@ test.describe('offline access', () => {
         await expect(page.getByTestId('offline-mark')).toBeVisible();
         await expect(page.getByTestId('dir-new')).toHaveCount(0);
         await expect(page.getByTestId('sidebar-search')).toHaveCount(0);
-        await page.getByTestId('sidebar-filter').fill('replication');
-        await expect(page.getByTestId('tree-row').filter({hasText: 'replication.md'})).toBeVisible();
+        await page.getByTestId('sidebar-filter').fill(docs.filter.term);
+        await expect(page.getByTestId('tree-row').filter({hasText: nameOf(docs.filter.path)})).toBeVisible();
         await page.goto(routes.doc(NOTE));
         await expect(page.getByTestId('doc-edit')).toHaveCount(0);
         await page.getByTestId('note-menu').click();
@@ -1086,12 +1089,12 @@ test.describe('offline access', () => {
 
     test('a round that failed somewhere asks next time only for what is missing', async ({page, context}) => {
         // arrange
-        await context.route(/\/api\/page\/db\//, (route) => route.fulfill({status: 500, body: 'down'}));
+        await context.route(PAGE_IN_FOLDER, (route) => route.fulfill({status: 500, body: 'down'}));
         await page.goto(routes.home());
         await switchCopy(page, true);
         await expect(status(page)).toContainText(text.offline.notUpdated, {timeout: 60_000});
-        expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
-        await context.unroute(/\/api\/page\/db\//);
+        expect(await storedUrls(page)).not.toContain(ENTRY_PAGE);
+        await context.unroute(PAGE_IN_FOLDER);
         const asked = copyRequests(page);
 
         // act
@@ -1099,15 +1102,15 @@ test.describe('offline access', () => {
         await expect.poll(async () => (await storedState(page)).error, {timeout: 30_000}).toBe('');
 
         // assert
-        expect(await storedUrls(page)).toContain('/s/notes/api/page/db/locks.md');
+        expect(await storedUrls(page)).toContain(ENTRY_PAGE);
         const fetched = asked.filter((url) => /\/api\/(page|dir)\/|\/raw\//.test(url));
-        expect(fetched).toContain('/s/notes/api/page/db/locks.md');
-        expect(fetched.filter((url) => !url.startsWith('/s/notes/api/page/db/'))).toEqual([]);
+        expect(fetched).toContain(ENTRY_PAGE);
+        expect(fetched.filter((url) => !url.startsWith(`/s/notes/api/page/${docs.deep.folder}/`))).toEqual([]);
     });
 
     test('a file the server refuses is left out, the round still ends, and it is asked for again', async ({page, context}) => {
         // arrange
-        const refused = /\/api\/page\/db\/locks\.md$/;
+        const refused = new RegExp(`/api/page/${docs.deep.path}$`);
         await context.route(refused, (route) => route.fulfill({status: 403, body: 'refused'}));
         await page.goto(routes.home());
 
@@ -1117,11 +1120,11 @@ test.describe('offline access', () => {
         // assert
         await expect(status(page)).toContainText(text.offline.updated, {timeout: 60_000});
         expect(await storedState(page)).toMatchObject({error: ''});
-        expect(await storedUrls(page)).not.toContain('/s/notes/api/page/db/locks.md');
+        expect(await storedUrls(page)).not.toContain(ENTRY_PAGE);
         expect(JSON.parse(await storedBody(page, SPACE_RECORD)).etag).toBe('');
         await context.unroute(refused);
         await page.reload();
-        await expect.poll(() => storedUrls(page), {timeout: 30_000}).toContain('/s/notes/api/page/db/locks.md');
+        await expect.poll(() => storedUrls(page), {timeout: 30_000}).toContain(ENTRY_PAGE);
         await expect.poll(async () => JSON.parse(await storedBody(page, SPACE_RECORD)).etag).not.toBe('');
     });
 
@@ -1320,7 +1323,7 @@ test.describe('offline access', () => {
 
     test('off in another tab waits for the round and leaves nothing behind', async ({page, context}) => {
         // arrange
-        const held = await holdRoute(context, /\/api\/page\/db\//);
+        const held = await holdRoute(context, PAGE_IN_FOLDER);
         await page.goto(routes.home());
         await switchCopy(page, true);
         await held.reached;
@@ -1454,7 +1457,7 @@ test.describe('offline access', () => {
                 versions.push(request.url());
             }
         });
-        const held = await holdRoute(context, /\/api\/page\/db\//);
+        const held = await holdRoute(context, PAGE_IN_FOLDER);
         await page.goto(routes.home());
         await switchCopy(page, true);
         await held.reached;

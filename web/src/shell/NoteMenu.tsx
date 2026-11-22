@@ -1,10 +1,11 @@
 import { ActionIcon, Menu, Text } from '@mantine/core';
-import { useMemo, useState, type JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import type { DocumentResponse } from '../api/types';
 import { absoluteTime } from '../components/formats';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
+import { SheetNote, SheetRow } from '../components/Sheet';
 import {
   IconDots, IconEdit, IconHistory, IconLink, IconListSearch, IconMoveTo, IconSearch, IconTrash,
 } from '../icons';
@@ -12,18 +13,28 @@ import { historyUrl } from '../paths';
 import { useFindControl } from '../reader/findControl';
 import { layout } from '../theme';
 
-import { ExportItems, useNoteExport } from './ExportMenu';
+import { ExportItems, ExportTiles, useNoteExport } from './ExportMenu';
 import { useFileActions } from './fileActionsContext';
 import { useAccount } from './NavContext';
 import classes from './NoteMenu.module.css';
+import { PageSheet } from './PageSheet';
 import { PageWidthControl } from './PageWidthControl';
 import { useReaderLayout } from './ReaderLayout';
 import { MenuKeys } from './ShortcutHelp';
 import { keysLabel, modKey, useKeyboardPlace } from './shortcuts';
 
+let counted: { html: string; words: number } | undefined;
+
 function wordsOf(html: string): number {
-  const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
-  return text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length;
+  if (counted?.html !== html) {
+    const text = new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+    counted = { html, words: text.split(/\s+/).filter((word) => /[\p{L}\p{N}]/u.test(word)).length };
+  }
+  return counted.words;
+}
+
+function shownWords(html: string, opened: boolean): number {
+  return opened || counted?.html === html ? wordsOf(html) : 0;
 }
 
 export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
@@ -36,7 +47,7 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
   const { openOutline } = useReaderLayout();
   const keyboard = useKeyboardPlace();
   const [opened, setOpened] = useState(false);
-  const words = useMemo(() => (opened ? wordsOf(doc.html) : 0), [opened, doc.html]);
+  const words = shownWords(doc.html, opened);
 
   return (
     <PopupMenu position="bottom-end" width={260} withinPortal opened={opened} onChange={setOpened}>
@@ -124,5 +135,43 @@ export function NoteMenu({ doc }: { doc: DocumentResponse }): JSX.Element {
         </Text>
       </Menu.Dropdown>
     </PopupMenu>
+  );
+}
+
+export interface NoteSheetProps {
+  doc: DocumentResponse;
+  opened: boolean;
+  onClose: () => void;
+}
+
+export function NoteSheet({ doc, opened, onClose }: NoteSheetProps): JSX.Element {
+  const { me } = useAccount();
+  const exporter = useNoteExport(doc.path);
+  const words = shownWords(doc.html, opened);
+  const pick = (action: () => void): void => {
+    onClose();
+    action();
+  };
+
+  return (
+    <PageSheet
+      path={doc.path}
+      title={doc.title}
+      testPrefix="note-menu"
+      opened={opened}
+      onClose={onClose}
+      tiles={<ExportTiles print={() => pick(exporter.print)} download={(format) => pick(() => exporter.download(format))} />}
+      lead={
+        me?.history_on === true && (
+          <SheetRow testId="note-menu-history" icon={IconHistory} label="History" to={historyUrl(doc.path)} onClick={onClose} />
+        )
+      }
+      about={
+        <SheetNote data-testid="note-menu-about">
+          {words.toLocaleString()} {words === 1 ? 'word' : 'words'}
+          {doc.mod_time !== '' && ` · Last edited ${absoluteTime(doc.mod_time)}`}
+        </SheetNote>
+      }
+    />
   );
 }

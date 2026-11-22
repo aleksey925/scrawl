@@ -7,8 +7,9 @@ import {
 } from 'react';
 import { useLocation } from 'react-router';
 
-import { IconMenu } from '../icons';
-import { FindControlProvider, type FindControl } from '../reader/findControl';
+import { IconMenu, IconX } from '../icons';
+import { useSheetDrag } from '../components/useSheetDrag';
+import { FindControlProvider, type FindControl, type FindHandle } from '../reader/findControl';
 import { layout, layoutBreakpoints, useAtLeast, useBelow } from '../theme';
 
 import { PageChromeProvider } from './PageChrome';
@@ -62,15 +63,22 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
   const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   const [tocSlot, setTocSlot] = useState<HTMLElement | null>(null);
   const [tocPresent, setTocPresent] = useState(false);
-  const [openFind, setOpenFind] = useState<(() => void) | undefined>(undefined);
-  const registerFind = useCallback((open: (() => void) | undefined) => setOpenFind(() => open), []);
-  const findControl = useMemo<FindControl>(() => ({ open: openFind, register: registerFind }), [openFind, registerFind]);
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null);
+  const [footSlot, setFootSlot] = useState<HTMLElement | null>(null);
+  const [barClaims, setBarClaims] = useState(0);
+  const claimBar = useCallback(() => {
+    setBarClaims((count) => count + 1);
+    return () => setBarClaims((count) => count - 1);
+  }, []);
+  const [find, setFind] = useState<FindHandle | undefined>(undefined);
+  const findControl = useMemo<FindControl>(() => ({ open: find?.open, opened: find?.opened ?? false, register: setFind }), [find]);
 
   const phone = useBelow(layoutBreakpoints.phone);
   const miniOutline = useAtLeast(layoutBreakpoints.miniOutline);
   const { hidden: navHidden, toggle: toggleNav } = useSidebarHidden();
 
   const closeToc = useCallback(() => setTocOpened(false), []);
+  const dragToc = useSheetDrag(tocOpened, closeToc);
   const openToc = useCallback(() => setTocOpened(true), []);
   const openShortcuts = useCallback(() => setShortcutsOpened(true), []);
 
@@ -100,7 +108,10 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
     [revealNav, closeToc, openShortcuts, outlineSheet, openToc],
   );
 
-  const slots = useMemo<ShellSlots>(() => ({ actionsSlot, tocSlot, setTocPresent }), [actionsSlot, tocSlot]);
+  const slots = useMemo<ShellSlots>(
+    () => ({ actionsSlot, tocSlot, barSlot, footSlot, barClaimed: barClaims > 0, claimBar, setTocPresent }),
+    [actionsSlot, tocSlot, barSlot, footSlot, barClaims, claimBar],
+  );
 
   const start = navHidden && (
     <ActionIcon
@@ -151,24 +162,33 @@ export function ReaderLayout({ chrome, providers, banner, overlays, children }: 
                 <AppShell.Main style={{ minWidth: 0 }}>
                   <div className={classes.banner}>{banner}</div>
                   {children}
+                  <div ref={setFootSlot} className={classes.foot} />
                 </AppShell.Main>
               </AppShell>
 
               {phone && chrome?.phoneBottom}
+              {phone && <div ref={setBarSlot} />}
 
               {!miniOutline && (
-                <Drawer
-                  data-testid="toc-drawer"
+                <Drawer.Root
                   opened={tocOpened}
                   onClose={closeToc}
                   position="bottom"
                   size="auto"
                   padding="md"
-                  title="Outline"
-                  classNames={{ content: classes.sheet, header: classes.sheetHead, title: classes.sheetTitle }}
+                  classNames={{ content: classes.sheet, header: classes.sheetHead, title: classes.sheetTitle, close: classes.sheetClose, body: classes.sheetBody }}
                 >
-                  <div ref={setTocSlot} />
-                </Drawer>
+                  <Drawer.Overlay />
+                  <Drawer.Content ref={dragToc} data-testid="toc-drawer">
+                    <Drawer.Header>
+                      <Drawer.Title>Outline</Drawer.Title>
+                      <Drawer.CloseButton aria-label="Close" icon={<IconX size={layout.iconSizeSmall} />} />
+                    </Drawer.Header>
+                    <Drawer.Body>
+                      <div ref={setTocSlot} />
+                    </Drawer.Body>
+                  </Drawer.Content>
+                </Drawer.Root>
               )}
 
               {overlays}

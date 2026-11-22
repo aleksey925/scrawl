@@ -1,5 +1,5 @@
 import { useComputedColorScheme } from '@mantine/core';
-import { useEffect, type RefObject } from 'react';
+import { useLayoutEffect, type RefObject } from 'react';
 
 import { usePlatform } from '../platform';
 import { useThemeChoice } from '../themeChoice';
@@ -10,11 +10,11 @@ export function useDiagrams(rootRef: RefObject<HTMLDivElement | null>, html: str
   const choice = useThemeChoice();
   const { loadMermaid, loadPlantUML } = usePlatform();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = rootRef.current;
     if (root === null) {
       return undefined;
     }
-    return drawDiagrams(root, { loadMermaid, loadPlantUML }, colorScheme === 'dark');
+    return drawDiagrams(root, { loadMermaid, loadPlantUML }, colorScheme === 'dark', choice);
   }, [rootRef, html, colorScheme, choice, loadMermaid, loadPlantUML]);
 }

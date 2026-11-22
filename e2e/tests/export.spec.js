@@ -2,11 +2,12 @@ const fs = require('node:fs');
 
 const {expect, test} = require('../support/test');
 
+const docs = require('../support/docs');
 const {removeFixture, routes, signIn, writeFixture} = require('../support/helpers');
 
 const NOTE = 'e2e-export.md';
 const OTHER = 'e2e-export-other.md';
-const SOURCE = '# Export\n\nA picture:\n\n![logo](images/logo.png)\n';
+const SOURCE = `# Export\n\nA picture:\n\n![logo](${docs.illustrated.image})\n`;
 const DIAGRAM = '# Export\n\n```mermaid\nflowchart TD\n  A --> B\n```\n';
 const PLANTUML = '# Export\n\n```plantuml\nAlice -> Bob : exported\n```\n';
 

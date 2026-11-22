@@ -4,6 +4,7 @@ import { useLocation, useNavigationType } from 'react-router';
 import { iosHomeScreenApp } from '../homeScreen';
 import { holdScreen, motionMs, noteEntering } from '../motion';
 import { scopeDiagramIds } from '../reader/diagramSvg';
+import { findScreenOf } from '../reader/findScreen';
 import { decodeFragment } from '../reader/dom';
 import { layoutBreakpoints, maxWidthQuery } from '../theme';
 
@@ -118,19 +119,28 @@ export function sendOff(element: HTMLElement, from: number, speed: number): void
   const copy = element.cloneNode(true) as HTMLElement;
   stripMarks(copy);
   copy.inert = true;
+  const screen = findScreenOf(element) === element;
   Object.assign(copy.style, {
     position: 'absolute',
-    top: `${box.top}px`,
     left: `${box.left}px`,
     width: `${box.width}px`,
     margin: '0',
   });
+  if (screen) {
+    Object.assign(copy.style, { height: `${box.height}px`, overflow: 'hidden' });
+  }
   const sheet = document.createElement('div');
   sheet.className = classes.sheet ?? '';
   sheet.dataset.leaving = 'true';
   sheet.style.transform = `translateX(${from}px)`;
   sheet.append(copy);
-  element.after(sheet);
+  if (screen) {
+    document.body.append(sheet);
+  } else {
+    element.after(sheet);
+  }
+  copy.style.top = `${box.top - sheet.getBoundingClientRect().top}px`;
+  copy.scrollTop = element.scrollTop;
   keepScroll(copy, scrolled);
   element.style.visibility = 'hidden';
   hidden = { element, timer: window.setTimeout(reveal, hideHoldMs) };

@@ -35,6 +35,7 @@ const routes: RouteObject[] = [
       { path: 'edit/*', lazy: lazyPage(editPage) },
       { path: 'search', lazy: lazyPage(() => import('./pages/SearchPage')) },
       { path: 'recent', lazy: lazyPage(() => import('./pages/RecentPage')) },
+      { path: 'profile', lazy: lazyPage(() => import('./pages/ProfilePage')) },
       { path: 'history/*', lazy: lazyPage(() => import('./pages/HistoryPage')) },
       { path: '*', lazy: lazyPage(() => import('./pages/NotFoundPage')) },
     ],

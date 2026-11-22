@@ -68,11 +68,6 @@
   font-style: italic;
 }
 
-.markdown-document abbr[title] {
-  border-bottom: none;
-  text-decoration: underline dotted;
-}
-
 .markdown-document mark {
   padding: 0 2px;
   border-radius: 3px;
@@ -847,6 +842,9 @@
 
 .markdown-document .md-diagram[data-state='drawing'] {
   position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--scrawl-code-bg);
 }
 
 .markdown-document .md-diagram[data-state='drawing'] > :is(pre.mermaid, pre.plantuml) {
@@ -860,11 +858,11 @@
 .markdown-document .md-diagram[data-state='drawing']::before {
   content: '';
   position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  background:
-    linear-gradient(100deg, transparent 30%, var(--scrawl-hover) 50%, transparent 70%) 0 0 / 300% 100% no-repeat,
-    var(--scrawl-code-bg);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 300%;
+  background: linear-gradient(100deg, transparent 30%, var(--scrawl-hover) 50%, transparent 70%);
   animation: md-diagram-shimmer 1.6s linear infinite;
 }
 
@@ -883,15 +881,11 @@
 
 @keyframes md-diagram-shimmer {
   from {
-    background-position:
-      100% 0,
-      0 0;
+    transform: translateX(-66.667%);
   }
 
   to {
-    background-position:
-      0 0,
-      0 0;
+    transform: none;
   }
 }
 

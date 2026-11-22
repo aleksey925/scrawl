@@ -1,7 +1,8 @@
 import { Notifications, notifications, type NotificationData } from '@mantine/notifications';
-import { useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type JSX, type MouseEvent, type PointerEvent } from 'react';
 
 import { IconAlertTriangle, IconCheck } from '../icons';
+import { followKeyboardArea } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 import type { ToastKind } from '../toast';
 
@@ -36,7 +37,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
     <div
       data-testid="toast-box"
       className={phone ? `${classes.toast} ${classes.pill}` : classes.toast}
-      style={pulled < 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
+      style={pulled > 0 ? { transform: `translateY(${pulled}px)`, transition: 'none' } : undefined}
       onClick={(event: MouseEvent<HTMLDivElement>) => {
         if (!phone && !onButton(event) && !selectsText()) {
           dismiss();
@@ -51,7 +52,7 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
       }}
       onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
         if (startY.current !== undefined) {
-          setPulled(Math.min(0, event.clientY - startY.current));
+          setPulled(Math.max(0, event.clientY - startY.current));
         }
       }}
       onPointerUp={() => {
@@ -66,24 +67,26 @@ function Toast({ data, phone }: { data: NotificationData; phone: boolean }): JSX
         setPulled(0);
       }}
     >
-      <Icon size={layout.iconSizeSmall} weight="bold" className={classes.icon} data-tone={tone} aria-hidden />
-      <div className={classes.body}>
-        {data.title !== undefined && <div className={classes.title}>{data.title}</div>}
-        <div className={classes.message}>{data.message}</div>
-      </div>
+      <Icon size={phone ? layout.iconSizeToast : layout.iconSizeSmall} weight="bold" className={classes.icon} data-tone={tone} aria-hidden />
+      <div className={classes.body}>{data.message}</div>
     </div>
   );
 }
 
+function useKeyboardRoom(active: boolean): void {
+  useEffect(() => (active ? followKeyboardArea('toast-view') : undefined), [active]);
+}
+
 export function Toasts(): JSX.Element {
   const phone = useBelow(layoutBreakpoints.phone);
+  useKeyboardRoom(phone);
   return (
     <Notifications
-      position={phone ? 'top-center' : 'bottom-center'}
+      position="bottom-center"
       containerWidth={phone ? '100%' : desktopWidth}
       {...(phone ? { autoClose: phoneToastMs, transitionDuration: phoneTransitionMs } : {})}
       allowDragDismiss={false}
-      classNames={{ root: classes.root }}
+      classNames={{ root: phone ? `${classes.root} ${classes.phone}` : classes.root }}
       renderNotification={(data) => <Toast data={data} phone={phone} />}
     />
   );

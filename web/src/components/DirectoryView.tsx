@@ -88,10 +88,12 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
         testId="dir-context-menu"
         onCreate={(kind) => (kind === 'note' ? newNote() : newFolder())}
       />
-      <div className={classes.head}>
-        <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
-        {writable && !phone && <NewButton onNote={newNote} onFolder={newFolder} />}
-      </div>
+      {!(phone && path === '') && (
+        <div className={classes.head}>
+          <PageTitle testId="dir-title">{path === '' ? space : dir.title}</PageTitle>
+          {writable && !phone && <NewButton onNote={newNote} onFolder={newFolder} />}
+        </div>
+      )}
       {(dir.entries.length > 0 || drafting || !phone) && (
         <DirTable path={path} entries={dir.entries} drafting={drafting} onDraftSubmit={submit} onDraftCancel={cancel} />
       )}

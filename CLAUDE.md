@@ -49,8 +49,11 @@ web/icons.ts           the script that draws them, not the icon set of
 web/vite.icons.ts      the build step that keeps only the icon weights
                        the app draws
 e2e/                   playwright suite against a real binary
-examples/data/         sample notes: tests, `make run` and the browser suite
-scripts/               try-sync.sh, the sync states of a clone tried by hand
+examples/data/         sample notes: tests, `make run`, the browser suite and
+                       the hero picture of the README
+scripts/               try-sync.sh, the sync states of a clone tried by hand,
+                       readme-shots/, the script of the hero picture of the
+                       README
 vendor/                dependencies, checked in, `make deps` regenerates
 docs/design/           how each part works and the rules it keeps
 docs/ui/               how each screen looks and behaves
@@ -207,8 +210,9 @@ Before changing a part, read its doc:
   kept on the device, the draft offer, leaving the editor:
   [editor](docs/ui/editor.md)
 - palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
-- the tab bar, dialogs, toasts, screen moves, swipe back, the find bar above
-  the keyboard: [phone](docs/ui/phone.md)
+- the capsule, its tab bar and New, the note and file bars, the grouped lists,
+  the sheets, Profile, the search and find cards, a rename in a row, dialogs,
+  toasts, screen moves, swipe back: [phone](docs/ui/phone.md)
 - tap sizes, `TapGuard`, the pressed state, a long press:
   [touch](docs/ui/touch.md)
 - why something is built the way it is: [`docs/adr/`](docs/adr/)
@@ -241,4 +245,5 @@ make cover      race tests plus a coverage summary
 make lint       every pre-commit hook, through prek
 make run        run ./examples/data as the "notes" space, auth disabled
 make e2e        the browser suite
+make readme-promo  the hero picture of the README into docs/screenshots/
 ```

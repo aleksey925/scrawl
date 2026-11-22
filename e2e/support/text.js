@@ -12,13 +12,17 @@ module.exports = {
         discardUploading: 'A picture is still uploading, so the changes are lost if you leave.',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
-        restoreConflict: 'This page changed while the history was open',
+        undo: 'Undo this change?',
+        historyConflict: 'This page changed while the history was open',
     },
 
     toast: {
         saved: 'Saved',
         draftKept: 'Changes kept as a draft on this device',
         restored: 'Restored',
+        undone: 'Undone',
+        undoFailed: 'Undo failed',
+        undoConflict: 'later changes touched the same or nearby lines, restore a version instead',
         created: 'Created',
         folderCreated: 'Created folder',
         moved: 'Moved',

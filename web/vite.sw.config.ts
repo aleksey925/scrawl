@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   publicDir: false,
   build: {
-    outDir: '../server/assets/sw',
+    outDir: '../internal/server/assets/sw',
     emptyOutDir: true,
     target: 'es2022',
     sourcemap: false,

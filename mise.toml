@@ -1,12 +1,12 @@
 [tools]
-go = "1.25"
-golangci-lint = "2.7.2"
+go = "1.27"
+golangci-lint = "2.15.0"
 goreleaser = "2.13.2"
 node = "24.18"
 prek = "0.5.4"
 prettier = "3.8.3"
 
-# builds format/prettier.wasm, see `make formatter`. The release names an
+# builds internal/format/prettier.wasm, see `make formatter`. The release names an
 # arm64 build "arm", which no backend guesses, so every platform is spelled out.
 [tools."github:bytecodealliance/javy"]
 version = "9.1.0"

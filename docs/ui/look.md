@@ -149,3 +149,7 @@ Colors, controls and type: how a note and the chrome are drawn.
 - A `<mark>` is the yellow block ground under the note's own text, in both
   schemes, the way Notion highlights; each scheme's yellow ground is opaque,
   because a translucent yellow laid over the dark page came out brown.
+- A date or time reads the same in every browser and language: English month
+  names and a 24-hour clock with no AM or PM, such as `Nov 22, 14:05`, and the
+  full form `Nov 22, 2026, 14:05` in a tooltip. Every screen takes them from
+  `web/src/components/formats.ts`, never from the browser's own locale.

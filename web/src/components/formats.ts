@@ -1,5 +1,11 @@
+const clock: Intl.DateTimeFormatOptions = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
+
 export function absoluteTime(at: string): string {
-  return new Date(at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(at).toLocaleString('en', { year: 'numeric', month: 'short', day: 'numeric', ...clock });
+}
+
+export function clockTime(at: string | number): string {
+  return new Date(at).toLocaleTimeString('en', clock);
 }
 
 const sizeUnits = ['B', 'KB', 'MB', 'GB'];
@@ -15,7 +21,7 @@ export function fileSize(bytes: number): string {
   return `${value.toFixed(digits)} ${sizeUnits[unit]}`;
 }
 
-export function shortDate(at: string): string {
+export function shortDate(at: string | number): string {
   return new Date(at).toLocaleDateString('en', { month: 'short', day: 'numeric' });
 }
 
@@ -24,14 +30,14 @@ export function countOf(count: number, word: string): string {
 }
 
 export function shortTime(at: string | number): string {
-  return new Date(at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return new Date(at).toLocaleString('en', { month: 'short', day: 'numeric', ...clock });
 }
 
 const dayMs = 86_400_000;
 
 export function versionTime(at: string | number, now: Date = new Date()): string {
   const when = new Date(at);
-  const time = when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const time = clockTime(at);
   const day = (date: Date): number => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   const days = Math.round((day(now) - day(when)) / dayMs);
   if (days === 0) {

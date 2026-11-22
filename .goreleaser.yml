@@ -4,11 +4,11 @@ project_name: scrawl
 
 before:
   hooks:
-    - go run ./gzassets/pack
+    - go run ./internal/gzassets/pack
 
 builds:
   - id: scrawl
-    main: .
+    main: ./cmd/scrawl
     binary: scrawl
     env:
       - CGO_ENABLED=0

@@ -126,7 +126,7 @@ export const themeAttribute = 'data-scrawl-theme';
 
 export const autoChoice = 'auto';
 
-const files = import.meta.glob<ThemeFile>('../../theme/themes/*.json', { eager: true, import: 'default' });
+const files = import.meta.glob<ThemeFile>('../../internal/theme/themes/*.json', { eager: true, import: 'default' });
 
 function idOf(file: string): string {
   return file.replace(/^.*\//, '').replace(/\.json$/, '');

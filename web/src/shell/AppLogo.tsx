@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 
-import logo from '../../../server/assets/logo.svg?raw';
+import logo from '../../../internal/server/assets/logo.svg?raw';
 
 import classes from './AppLogo.module.css';
 

@@ -262,6 +262,7 @@ export interface HistoryEntry {
   kind: string;
   at: string;
   restorable: boolean;
+  undoable: boolean;
 }
 
 export interface HistoryResponse {
@@ -293,13 +294,13 @@ export interface HistoryVersionResponse {
   content?: string;
 }
 
-export interface RestoreRequest {
+export interface VersionWriteRequest {
   rev: string;
   version: string;
   from: string;
 }
 
-export interface RestoreResponse extends MutationState {
+export interface VersionWriteResponse extends MutationState {
   path: string;
   rev: string;
   mod_time: string;

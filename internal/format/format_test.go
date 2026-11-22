@@ -1,0 +1,175 @@
+package format
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/aleksey925/scrawl/internal/workerpool"
+)
+
+func TestMain(m *testing.M) {
+	if err := workerpool.UseCompilationCache(); err != nil {
+		panic(err)
+	}
+	RunWorkerIfAsked()
+	os.Exit(m.Run())
+}
+
+func TestMarkdown(t *testing.T) {
+	const longLines = "## Заголовок, который намного длиннее семидесяти девяти символов и остаётся одной строкой\n\n" +
+		"| a   | b                                                                                   |\n" +
+		"| --- | ----------------------------------------------------------------------------------- |\n" +
+		"| 1   | ячейка таблицы, которая намного длиннее семидесяти девяти символов и не переносится |\n\n" +
+		"```\nстрока кода, которая намного длиннее семидесяти девяти символов и остаётся как есть\n```\n"
+	tests := []struct {
+		name string
+		text string
+		want string
+	}{
+		{
+			name: "headings, lists and blank lines",
+			text: "#  Заголовок\n\n\n* один\n* два\n",
+			want: "# Заголовок\n\n- один\n- два\n",
+		},
+		{
+			name: "a table is aligned",
+			text: "|a|b|\n|-|-|\n|длинная ячейка|2|\n",
+			want: "| a              | b   |\n| -------------- | --- |\n| длинная ячейка | 2   |\n",
+		},
+		{
+			name: "the code in a fence is formatted by its own plugin",
+			text: "```json\n{\"a\":1}\n```\n\n```ts\nconst  a:number=1\n```\n\n```css\na{color:red}\n```\n",
+			want: "```json\n{ \"a\": 1 }\n```\n\n```ts\nconst a: number = 1;\n```\n\n```css\na {\n  color: red;\n}\n```\n",
+		},
+		{
+			name: "front matter is formatted as yaml",
+			text: "---\ntitle:   Note\n---\n\ntext\n",
+			want: "---\ntitle: Note\n---\n\ntext\n",
+		},
+		{
+			name: "a formatted note comes back as it was",
+			text: "# Title\n\n- one\n- two\n",
+			want: "# Title\n\n- one\n- two\n",
+		},
+		{
+			name: "prose is wrapped at 79 columns, short lines are joined and a long link stays whole",
+			text: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти символов, поэтому форматтер его переносит.\n" +
+				"А эта короткая строка\nсливается с соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+			want: "Один абзац, в котором много слов, и он намного длиннее семидесяти девяти\n" +
+				"символов, поэтому форматтер его переносит. А эта короткая строка сливается с\n" +
+				"соседней.\n\n" +
+				"- пункт списка, который тоже достаточно длинный, чтобы не поместиться в одну\n" +
+				"  строку шириной 79\n\n" +
+				"https://example.com/a/very/long/link/that/cannot/be/broken/anywhere/at/all/because/it/is/one/word\n",
+		},
+		{
+			name: "a heading, a table row and a code line longer than 79 columns stay one line",
+			text: longLines,
+			want: longLines,
+		},
+		{
+			name: "the marker of an alert stays on its own line",
+			text: "> [!NOTE]\n> Some text of the alert.\n",
+			want: "> [!NOTE]\n> Some text of the alert.\n",
+		},
+		{
+			name: "the body of an alert is wrapped under its marker",
+			text: "> [!warning] \n> A long body of the alert that is much longer than seventy nine columns, so it\n> is\n> wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+			want: "> [!warning]\n> A long body of the alert that is much longer than seventy nine columns, so it\n> is wrapped.\n" +
+				"\n> [!TIP]\n> **Bold** first.\n",
+		},
+		{
+			name: "a marker joined to its text, an unknown marker and an alert in a list are joined as any quote",
+			text: "> [!NOTE] Joined.\n\n> [!OTHER]\n> text\n\n- > [!TIP]\n  > text\n",
+			want: "> [!NOTE] Joined.\n\n> [!OTHER] text\n\n- > [!TIP] text\n",
+		},
+		{name: "an empty note", text: "", want: ""},
+	}
+
+	fmtr := New(2)
+	t.Cleanup(fmtr.Close)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got, err := fmtr.Markdown(context.Background(), tc.text)
+
+			// assert
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestMarkdownRefusesANoteAboveTheCap(t *testing.T) {
+	// arrange
+	fmtr := New(1)
+
+	// act
+	_, err := fmtr.Markdown(context.Background(), strings.Repeat("a", MaxSize+1))
+
+	// assert
+	require.ErrorIs(t, err, ErrTooLarge)
+}
+
+func TestMarkdownKillsARunThatOutlivesItsDeadline(t *testing.T) {
+	// arrange
+	fmtr := New(1)
+	t.Cleanup(fmtr.Close)
+	quadratic := strings.Repeat("[", 8<<10) + "\n"
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// act
+	started := time.Now()
+	_, err := fmtr.Markdown(ctx, quadratic)
+	waited := time.Since(started)
+	after, afterErr := fmtr.Markdown(context.Background(), "*  one\n")
+
+	// assert
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, waited, 5*time.Second)
+	require.NoError(t, afterErr, "the one worker has to be back for the next note")
+	assert.Equal(t, "- one\n", after)
+}
+
+func TestTheBrowserAndTheServerRunTheSamePrettier(t *testing.T) {
+	// arrange
+	version := func(file string) string {
+		raw, err := os.ReadFile(file)
+		require.NoError(t, err)
+		var pkg struct {
+			Dependencies map[string]string `json:"dependencies"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &pkg))
+		return pkg.Dependencies["prettier"]
+	}
+
+	// act
+	server, browser := version("js/package.json"), version("../../web/package.json")
+
+	// assert
+	require.NotEmpty(t, server)
+	assert.Equal(t, server, browser)
+}
+
+func TestMarkdownAfterClose(t *testing.T) {
+	// arrange
+	fmtr := New(1)
+	fmtr.Close()
+
+	// act
+	_, err := fmtr.Markdown(context.Background(), "# Title\n")
+
+	// assert
+	require.Error(t, err)
+}

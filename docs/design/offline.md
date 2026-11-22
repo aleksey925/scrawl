@@ -62,8 +62,8 @@ copy", never "sync": sync is the git remote of a space
 
 ## The worker
 
-`/sw.js`, scope `/`, built from `web/src/sw/sw.ts` into `server/assets/sw/`.
-The server puts one line before it,
+`/sw.js`, scope `/`, built from `web/src/sw/sw.ts` into
+`internal/server/assets/sw/`. The server puts one line before it,
 `self.scrawlOffline = {build, shell, assets}`, built once at startup:
 
 - `assets` lists every file under `/static/<digest>/app/` but vite's

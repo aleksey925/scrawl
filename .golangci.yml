@@ -101,7 +101,10 @@ linters:
         text: "unnamedResult: consider giving a name to these results"
       - linters: [errcheck]
         text: "Error return value of .*.Close.*is not checked"
-      - linters: [dupl, gosec, goconst, noctx, testifylint, unparam]
+      # the log is the operator's own, and the request path in a line is its point
+      - linters: [gosec]
+        text: "G706:"
+      - linters: [dupl, gosec, goconst, noctx, prealloc, testifylint, unparam]
         path: _test\.go$
       - linters: [revive, unparam, unused]
         path: _test\.go$

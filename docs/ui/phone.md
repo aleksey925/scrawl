@@ -290,11 +290,11 @@ How the app works on a phone.
   spell check, as a name or a word is looked up as typed; its return key reads
   Search, and Go in Move to.
 - The icon of the app on the home screen is the logo on the theme's ground,
-  drawn by `web/icons.ts` from `server/assets/logo.svg`. Android gets one more,
-  marked maskable, with the logo at half the width: Android cuts an icon to its
-  own shape, a circle or a squircle, and an icon not marked so is shrunk onto a
-  white plate. Half the width keeps the corners of the logo inside the circle
-  Android keeps whole, 80% of the width.
+  drawn by `web/icons.ts` from `internal/server/assets/logo.svg`. Android gets
+  one more, marked maskable, with the logo at half the width: Android cuts an
+  icon to its own shape, a circle or a squircle, and an icon not marked so is
+  shrunk onto a white plate. Half the width keeps the corners of the logo
+  inside the circle Android keeps whole, 80% of the width.
 - In an app opened from an iPhone's home screen a finger drags the page off
   from the left edge and goes to the folder above, the way up in the bar on top
   does, as an app's swipe goes where its back button says. Back in the history

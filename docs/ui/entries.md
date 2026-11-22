@@ -69,8 +69,8 @@ Creating, naming, moving and deleting files and folders.
   not lose its space to the trim. A name that starts with a dot is refused with
   a toast, as a slash is: the store hides such a name, and the server would
   answer only that nothing is found. The slug turns Cyrillic into Latin with
-  the same table `store/upload.go` uses for attachment names, letter for
-  letter, a capital into a capital (`Ж` is `Zh`), and no test holds the two
+  the same table `internal/store/upload.go` uses for attachment names, letter
+  for letter, a capital into a capital (`Ж` is `Zh`), and no test holds the two
   together: a page and the pictures beside it must not spell one word two ways,
   apart from the case, which the name of an attachment drops.
 - Rename and Move to are two actions, as in Notion. A rename asks only the name

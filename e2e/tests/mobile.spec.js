@@ -10,7 +10,7 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 const {user} = require('../support/env');
-const lightTheme = require('../../theme/themes/light.json');
+const lightTheme = require('../../internal/theme/themes/light.json');
 
 const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;
@@ -4776,6 +4776,34 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('version')).toHaveCount(3);
     });
 
+    test('Undo in the history sheet sits above Restore and takes out the change of the picked version', async ({page}) => {
+        // arrange
+        const stamp = Date.now();
+        const note = `${HISTORY_FOLDER}/undone-${stamp}.md`;
+        const first = `# Первая ${stamp}\n`;
+        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+        for (const body of [first, `# Вторая ${stamp}\n`]) {
+            await setSource(page, body);
+            await save(page);
+        }
+        await page.goto(HISTORY.url.history(note));
+        await expect(page.getByTestId('version')).toHaveCount(2);
+        const undo = await page.getByTestId('version-undo').boundingBox();
+        const restore = await page.getByTestId('version-restore').boundingBox();
+        expect(undo.y + undo.height, 'Undo sits above Restore').toBeLessThanOrEqual(restore.y);
+        expect(await tooSmall(page, '[data-testid=version-undo]', BUTTON_HEIGHT)).toEqual([]);
+
+        // act
+        await page.getByTestId('version-undo').tap();
+        await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.undo);
+        await page.getByTestId('modal-confirm').tap();
+
+        // assert
+        await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.undone);
+        await expect.poll(() => readFixture(note, HISTORY)).toBe(first);
+        await expect(page.getByTestId('version')).toHaveCount(3);
+    });
+
     test('the history sheet of a read-only space lists the versions and offers no Restore', async ({page}) => {
         // act
         await signIn(page, {baseURL: READONLY.baseURL, from: routes.history(DOC)});
@@ -4784,6 +4812,7 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('history-dialog')).toBeVisible();
         await expect(page.getByTestId('version').first()).toBeVisible();
         await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
     });
 
     test('the search field has the focus as soon as the search opens, and keeps it', async ({page}) => {

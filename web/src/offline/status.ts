@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { changeSignal } from '../changeSignal';
-import { fileSize } from '../components/formats';
+import { clockTime, fileSize, shortDate } from '../components/formats';
 
 import { onMessage, post } from './channel';
 import type { AppState } from './keys';
@@ -98,10 +98,7 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 export function copyTime(at: number, now: Date = new Date()): string {
-  const when = new Date(at);
-  return sameDay(when, now)
-    ? when.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-    : when.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  return sameDay(new Date(at), now) ? clockTime(at) : shortDate(at);
 }
 
 export interface StatusInput {

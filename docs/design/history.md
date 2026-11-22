@@ -44,9 +44,36 @@ Git-backed versions of the notes, and how two versions are compared.
 - History answers only for paths the app would serve anyway: markdown, and
   visible to `store`. Git tracks whatever the repository holds, a file the
   store hides included, so without that check the history routes are a second
-  way into the notes with no policy on them. A blob is resolved from the commit
-  and the path it belonged to, never taken from the request, and a restore is
-  bounded by the same size an ordinary save takes.
+  way into the notes with no policy on them. A version renamed out of a hidden
+  file is shown as written from nothing, is not `undoable`, and its undo is a
+  `409`, so the hidden text never reaches the page or a note. A blob is
+  resolved from the commit and the path it belonged to, never taken from the
+  request, and a restore is bounded by the same size an ordinary save takes.
+
+## Undo and restore
+
+- A version offers two writes
+  ([ADR 34](../adr/0034-a-change-is-undone-on-its-own.md)). Restore writes the
+  text of the version back. Undo takes out only the change the version made:
+  `git merge-file` merges the text on disk with the text before the change,
+  over the version's text as the base, so the later changes stay. The text on
+  disk is hashed into the repository with `hash-object -w` first, as
+  `--object-id` reads objects; until it is committed it is a loose object that
+  nothing points to, and git's own gc removes it. `--object-id` needs git 2.43,
+  and with an older git every undo is a `500`.
+- A merge that conflicts is refused with a `409`, and nothing is resolved: a
+  conflict marker never reaches a note. Git takes a later change on a line next
+  to the undone ones as a conflict too. A version with no change of text to
+  take out is a `409` too. `merge-file` reads no attribute and runs no merge
+  driver ([quirks](../quirks.md#git-and-git-hosts)), so an adopted repository
+  names no command here either.
+- The list says what each can do: `restorable` when the version has text and it
+  is not the text on disk now, and `undoable` when the version has text both
+  before and after its change and the two differ, which leaves out the first
+  version, a deletion, a rename alone and a rename out of a path that is no
+  note. Both are checked against the revision the page read, an undo before it
+  merges, along with the size of the text on disk, and both write through
+  `store`, formatted as a save is and under the same size.
 
 ## Comparing versions
 

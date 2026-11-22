@@ -3,7 +3,7 @@ const {expect, test} = require('../support/test');
 const {
     chooseTheme, holdRoute, modifier, openSpaceMenu, pressShortcut, removeFixture, rgb, routes, shot, signIn, writeFixture,
 } = require('../support/helpers');
-const darkTheme = require('../../theme/themes/dark.json');
+const darkTheme = require('../../internal/theme/themes/dark.json');
 
 const NOTE = 'e2e-plantuml.md';
 

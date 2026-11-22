@@ -182,9 +182,15 @@
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
   padding: 12px 16px;
   border-top: 1px solid var(--scrawl-border-light);
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .reason {

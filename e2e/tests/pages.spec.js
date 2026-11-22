@@ -6,8 +6,8 @@ const {
     shot, signIn, stays, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
-const darkTheme = require('../../theme/themes/dark.json');
-const lightTheme = require('../../theme/themes/light.json');
+const darkTheme = require('../../internal/theme/themes/dark.json');
+const lightTheme = require('../../internal/theme/themes/light.json');
 
 const MISSING = docs.missing;
 const COLLIDE = 'e2e-collisions.md';

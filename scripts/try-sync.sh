@@ -102,7 +102,7 @@ EOF
     echo "open http://localhost:$port/s/notes/doc/note.md"
     cd "$root"
     TRY_SYNC_HOOK=$secret SPACES_FILE="$dir/spaces.yml" AUTH_DISABLED=true \
-        LISTEN="127.0.0.1:$port" AUTH_SECRET_FILE="$dir/session.key" exec go run . serve
+        LISTEN="127.0.0.1:$port" AUTH_SECRET_FILE="$dir/session.key" exec go run ./cmd/scrawl serve
 }
 
 case "${1:-}" in

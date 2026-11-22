@@ -29,7 +29,7 @@ internal/view/                 the answers the reader is shown, for the
                                server and a site
 internal/auth/                 users, sessions, middleware, CSRF, rate limit
 internal/history/              git-backed document history: record, log,
-                               restore
+                               restore, undo
 internal/htmldiff/             two rendered notes compared block by block,
                                word by word
 internal/htmlapp/              HTML apps: the setting, the hosts, the id, the
@@ -214,7 +214,7 @@ Before changing a part, read its doc:
 - the offline copy, the service worker, `/api/versions`, the offline shell, the
   start from the copy and its check, the sign-in cookie, a gateway's sign-in,
   the app with no network: [offline](docs/design/offline.md)
-- git history, an adopted repository, restore, comparing versions:
+- git history, an adopted repository, restore and undo, comparing versions:
   [history](docs/design/history.md)
 - a clone, `--ff-only`, diverged, reset, the push after the answer and its
   retry, sync state and the sync control, credentials, the webhook:

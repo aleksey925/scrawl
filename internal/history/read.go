@@ -28,7 +28,7 @@ const (
 
 type Entry struct {
 	Rev, Short, Before, Blob, Actor, Message string
-	Path                                     string
+	From, Path                               string
 	Kind                                     Kind
 	At                                       time.Time
 }
@@ -126,11 +126,7 @@ func (s *Service) Change(ctx context.Context, rev, p string) (Change, error) {
 		return Change{}, fmt.Errorf("history: change %s %q: %w", rev, cleaned, ErrNoVersion)
 	}
 	row := rows[0]
-	res := Change{Before: row.before(), After: nonZero(row.blob), From: row.path}
-	if kindOf(row.status) == KindRenamed {
-		res.From = row.from
-	}
-	return res, nil
+	return Change{Before: row.before(), After: nonZero(row.blob), From: row.source()}, nil
 }
 
 func (s *Service) Show(ctx context.Context, blob string) ([]byte, error) {
@@ -272,6 +268,7 @@ func entryOf(fields []string, row rawRow) (Entry, error) {
 		Before:  row.before(),
 		Actor:   fields[2],
 		Message: fields[4],
+		From:    row.source(),
 		Path:    row.path,
 		Kind:    kindOf(row.status),
 		At:      time.Unix(at, 0),
@@ -283,6 +280,13 @@ func (row rawRow) before() string {
 		return ""
 	}
 	return nonZero(row.srcBlob)
+}
+
+func (row rawRow) source() string {
+	if kindOf(row.status) == KindRenamed {
+		return row.from
+	}
+	return row.path
 }
 
 func shortOID(rev string) string {

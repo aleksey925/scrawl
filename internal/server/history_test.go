@@ -177,7 +177,7 @@ func (f *fakeHistory) given() [][]string {
 func TestAPIHistoryList(t *testing.T) {
 	// arrange
 	entry := history.Entry{
-		Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"), Before: oid("b1"),
+		Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"), Before: oid("b1"), From: "index.md",
 		Actor: "token:agent", Message: "save index.md", Path: "index.md",
 		Kind: history.KindModified, At: time.Date(2024, time.March, 1, 10, 30, 0, 0, time.UTC),
 	}
@@ -260,7 +260,7 @@ func TestAPIHistoryUndoable(t *testing.T) {
 		want  bool
 	}{
 		{name: "an edit has text before and after it",
-			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified},
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), From: "note.md", Path: "note.md", Kind: history.KindModified},
 			want:  true},
 		{name: "the first version has nothing before it",
 			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindAdded}},
@@ -268,6 +268,13 @@ func TestAPIHistoryUndoable(t *testing.T) {
 			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Path: "note.md", Kind: history.KindDeleted}},
 		{name: "a rename alone changed no text",
 			entry: history.Entry{Rev: oid("a1"), Before: oid("b2"), Blob: oid("b2"), Path: "note.md", Kind: history.KindRenamed}},
+		{name: "an edited rename from a hidden file shows no text before it",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), From: ".hidden.md", Path: "note.md", Kind: history.KindRenamed}},
+		{name: "an edited rename from a file that is no note shows no text before it",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), From: "note.txt", Path: "note.md", Kind: history.KindRenamed}},
+		{name: "an edited rename from another note",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), From: "old.md", Path: "note.md", Kind: history.KindRenamed},
+			want:  true},
 	}
 
 	for _, tc := range tests {

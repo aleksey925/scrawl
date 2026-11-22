@@ -103,7 +103,7 @@ func (m *mount) apiHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path":     p,
 		"degraded": m.history().Degraded(),
-		"entries":  historyEntries(entries, m.currentBlob(p, entries)),
+		"entries":  m.historyEntries(entries, m.currentBlob(p, entries)),
 	})
 }
 
@@ -345,7 +345,7 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
-func historyEntries(entries []history.Entry, current string) []historyEntry {
+func (m *mount) historyEntries(entries []history.Entry, current string) []historyEntry {
 	res := make([]historyEntry, 0, len(entries))
 	for _, ent := range entries {
 		res = append(res, historyEntry{
@@ -358,7 +358,7 @@ func historyEntries(entries []history.Entry, current string) []historyEntry {
 			Kind:       string(ent.Kind),
 			At:         ent.At,
 			Restorable: ent.Blob != "" && ent.Blob != current,
-			Undoable:   history.Undoable(ent.Before, ent.Blob),
+			Undoable:   history.Undoable(ent.Before, ent.Blob) && m.isDocument(ent.From),
 		})
 	}
 	return res

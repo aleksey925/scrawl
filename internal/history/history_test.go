@@ -915,9 +915,10 @@ func TestServiceLog(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, entries, 2)
 		assert.Equal(t, []string{entries[1].Blob, ""}, []string{entries[0].Before, entries[1].Before})
+		assert.Equal(t, []string{"note.md", "note.md"}, []string{entries[0].From, entries[1].From})
 	})
 
-	t.Run("names the blob of the old path before a rename", func(t *testing.T) {
+	t.Run("names the old path and its blob before a rename", func(t *testing.T) {
 		// arrange
 		s := newService(t)
 		text := "line one\nline two\nline three\nline four\n"
@@ -937,6 +938,7 @@ func TestServiceLog(t *testing.T) {
 		require.Len(t, entries, 2)
 		assert.Equal(t, []Kind{KindRenamed, KindAdded}, []Kind{entries[0].Kind, entries[1].Kind})
 		assert.Equal(t, []string{entries[1].Blob, ""}, []string{entries[0].Before, entries[1].Before})
+		assert.Equal(t, []string{"old.md", "old.md"}, []string{entries[0].From, entries[1].From})
 	})
 
 	t.Run("names no blob before a copy, which is a new note", func(t *testing.T) {

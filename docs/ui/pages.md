@@ -251,24 +251,25 @@ opens over them.
   inline and it outranks the stylesheet. The server says which versions can be
   restored, in `restorable`: never a deletion and never the text the file has
   now, hashed the way git names a blob. It says which can be undone in
-  `undoable`: never the first version, a deletion or a rename alone. The client
-  read it off the blob and the row's place once, and the newest row stops being
-  the current text the moment the file changes on disk. On a phone the history
-  is a sheet of nearly the screen's height, "History" and the count of versions
-  over the file's name, and each version a card with its time, marked current
-  for the text the file has now, the initial and the name of who made it, a
-  user, a token's name or "outside the app", the colored tag, and "as" and the
-  old path when the file moved. The picked card, the first one at the start,
-  opens to show the switches of Rendered and Source and of Split and Unified,
-  the change, then "Undo this change" in the secondary color over "Restore this
-  version" in the accent. On a desktop the same two stand below the versions,
-  Undo in the default look over Restore filled. Undo takes out only the change
-  the version made and keeps the later ones, and Restore brings the whole note
-  back to the version. A line under each says what it does, or why it is
-  disabled, and both are hidden without the right to write. Undo is disabled
-  while the note is deleted, as there is no text to take the change out of. An
-  undo whose lines were changed again later is refused in a toast. Each asks
-  first, the address stays `/history/<path>`, and the ✕ goes back to the note.
+  `undoable`: never the first version, a deletion, a rename alone or a rename
+  out of a path that is no note. The client read it off the blob and the row's
+  place once, and the newest row stops being the current text the moment the
+  file changes on disk. On a phone the history is a sheet of nearly the
+  screen's height, "History" and the count of versions over the file's name,
+  and each version a card with its time, marked current for the text the file
+  has now, the initial and the name of who made it, a user, a token's name or
+  "outside the app", the colored tag, and "as" and the old path when the file
+  moved. The picked card, the first one at the start, opens to show the
+  switches of Rendered and Source and of Split and Unified, the change, then
+  "Undo this change" in the secondary color over "Restore this version" in the
+  accent. On a desktop the same two stand below the versions, Undo in the
+  default look over Restore filled. Undo takes out only the change the version
+  made and keeps the later ones, and Restore brings the whole note back to the
+  version. A line under each says what it does, or why it is disabled, and both
+  are hidden without the right to write. Undo is disabled while the note is
+  deleted, as there is no text to take the change out of. An undo whose lines
+  were changed again later is refused in a toast. Each asks first, the address
+  stays `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

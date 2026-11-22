@@ -45,10 +45,10 @@ Git-backed versions of the notes, and how two versions are compared.
   visible to `store`. Git tracks whatever the repository holds, a file the
   store hides included, so without that check the history routes are a second
   way into the notes with no policy on them. A version renamed out of a hidden
-  file is shown as written from nothing, and its undo is a `409`, so the hidden
-  text never reaches the page or a note. A blob is resolved from the commit and
-  the path it belonged to, never taken from the request, and a restore is
-  bounded by the same size an ordinary save takes.
+  file is shown as written from nothing, is not `undoable`, and its undo is a
+  `409`, so the hidden text never reaches the page or a note. A blob is
+  resolved from the commit and the path it belonged to, never taken from the
+  request, and a restore is bounded by the same size an ordinary save takes.
 
 ## Undo and restore
 
@@ -69,10 +69,10 @@ Git-backed versions of the notes, and how two versions are compared.
 - The list says what each can do: `restorable` when the version has text and it
   is not the text on disk now, and `undoable` when the version has text both
   before and after its change and the two differ, which leaves out the first
-  version, a deletion and a rename alone. Both are checked against the revision
-  the page read, an undo before it merges, along with the size of the text on
-  disk, and both write through `store`, formatted as a save is and under the
-  same size.
+  version, a deletion, a rename alone and a rename out of a path that is no
+  note. Both are checked against the revision the page read, an undo before it
+  merges, along with the size of the text on disk, and both write through
+  `store`, formatted as a save is and under the same size.
 
 ## Comparing versions
 

@@ -124,6 +124,28 @@ test.describe('search', () => {
         await expect(lines).toHaveCount(1);
     });
 
+    test('the toggles are kept for the next search, apart from those of the find bar', async ({page}) => {
+        // arrange
+        await openSearch(page);
+        await page.keyboard.press('Alt+KeyF');
+        await page.getByTestId('search-titles').click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('search-input')).toHaveCount(0);
+
+        // act
+        await page.reload();
+        await openSearch(page);
+
+        // assert
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('search-titles')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'false');
+        await page.keyboard.press('Escape');
+        await page.goto(routes.doc(docs.search.palette.path));
+        await pressShortcut(page, `${await modifier(page)}+f`);
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'false');
+    });
+
     test('Fuzzy finds a word without its accent, with a typo or with an accent on another letter, and the plain search keeps the accent', async ({page}) => {
         // arrange
         writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο. Всё и все. За́мок.\n');
@@ -731,6 +753,30 @@ test.describe('find in the note', () => {
         } finally {
             removeFixture(marks);
         }
+    });
+
+    test('the toggles are kept for every note, and a note the search opens sets its own for that time only', async ({page}) => {
+        // arrange
+        await openFind(page);
+        await page.getByTestId('doc-find-case').click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+
+        // act
+        await page.goto(routes.doc(docs.search.palette.path));
+        await openFind(page);
+
+        // assert
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
+        await page.goto(`${routes.doc(FIND)}?q=foo&word=1`);
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '2');
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'false');
+        await page.getByTestId('doc-find-close').click();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await openFind(page);
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
     });
 
     test('another note opened from a found one is not searched', async ({page}) => {

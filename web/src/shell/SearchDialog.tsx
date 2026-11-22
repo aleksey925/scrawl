@@ -11,7 +11,8 @@ import type { SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
 import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
-import { optionKeys, withOption, type FindOption } from '../reader/findOptions';
+import { noOptions, optionKeys, withOption, type FindOption } from '../reader/findOptions';
+import { storedOptions, storeOptions } from '../reader/storedOptions';
 import { FindToggles } from '../reader/FindToggles';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
@@ -25,7 +26,8 @@ import { useFullScreenStyle } from './useVisibleArea';
 const debounceMs = 200;
 const resultLimit = 30;
 
-const defaultSettings: SearchSettings = { matchCase: false, word: false, regex: false, fuzzy: false, titles: false };
+const settingsKey = 'scrawl.search.options';
+const defaultSettings: SearchSettings = { ...noOptions, titles: false };
 
 interface Answer {
   query?: string;
@@ -46,7 +48,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   const screenStyle = useFullScreenStyle(phone);
   const { notes: recent, clear: clearRecent } = useRecentNotes();
   const [text, setText] = useState(initial);
-  const [settings, setSettings] = useState<SearchSettings>(defaultSettings);
+  const [settings, setSettings] = useState<SearchSettings>(() => storedOptions(settingsKey, defaultSettings));
   const [debounced] = useDebouncedValue(text, debounceMs);
   const [answer, setAnswer] = useState<Answer>({});
   const [active, setActive] = useState<string | undefined>(undefined);
@@ -103,7 +105,11 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
     bodyRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
-  const toggle = (name: FindOption): void => setSettings(withOption(settings, name));
+  const change = (next: SearchSettings): void => {
+    storeOptions(settingsKey, next);
+    setSettings(next);
+  };
+  const toggle = (name: FindOption): void => change(withOption(settings, name));
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.altKey) {
@@ -172,7 +178,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
       data-on={settings.titles ? 'true' : 'false'}
       aria-pressed={settings.titles}
       className={classes.chip}
-      onClick={() => setSettings({ ...settings, titles: !settings.titles })}
+      onClick={() => change({ ...settings, titles: !settings.titles })}
     >
       Titles only
     </button>

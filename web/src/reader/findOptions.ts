@@ -7,6 +7,8 @@ export interface FindOptions {
 
 export type FindOption = keyof FindOptions;
 
+export const noOptions: FindOptions = { matchCase: false, word: false, regex: false, fuzzy: false };
+
 export const optionKeys: Partial<Record<string, FindOption>> = {
   KeyC: 'matchCase',
   KeyW: 'word',

@@ -6,7 +6,8 @@ import { usePlatform } from '../platform';
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { centerMatch } from './findScreen';
 import { FindTimeout, patternOf, type FindPattern, type FindQuery } from './findMatches';
-import { togglesOf } from './findOptions';
+import { noOptions, togglesOf, withOption, type FindOption } from './findOptions';
+import { storedOptions, storeOptions } from './storedOptions';
 
 export const findParam = 'q';
 const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
@@ -24,12 +25,17 @@ export interface FindOnPage {
   total: number;
   open: (text?: string) => void;
   setQuery: (query: FindQuery) => void;
+  toggle: (name: FindOption) => void;
   run: () => void;
   step: (delta: number) => void;
   close: () => void;
 }
 
-const emptyQuery: FindQuery = { text: '', matchCase: false, word: false, regex: false, fuzzy: false };
+const optionsKey = 'scrawl.find.options';
+
+function emptyQuery(): FindQuery {
+  return { text: '', ...storedOptions(optionsKey, noOptions) };
+}
 
 function queryOf(params: URLSearchParams): FindQuery | undefined {
   const text = params.get(findParam);
@@ -70,7 +76,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       if (fresh) {
         line.current = undefined;
         setOpened(false);
-        setQueryState(emptyQuery);
+        setQueryState(emptyQuery());
       }
       return;
     }
@@ -199,9 +205,16 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     setQueryState(next);
   }, []);
 
+  const toggle = useCallback((name: FindOption): void => {
+    const { text, ...options } = withOption(query, name);
+    storeOptions(optionsKey, options);
+    setArmed(true);
+    setQueryState({ text, ...options });
+  }, [query]);
+
   const close = useCallback((): void => {
     setOpened(false);
-    setQueryState(emptyQuery);
+    setQueryState(emptyQuery());
     if (findParams.some((name) => searchParams.has(name))) {
       void navigate({ pathname: location.pathname, hash: location.hash }, { replace: true });
     }
@@ -216,6 +229,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     total,
     open,
     setQuery,
+    toggle,
     run: () => setArmed(true),
     step: (delta: number) => show(index + delta, true),
     close,

@@ -7,7 +7,7 @@ import { keyboardShown } from '../shell/useVisibleArea';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import classes from './FindBar.module.css';
-import { optionKeys, withOption, type FindOption } from './findOptions';
+import { optionKeys } from './findOptions';
 import { FindToggles } from './FindToggles';
 import type { FindOnPage } from './useFindOnPage';
 
@@ -34,8 +34,7 @@ export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: b
   const bar = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const atBottom = useBelow(layoutBreakpoints.phone);
-  const { query, setQuery } = find;
-  const toggle = (name: FindOption): void => setQuery(withOption(query, name));
+  const { query, setQuery, toggle } = find;
 
   useEffect(() => {
     const view = window.visualViewport;

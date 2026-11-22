@@ -11,6 +11,11 @@ The server's search and the note's find bar.
   their accents and with a typo, so the plain search stays as exact as a person
   expects of it. Match case and Whole word mean nothing in Fuzzy and are
   disabled, and Fuzzy and Regex turn each other off.
+- Each of the two keeps its options in local storage, the search with Titles
+  only, so they hold for the next search and for every note, as editors keep
+  theirs, and the device and the browser keep their own. A search result opens
+  the find bar with the options of that search, for that time only: the find
+  bar has to find what the server found, and what it keeps is left as it was.
 - An accent is a combining mark that Unicode gives to no script of its own
   (script Inherited): the Latin, Greek and Cyrillic accents and the Arabic
   vowel marks. A letter whose canonical decomposition adds only accents is its

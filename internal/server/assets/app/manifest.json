@@ -57,21 +57,6 @@
       "_Text.js"
     ]
   },
-  "_FindToggles.css": {
-    "file": "assets/FindToggles.css",
-    "src": "_FindToggles.css"
-  },
-  "_FindToggles.js": {
-    "file": "assets/FindToggles.js",
-    "name": "FindToggles",
-    "imports": [
-      "_naming.js",
-      "_client.js"
-    ],
-    "css": [
-      "assets/FindToggles.css"
-    ]
-  },
   "_NoteExtensions.css": {
     "file": "assets/NoteExtensions.css",
     "src": "_NoteExtensions.css"
@@ -207,7 +192,7 @@
       "_platform.js",
       "_diagramSvg.js",
       "index.html",
-      "_FindToggles.js"
+      "_storedOptions.js"
     ],
     "css": [
       "assets/anchor.css"
@@ -706,6 +691,22 @@
   "_storage.js": {
     "file": "assets/storage.js",
     "name": "storage"
+  },
+  "_storedOptions.css": {
+    "file": "assets/storedOptions.css",
+    "src": "_storedOptions.css"
+  },
+  "_storedOptions.js": {
+    "file": "assets/storedOptions.js",
+    "name": "storedOptions",
+    "imports": [
+      "_naming.js",
+      "_storage.js",
+      "_client.js"
+    ],
+    "css": [
+      "assets/storedOptions.css"
+    ]
   },
   "_use-debounced-value.js": {
     "file": "assets/use-debounced-value.js",
@@ -2972,7 +2973,7 @@
       "_client.js",
       "_icons.js",
       "index.html",
-      "_FindToggles.js",
+      "_storedOptions.js",
       "_recentNotes.js",
       "_Picker.module.js",
       "_SearchResults.js"

@@ -246,6 +246,15 @@ func (m *mount) apiHistoryUndo(w http.ResponseWriter, r *http.Request) {
 		writeConflict(w, http.StatusPreconditionFailed, "conflict", store.Rev(current), current)
 		return
 	}
+	change, err := m.history().Change(r.Context(), req.Version, req.From)
+	if err != nil {
+		failHistory(w, r, err)
+		return
+	}
+	if !m.isDocument(change.From) {
+		failHistory(w, r, fmt.Errorf("history: undo %s %q: %w", req.Version, change.From, history.ErrNothingToUndo))
+		return
+	}
 	data, err := m.history().Undo(r.Context(), req.Version, req.From, current)
 	if err != nil {
 		failHistory(w, r, err)

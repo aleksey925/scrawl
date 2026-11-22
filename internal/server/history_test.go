@@ -751,6 +751,23 @@ func TestAPIHistoryUndo(t *testing.T) {
 		}
 	})
 
+	t.Run("refuses a version moved out of a hidden file, before merging", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		fake.before = map[string]history.Change{version.Rev: {Before: oid("f6"), From: ".draft.md"}}
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusConflict, resp.status)
+		assert.Equal(t, "this version changed no text to undo", body["error"])
+		assert.Empty(t, fake.undos)
+		assert.Empty(t, fake.ops)
+	})
+
 	t.Run("refuses a version that does not belong to the path", func(t *testing.T) {
 		// arrange
 		ts := newTestServer(t, testOpts{history: newFake()})

@@ -44,8 +44,10 @@ Git-backed versions of the notes, and how two versions are compared.
 - History answers only for paths the app would serve anyway: markdown, and
   visible to `store`. Git tracks whatever the repository holds, a file the
   store hides included, so without that check the history routes are a second
-  way into the notes with no policy on them. A blob is resolved from the commit
-  and the path it belonged to, never taken from the request, and a restore is
+  way into the notes with no policy on them. A version renamed out of a hidden
+  file is shown as written from nothing, and its undo is a `409`, so the hidden
+  text never reaches the page or a note. A blob is resolved from the commit and
+  the path it belonged to, never taken from the request, and a restore is
   bounded by the same size an ordinary save takes.
 
 ## Undo and restore

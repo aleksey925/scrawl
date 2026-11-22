@@ -26,6 +26,7 @@ const ownLetters = 'йЙїЇўЎ';
 const finalSigma = 'ς';
 const sigma = 'σ';
 const accent = /^\p{Script=Inherited}$/u;
+const accentMarks = '[^\\u0345\\P{Script=Inherited}]*';
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -115,7 +116,7 @@ function accentFree(text: string): string {
       continue;
     }
     const variants = accents().variants.get(fold(char));
-    source += `${variants === undefined ? char : `[${variants}]`}\\p{Script=Inherited}*`;
+    source += `${variants === undefined ? char : `[${variants}]`}${accentMarks}`;
   }
   return source;
 }

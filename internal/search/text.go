@@ -39,6 +39,7 @@ const (
 	ownLetters    = "йЙїЇўЎ"
 	finalSigma    = 'ς'
 	sigma         = 'σ'
+	accentMarks   = `[^\x{345}\P{Inherited}]*`
 )
 
 type accentTable struct {
@@ -107,7 +108,7 @@ func accentFree(text string) string {
 		default:
 			afterLetter = true
 			b.WriteString(letterClass(r))
-			b.WriteString(`\p{Inherited}*`)
+			b.WriteString(accentMarks)
 		}
 	}
 	return b.String()

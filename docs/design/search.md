@@ -18,16 +18,19 @@ The server's search and the note's find bar.
   `कल` and `कुल` are two words. And `й`, `ї` and `ў` stay letters of their own,
   as Russian has `мой` and `мои`. A query letter becomes the class of every
   letter with the same base, followed by any accents, which also finds a stress
-  mark written as a mark of its own, as in `молоко́`. A class keeps the offsets
-  of the text, so the marks and the line numbers need no mapping, and the
-  server and the find bar build it from the same rule, over the same letters:
-  U+00C0 to U+2FFF, from `À`, the first letter with a mark, to the end of the
-  alphabets, so the Japanese kana and the CJK characters are left as they are.
-  Match case compares the characters as written, so `молоко` still finds
-  `молоко́` and leaves the stress mark, a character of its own, out of the
-  match. A mark belongs to the letter before it: Whole word looks past it, and
-  a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
-  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`.
+  mark written as a mark of its own, as in `молоко́`. The accents after a letter
+  leave out the Greek ypogegrammeni U+0345: in any case Go and JavaScript take
+  it for `ι`, so `παδί` would find `παιδί`, and text in NFC keeps it inside its
+  letter, as in `ᾳ`. A class keeps the offsets of the text, so the marks and
+  the line numbers need no mapping, and the server and the find bar build it
+  from the same rule, over the same letters: U+00C0 to U+2FFF, from `À`, the
+  first letter with a mark, to the end of the alphabets, so the Japanese kana
+  and the CJK characters are left as they are. Match case compares the
+  characters as written, so `молоко` still finds `молоко́` and leaves the stress
+  mark, a character of its own, out of the match. A mark belongs to the letter
+  before it: Whole word looks past it, and a mark after no letter, such as the
+  one in the emoji `1️⃣`, is kept as typed. Any case also takes `ς` for `σ`, as
+  a word in capitals ends in `Σ`.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word

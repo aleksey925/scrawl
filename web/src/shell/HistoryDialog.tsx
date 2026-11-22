@@ -86,7 +86,10 @@ function restoreReason(entry: HistoryEntry): string | undefined {
   return entry.blob === '' ? 'This version was a deletion' : 'Same as the current note';
 }
 
-function undoReason(entry: HistoryEntry): string | undefined {
+function undoReason(entry: HistoryEntry, rev: string | undefined): string | undefined {
+  if (rev === '') {
+    return 'The note is deleted now';
+  }
   if (entry.undoable) {
     return undefined;
   }
@@ -102,9 +105,32 @@ const restoreHint = 'Brings the whole note back to this version.';
 
 type VersionAction = 'restore' | 'undo';
 
-const actionWords: Record<VersionAction, { done: string; failed: string }> = {
-  restore: { done: 'Restored', failed: 'Restore failed' },
-  undo: { done: 'Undone', failed: 'Undo failed' },
+interface ActionText {
+  write: typeof api.restoreVersion;
+  title: string;
+  effect: (at: string) => string;
+  confirm: string;
+  done: string;
+  failed: string;
+}
+
+const versionActions: Record<VersionAction, ActionText> = {
+  restore: {
+    write: api.restoreVersion,
+    title: 'Restore this version?',
+    effect: (at) => `The note is overwritten with the version from ${at}.`,
+    confirm: 'Restore',
+    done: 'Restored',
+    failed: 'Restore failed',
+  },
+  undo: {
+    write: api.undoChange,
+    title: 'Undo this change?',
+    effect: (at) => `The change from ${at} is taken out of the note, and the changes after it stay.`,
+    confirm: 'Undo',
+    done: 'Undone',
+    failed: 'Undo failed',
+  },
 };
 
 type DiffMode = 'rendered' | 'source';
@@ -319,65 +345,45 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
       return;
     }
     setWriting(true);
-    const write = action === 'undo' ? api.undoChange : api.restoreVersion;
+    const words = versionActions[action];
     try {
-      const outcome = await write(path, { rev: base, version: entry.rev, from: entry.path });
+      const outcome = await words.write(path, { rev: base, version: entry.rev, from: entry.path });
       if (!outcome.ok) {
         setConflict(outcome.current);
         return;
       }
-      reportMutation(outcome.state, actionWords[action].done);
+      reportMutation(outcome.state, words.done);
       setToken((seen) => seen + 1);
       onNoteChanged();
     } catch (error) {
-      showToast('error', { title: actionWords[action].failed, message: errorText(error) });
+      showToast('error', { title: words.failed, message: errorText(error) });
     } finally {
       setWriting(false);
     }
   }
 
-  function askRestore(entry: HistoryEntry): void {
+  function askWrite(action: VersionAction, entry: HistoryEntry): void {
     if (rev === undefined) {
       return;
     }
+    const words = versionActions[action];
     modals.openConfirmModal({
-      title: 'Restore this version?',
+      title: words.title,
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          The note is overwritten with the version from {absoluteTime(entry.at)}. The text it has now stays in history
-          and can be restored back.
+          {words.effect(absoluteTime(entry.at))} The text it has now stays in history and can be restored back.
         </Text>
       ),
-      labels: { confirm: 'Restore', cancel: 'Cancel' },
+      labels: { confirm: words.confirm, cancel: 'Cancel' },
       confirmProps: { 'data-testid': 'modal-confirm' },
       cancelProps: { 'data-testid': 'modal-cancel' },
       groupProps: dialogActionsProps,
-      onConfirm: () => void runWrite('restore', entry, rev),
-    });
-  }
-
-  function askUndo(entry: HistoryEntry): void {
-    if (rev === undefined) {
-      return;
-    }
-    modals.openConfirmModal({
-      title: 'Undo this change?',
-      children: (
-        <Text data-testid="modal" data-variant="confirm" size="sm">
-          The change from {absoluteTime(entry.at)} is taken out of the note, and the changes after it stay. The text it
-          has now stays in history and can be restored back.
-        </Text>
-      ),
-      labels: { confirm: 'Undo', cancel: 'Cancel' },
-      confirmProps: { 'data-testid': 'modal-confirm' },
-      cancelProps: { 'data-testid': 'modal-cancel' },
-      groupProps: dialogActionsProps,
-      onConfirm: () => void runWrite('undo', entry, rev),
+      onConfirm: () => void runWrite(action, entry, rev),
     });
   }
 
   const reason = selected === undefined ? undefined : restoreReason(selected);
-  const undoBlockedBy = selected === undefined ? undefined : undoReason(selected);
+  const undoBlockedBy = selected === undefined ? undefined : undoReason(selected, rev);
   const busy = writing || rev === undefined || disk.loading || history.loading;
   const restoreBlocked = reason !== undefined || busy;
   const undoBlocked = undoBlockedBy !== undefined || busy;
@@ -456,14 +462,14 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                             testId="version-undo"
                             secondary
                             disabled={undoBlocked}
-                            onClick={() => askUndo(version)}
+                            onClick={() => askWrite('undo', version)}
                           >
                             Undo this change
                           </SheetButton>
                           <span data-testid="history-undo-reason" className={classes.reason}>
                             {undoBlockedBy ?? undoHint}
                           </span>
-                          <SheetButton testId="version-restore" disabled={restoreBlocked} onClick={() => askRestore(version)}>
+                          <SheetButton testId="version-restore" disabled={restoreBlocked} onClick={() => askWrite('restore', version)}>
                             Restore this version
                           </SheetButton>
                           <span data-testid="history-restore-reason" className={classes.reason}>
@@ -558,7 +564,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                     size="md"
                     variant="default"
                     disabled={undoBlocked}
-                    onClick={() => askUndo(selected)}
+                    onClick={() => askWrite('undo', selected)}
                   >
                     Undo this change
                   </Button>
@@ -572,7 +578,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                     fullWidth
                     size="md"
                     disabled={restoreBlocked}
-                    onClick={() => askRestore(selected)}
+                    onClick={() => askWrite('restore', selected)}
                   >
                     Restore this version
                   </Button>

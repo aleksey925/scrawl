@@ -14,12 +14,16 @@ var (
 	ErrUndoConflict  = errors.New("later changes touched the same lines")
 )
 
+func Undoable(before, after string) bool {
+	return before != "" && after != "" && before != after
+}
+
 func (s *Service) Undo(ctx context.Context, rev, p string, current []byte) ([]byte, error) {
 	change, err := s.Change(ctx, rev, p)
 	if err != nil {
 		return nil, err
 	}
-	if change.Before == "" || change.After == "" || change.Before == change.After {
+	if !Undoable(change.Before, change.After) {
 		return nil, fmt.Errorf("history: undo %s %q: %w", rev, p, ErrNothingToUndo)
 	}
 

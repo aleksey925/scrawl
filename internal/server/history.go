@@ -238,6 +238,10 @@ func (m *mount) apiHistoryUndo(w http.ResponseWriter, r *http.Request) {
 		failJSON(w, r, err)
 		return
 	}
+	if len(current) > maxEditableFile {
+		jsonError(w, http.StatusRequestEntityTooLarge, errMessage(store.ErrTooLarge))
+		return
+	}
 	if store.Rev(current) != req.Rev {
 		writeConflict(w, http.StatusPreconditionFailed, "conflict", store.Rev(current), current)
 		return
@@ -348,7 +352,7 @@ func historyEntries(entries []history.Entry, current string) []historyEntry {
 			Kind:       string(ent.Kind),
 			At:         ent.At,
 			Restorable: ent.Blob != "" && ent.Blob != current,
-			Undoable:   ent.Before != "" && ent.Blob != "" && ent.Before != ent.Blob,
+			Undoable:   history.Undoable(ent.Before, ent.Blob),
 		})
 	}
 	return res

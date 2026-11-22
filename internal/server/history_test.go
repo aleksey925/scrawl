@@ -22,6 +22,12 @@ import (
 
 func oid(pair string) string { return strings.Repeat(pair, 20) }
 
+type undoCall struct {
+	rev     string
+	path    string
+	current []byte
+}
+
 type fakeHistory struct {
 	degraded bool
 	failWith error
@@ -32,7 +38,7 @@ type fakeHistory struct {
 	readErr  error
 	undone   []byte
 	undoErr  error
-	merged   [][]byte
+	undos    []undoCall
 
 	unpublished bool
 	pushFails   error
@@ -148,7 +154,7 @@ func (f *fakeHistory) Undo(ctx context.Context, rev, p string, current []byte) (
 	if _, err := f.Version(ctx, rev, p); err != nil {
 		return nil, err
 	}
-	f.merged = append(f.merged, current)
+	f.undos = append(f.undos, undoCall{rev: rev, path: p, current: current})
 	return f.undone, f.undoErr
 }
 
@@ -629,12 +635,88 @@ func TestAPIHistoryUndo(t *testing.T) {
 		// assert
 		require.Equal(t, http.StatusOK, resp.status, body)
 		assert.Equal(t, store.Rev(undone), body["rev"])
-		assert.Equal(t, [][]byte{[]byte(current["content"].(string))}, fake.merged)
+		assert.Equal(t, []undoCall{{rev: version.Rev, path: version.Path, current: []byte(current["content"].(string))}},
+			fake.undos)
 		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
 		require.NoError(t, err)
 		assert.Equal(t, undone, onDisk)
 		assert.Equal(t, []history.Op{{Actor: "anonymous", Message: "undo a change to index.md", Paths: []string{"index.md"}}},
 			fake.ops)
+	})
+
+	t.Run("takes the change from the path the note had then and writes the path of the URL", func(t *testing.T) {
+		// arrange
+		renamed := history.Entry{Rev: oid("c3"), Before: oid("b1"), Blob: oid("b2"), Path: "old.md", Kind: history.KindModified}
+		fake := newFake()
+		fake.entries = []history.Entry{renamed}
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: renamed.Rev, From: renamed.Path})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, []undoCall{{rev: renamed.Rev, path: renamed.Path, current: []byte(current["content"].(string))}},
+			fake.undos)
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, undone, onDisk)
+	})
+
+	t.Run("refuses a merged text larger than a save would take", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		fake.undone = bytes.Repeat([]byte("a"), maxEditableFile+1)
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.status)
+		assert.Equal(t, "file is too large", body["error"])
+		assert.Empty(t, fake.ops)
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, current["content"], string(onDisk))
+	})
+
+	t.Run("refuses a note on disk larger than a save would take, before merging", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		ts := newTestServer(t, testOpts{history: fake})
+		huge := bytes.Repeat([]byte("a"), maxEditableFile+1)
+		require.NoError(t, os.WriteFile(filepath.Join(ts.root, "index.md"), huge, 0o600))
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: store.Rev(huge), Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.status)
+		assert.Equal(t, "file is too large", body["error"])
+		assert.Empty(t, fake.undos)
+		assert.Empty(t, fake.ops)
+	})
+
+	t.Run("answers a failure of git as history being unavailable", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		fake.undoErr = errors.New("git merge-file: exit status 255")
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusInternalServerError, resp.status)
+		assert.Equal(t, "history is unavailable", body["error"])
+		assert.Empty(t, fake.ops)
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, current["content"], string(onDisk))
 	})
 
 	t.Run("refuses a change that cannot be taken out", func(t *testing.T) {
@@ -696,7 +778,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		assert.Equal(t, "conflict", body["error"])
 		assert.Equal(t, current["rev"], body["current_rev"])
 		assert.Equal(t, current["content"], body["current_content"])
-		assert.Empty(t, fake.merged)
+		assert.Empty(t, fake.undos)
 	})
 
 	t.Run("refuses a note that is not on disk", func(t *testing.T) {
@@ -706,7 +788,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		ts := newTestServer(t, testOpts{history: fake})
 
 		// act
-		resp, _ := ts.json(t, request{
+		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/undo/gone.md",
 			body:   jsonBody(t, restoreRequest{Version: version.Rev}),
@@ -714,7 +796,9 @@ func TestAPIHistoryUndo(t *testing.T) {
 
 		// assert
 		assert.Equal(t, http.StatusNotFound, resp.status)
-		assert.Empty(t, fake.merged)
+		assert.Equal(t, "not found", body["error"])
+		assert.Empty(t, fake.undos)
+		assert.Empty(t, fake.ops)
 	})
 
 	t.Run("is refused in read-only mode", func(t *testing.T) {
@@ -759,11 +843,11 @@ func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
 	before, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
 	require.NoError(t, err)
 
-	restore := func(p string) request {
+	write := func(action, p string) request {
 		return request{
 			method: http.MethodPost,
-			path:   "/api/history/restore/" + p,
-			body:   jsonBody(t, restoreRequest{Version: secret.Rev, From: secret.Path}),
+			path:   "/api/history/" + action + "/" + p,
+			body:   jsonBody(t, restoreRequest{Rev: store.Rev(leaked), Version: secret.Rev, From: secret.Path}),
 		}
 	}
 	tests := []struct {
@@ -772,8 +856,10 @@ func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
 	}{
 		{name: "the versions of a hidden file", req: request{path: "/api/history/.env"}},
 		{name: "one version of a hidden file", req: request{path: "/api/history/.env?rev=" + secret.Rev}},
-		{name: "a restore onto a hidden file", req: restore(".env")},
-		{name: "a restore out of a hidden file", req: restore("index.md")},
+		{name: "a restore onto a hidden file", req: write("restore", ".env")},
+		{name: "a restore out of a hidden file", req: write("restore", "index.md")},
+		{name: "an undo onto a hidden file", req: write("undo", ".env")},
+		{name: "an undo out of a hidden file", req: write("undo", "index.md")},
 		{name: "the versions of an attachment", req: request{path: "/api/history/images/logo.png"}},
 		{name: "the versions of a .markdown file, an attachment like any other",
 			req: request{path: "/api/history/long.markdown"}},
@@ -798,6 +884,7 @@ func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
 
 func TestAPIHistoryWithoutTheService(t *testing.T) {
 	ts := newTestServer(t, testOpts{})
+	_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 	tests := []struct {
 		name   string
@@ -807,6 +894,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 		{name: "list", path: "/api/history/index.md"},
 		{name: "one version", path: "/api/history/index.md?rev=" + oid("a1")},
 		{name: "restore", method: http.MethodPost, path: "/api/history/restore/index.md"},
+		{name: "undo", method: http.MethodPost, path: "/api/history/undo/index.md"},
 	}
 
 	for _, tc := range tests {
@@ -815,7 +903,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 			resp, body := ts.json(t, request{
 				method: tc.method,
 				path:   tc.path,
-				body:   jsonBody(t, restoreRequest{Version: oid("a1")}),
+				body:   jsonBody(t, restoreRequest{Rev: current["rev"].(string), Version: oid("a1")}),
 			})
 
 			// assert

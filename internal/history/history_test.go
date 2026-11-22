@@ -917,6 +917,47 @@ func TestServiceLog(t *testing.T) {
 		assert.Equal(t, []string{entries[1].Blob, ""}, []string{entries[0].Before, entries[1].Before})
 	})
 
+	t.Run("names the blob of the old path before a rename", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		text := "line one\nline two\nline three\nline four\n"
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": text}))
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
+			if err := os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md")); err != nil {
+				return nil, err
+			}
+			return nil, os.WriteFile(filepath.Join(s.Root(), "new.md"), []byte(text+"line five\n"), 0o644)
+		}))
+
+		// act
+		entries, err := s.Log(t.Context(), "new.md", 0)
+
+		// assert
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		assert.Equal(t, []Kind{KindRenamed, KindAdded}, []Kind{entries[0].Kind, entries[1].Kind})
+		assert.Equal(t, []string{entries[1].Blob, ""}, []string{entries[0].Before, entries[1].Before})
+	})
+
+	t.Run("names no blob before a copy, which is a new note", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		gitIn(t, s.Root(), "config", "diff.renames", "copies")
+		text := "line one\nline two\nline three\nline four\n"
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": text}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md", "b.md"}},
+			map[string]string{"a.md": text + "line five\n", "b.md": text}))
+
+		// act
+		entries, err := s.Log(t.Context(), "b.md", 0)
+
+		// assert
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		assert.Equal(t, []Kind{KindAdded, KindAdded}, []Kind{entries[0].Kind, entries[1].Kind})
+		assert.Equal(t, []string{"", ""}, []string{entries[0].Before, entries[1].Before})
+	})
+
 	t.Run("refuses a path that escapes the root", func(t *testing.T) {
 		// arrange
 		s := newService(t)
@@ -1407,6 +1448,61 @@ func TestServiceUndo(t *testing.T) {
 		// assert
 		require.NoError(t, err)
 		assert.Equal(t, lines, string(got))
+	})
+
+	t.Run("a rename with an edit takes out the edit under the new name", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": lines}))
+		edited := lines + "eight\n"
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
+			if err := os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md")); err != nil {
+				return nil, err
+			}
+			return nil, os.WriteFile(filepath.Join(s.Root(), "new.md"), []byte(edited), 0o644)
+		}))
+
+		// act
+		got, err := s.Undo(t.Context(), head(t, s), "new.md", []byte(edited))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, lines, string(got))
+	})
+
+	t.Run("a change already gone from the text on disk leaves the text as it is", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
+			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
+		undone := head(t, s)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+
+		// act
+		got, err := s.Undo(t.Context(), undone, "a.md", []byte(lines))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, lines, string(got))
+	})
+
+	t.Run("a failure of git is no conflict", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
+			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
+		change, err := s.Change(t.Context(), head(t, s), "a.md")
+		require.NoError(t, err)
+		require.NoError(t, os.Remove(filepath.Join(s.Root(), ".git", "objects", change.Before[:2], change.Before[2:])))
+
+		// act
+		_, err = s.Undo(t.Context(), head(t, s), "a.md", []byte(strings.Replace(lines, "two", "TWO", 1)))
+
+		// assert
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, ErrUndoConflict)
 	})
 
 	t.Run("refuses a version with no change of text", func(t *testing.T) {

@@ -265,9 +265,10 @@ opens over them.
   Undo in the default look over Restore filled. Undo takes out only the change
   the version made and keeps the later ones, and Restore brings the whole note
   back to the version. A line under each says what it does, or why it is
-  disabled, and both are hidden without the right to write. An undo whose lines
-  were changed again later is refused in a toast. Each asks first, the address
-  stays `/history/<path>`, and the ✕ goes back to the note.
+  disabled, and both are hidden without the right to write. Undo is disabled
+  while the note is deleted, as there is no text to take the change out of. An
+  undo whose lines were changed again later is refused in a toast. Each asks
+  first, the address stays `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

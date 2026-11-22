@@ -26,8 +26,8 @@ Prettier inside the binary and in the browser.
   ([ADR 5](../adr/0005-format-in-browser-first.md)). The editor formats in the
   browser, on the button and on a save, where it formats once the contents is
   up to date ([editor](../ui/editor.md)), and says so with `formatted` in the
-  request. Every other writer - an API client, a restore, an editor whose
-  prettier would not load - leaves that out and the server formats, in
+  request. Every other writer - an API client, a restore, an undo, an editor
+  whose prettier would not load - leaves that out and the server formats, in
   `formatOnSave`. A test holds the two versions together. The browser's copy
   loads in two parts: prettier with the markdown and yaml plugins, about 130KB,
   when the editor opens, and the plugins of code, babel, typescript, css, html,

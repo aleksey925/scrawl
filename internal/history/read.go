@@ -127,10 +127,7 @@ func (s *Service) Change(ctx context.Context, rev, p string) (Change, error) {
 		return Change{}, fmt.Errorf("history: change %s %q: %w", rev, cleaned, ErrNoVersion)
 	}
 	row := rows[0]
-	res := Change{After: nonZero(row.blob), From: row.path}
-	if kindOf(row.status) != KindAdded {
-		res.Before = nonZero(row.srcBlob)
-	}
+	res := Change{Before: row.before(), After: nonZero(row.blob), From: row.path}
 	if kindOf(row.status) == KindRenamed {
 		res.From = row.from
 	}
@@ -269,22 +266,24 @@ func entryOf(fields []string, row rawRow) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("unexpected timestamp %q: %w", fields[3], err)
 	}
-	kind := kindOf(row.status)
-	var before string
-	if kind != KindAdded {
-		before = nonZero(row.srcBlob)
-	}
 	return Entry{
 		Rev:     fields[1],
 		Short:   shortOID(fields[1]),
 		Blob:    nonZero(row.blob),
-		Before:  before,
+		Before:  row.before(),
 		Actor:   fields[2],
 		Message: fields[4],
 		Path:    row.path,
-		Kind:    kind,
+		Kind:    kindOf(row.status),
 		At:      time.Unix(at, 0),
 	}, nil
+}
+
+func (row rawRow) before() string {
+	if kindOf(row.status) == KindAdded {
+		return ""
+	}
+	return nonZero(row.srcBlob)
 }
 
 func shortOID(rev string) string {

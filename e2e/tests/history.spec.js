@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const docs = require('../support/docs');
 const {
-    HISTORY, MAIN, READONLY, fixtureFile, readFixture, removeFixture, rgb, routes, save, setSource, shot,
+    HISTORY, MAIN, READONLY, fixtureFile, jsonRequest, readFixture, removeFixture, rgb, routes, save, setSource, shot,
     signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
@@ -162,6 +162,80 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('version-undo')).toBeDisabled();
         await expect(page.getByTestId('history-undo-reason')).toHaveText('This version created the note');
         await expect(page.getByTestId('version-restore')).toBeEnabled();
+    });
+
+    test('a deletion has nothing to undo, and a deleted note nothing to undo in', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('undo-deletion');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `kept ${stamp}\n`);
+        await page.goto(HISTORY.url.history(docPath));
+        await expect(page.getByTestId('version')).toHaveCount(1);
+        removeFixture(docPath, HISTORY);
+        const versions = page.getByTestId('version');
+        await expect.poll(async () => {
+            await page.reload();
+            await page.getByTestId('history-list').waitFor();
+            return versions.count();
+        }).toBe(2);
+        await expect(page.getByTestId('version-undo')).toBeDisabled();
+        await expect(page.getByTestId('history-undo-reason')).toHaveText('The note is deleted now');
+        writeFixture(docPath, `back ${stamp}\n`, HISTORY);
+        await expect.poll(async () => {
+            await page.reload();
+            await page.getByTestId('history-list').waitFor();
+            return versions.count();
+        }).toBe(3);
+
+        // act
+        await versions.nth(1).click();
+
+        // assert
+        await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('On disk');
+        await expect(page.getByTestId('version-undo')).toBeDisabled();
+        await expect(page.getByTestId('history-undo-reason')).toHaveText('This version was a deletion');
+    });
+
+    test('a rename alone has nothing to undo', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('undo-rename');
+        const moved = `${FOLDER}/undo-renamed-${stamp}.md`;
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `# Renamed ${stamp}\n`);
+        const move = await jsonRequest(page, 'POST', HISTORY.url.api('/move'), {from: docPath, to: moved});
+        expect(move.status, move.body).toBe(200);
+
+        // act
+        await page.goto(HISTORY.url.history(moved));
+
+        // assert
+        const versions = page.getByTestId('version');
+        await expect(versions).toHaveCount(2);
+        await expect(versions.first().getByTestId('version-kind')).toHaveText('Rename');
+        await expect(page.getByTestId('version-undo')).toBeDisabled();
+        await expect(page.getByTestId('history-undo-reason')).toHaveText('This version changed no text');
+    });
+
+    test('a page left open while the document changed is refused its undo', async ({page}) => {
+        // arrange
+        const {docPath, stamp} = freshDoc('undo-conflict');
+        await page.goto(HISTORY.url.edit(docPath));
+        await saveInEditor(page, `first ${stamp}\n`);
+        await saveInEditor(page, `second ${stamp}\n`);
+        await page.goto(HISTORY.url.history(docPath));
+        await expect(page.getByTestId('version')).toHaveCount(2);
+        const elsewhere = `written by someone else ${stamp}\n`;
+        writeFixture(docPath, elsewhere, HISTORY);
+
+        // act
+        await page.getByTestId('version-undo').click();
+        await page.getByTestId('modal-confirm').click();
+
+        // assert
+        const conflict = page.locator('[data-testid=modal][data-variant="conflict"]');
+        await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.restoreConflict);
+        await expect(page.getByTestId('history-conflict-current')).toHaveText(elsewhere);
+        expect(readFixture(docPath, HISTORY)).toBe(elsewhere);
     });
 
     test('a version is compared as a reader sees it, markup apart from words', async ({page}) => {

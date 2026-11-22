@@ -190,11 +190,11 @@ func rawETag(fi store.FileInfo) string {
 
 func (wb *Web) loginPage(w http.ResponseWriter, r *http.Request) {
 	if wb.AuthDisabled || wb.Auth == nil {
-		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound)
+		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound) //nolint:gosec // a path of this origin
 		return
 	}
 	if _, ok := wb.Auth.User(r); ok {
-		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound)
+		http.Redirect(w, r, auth.SafeRedirect(r.URL.Query().Get("from")), http.StatusFound) //nolint:gosec // a path of this origin
 		return
 	}
 	wb.loginForm(w, r, http.StatusOK, "", auth.SafeRedirect(r.URL.Query().Get("from")))
@@ -229,7 +229,7 @@ func (wb *Web) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wb.Auth.SetSignInCookie(w, r, r.PostFormValue("username"))
-	http.Redirect(w, r, from, http.StatusSeeOther)
+	http.Redirect(w, r, from, http.StatusSeeOther) //nolint:gosec // from went through SafeRedirect above
 }
 
 func (wb *Web) logout(w http.ResponseWriter, r *http.Request) {

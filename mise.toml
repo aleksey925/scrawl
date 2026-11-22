@@ -1,6 +1,6 @@
 [tools]
-go = "1.25"
-golangci-lint = "2.7.2"
+go = "1.27"
+golangci-lint = "2.15.0"
 goreleaser = "2.13.2"
 node = "24.18"
 prek = "0.5.4"

@@ -116,8 +116,9 @@ type barColor struct {
 }
 
 var siteBars = func() []barColor {
-	res := []barColor{}
-	for _, scheme := range []theme.Scheme{theme.Light, theme.Dark} {
+	schemes := []theme.Scheme{theme.Light, theme.Dark}
+	res := make([]barColor, 0, len(schemes))
+	for _, scheme := range schemes {
 		res = append(res, barColor{
 			Color: theme.AutoTheme(scheme).BarColor(),
 			Media: "(prefers-color-scheme: " + string(scheme) + ")",

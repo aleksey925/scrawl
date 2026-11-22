@@ -174,6 +174,7 @@ func (s *Service) disableFilters() error {
 	if len(current) > 0 && !bytes.HasSuffix(current, []byte("\n")) {
 		current = append(current, '\n')
 	}
+	//nolint:gosec // the same path inside the repository that ownPath checked above
 	if err = os.WriteFile(name, append(current, []byte(inertAttr+"\n")...), 0o600); err != nil {
 		return fmt.Errorf("write %s: %w", name, err)
 	}

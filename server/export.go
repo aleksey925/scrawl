@@ -67,6 +67,7 @@ func (m *mount) apiExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setExportHeaders(w, "text/html; charset=utf-8", strings.TrimSuffix(fi.Name, path.Ext(fi.Name))+".html")
+	//nolint:gosec // the page carries the note rendered through the bluemonday policy
 	if _, writeErr := w.Write(data); writeErr != nil {
 		logFailure(r, http.StatusInternalServerError, fmt.Errorf("write export: %w", writeErr))
 	}

@@ -85,8 +85,7 @@ func verifySignature(w http.ResponseWriter, r *http.Request, secret []byte, pres
 	mac := hmac.New(sha256.New, secret)
 	body := http.MaxBytesReader(w, r.Body, maxHookBody)
 	if _, err = io.Copy(mac, body); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			return errBodyTooLarge
 		}
 		return errors.New("body could not be read")

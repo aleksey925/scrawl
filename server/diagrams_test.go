@@ -33,9 +33,9 @@ func (f *fakeDiagramRenderer) Inline(ctx context.Context, fragment string) (stri
 	if f.err != nil {
 		return strings.Replace(fragment, "</pre>", "</pre>"+failedMark, 1), f.err
 	}
-	start := strings.Index(fragment, render.OpenPlantUML)
-	end := strings.Index(fragment, "</pre>")
-	return fragment[:start] + drawnMark + fragment[end+len("</pre>"):], nil
+	before, _, _ := strings.Cut(fragment, render.OpenPlantUML)
+	_, after0, _ := strings.Cut(fragment, "</pre>")
+	return before + drawnMark + after0, nil
 }
 
 type keptDiagrams struct{}
@@ -81,7 +81,7 @@ func TestDrawDiagramsCountsTheBudgetFromTheStartOfTheRequest(t *testing.T) {
 	// arrange
 	diagramRenderer := &fakeDiagramRenderer{}
 	m := &mount{
-		Web: &Web{Config: Config{WriteTimeout: 10 * time.Second}, DiagramRenderer: diagramRenderer},
+		Web: &Web{WriteTimeout: 10 * time.Second, DiagramRenderer: diagramRenderer},
 		spc: &Space{Name: "notes"},
 	}
 	spent := 3 * time.Second
@@ -108,7 +108,7 @@ func TestDiagramBudget(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// act
-			got := (&Web{Config: Config{WriteTimeout: tc.write}}).diagramBudget()
+			got := (&Web{WriteTimeout: tc.write}).diagramBudget()
 
 			// assert
 			assert.Equal(t, tc.want, got)

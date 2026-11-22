@@ -147,12 +147,12 @@ func slugify(s string) string {
 
 func foldASCII(r rune) byte {
 	if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
-		return byte(r)
+		return byte(r) //nolint:gosec // r is an ASCII letter or digit here
 	}
 	decomposed := []rune(norm.NFD.String(string(r)))
 	if len(decomposed) > 0 {
 		if base := decomposed[0]; base >= 'a' && base <= 'z' || base >= '0' && base <= '9' {
-			return byte(base)
+			return byte(base) //nolint:gosec // base is an ASCII letter or digit here
 		}
 	}
 	return 0

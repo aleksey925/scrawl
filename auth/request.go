@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -37,8 +38,8 @@ func (s *Service) clientIP(r *http.Request) string {
 	}
 
 	parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
-	for i := len(parts) - 1; i >= 0; i-- {
-		if addr := strings.TrimSpace(parts[i]); net.ParseIP(addr) != nil {
+	for _, part := range slices.Backward(parts) {
+		if addr := strings.TrimSpace(part); net.ParseIP(addr) != nil {
 			return addr
 		}
 	}

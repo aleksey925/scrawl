@@ -327,8 +327,8 @@ func TestVersions(t *testing.T) {
 	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	note := store.FileInfo{Path: "db/notes.md", Name: "notes.md", Size: 1201, ModTime: mod}
 	picture := store.FileInfo{Path: "db/plan.png", Name: "plan.png", Size: 50207, ModTime: mod.Add(time.Second)}
-	root := &store.Node{FileInfo: store.FileInfo{IsDir: true, ModTime: mod}, Children: []*store.Node{
-		{FileInfo: store.FileInfo{Path: "db", Name: "db", IsDir: true, ModTime: mod}, Children: []*store.Node{
+	root := &store.Node{IsDir: true, ModTime: mod, Children: []*store.Node{
+		{Path: "db", Name: "db", IsDir: true, ModTime: mod, Children: []*store.Node{
 			{FileInfo: note},
 			{FileInfo: picture},
 		}},
@@ -366,16 +366,16 @@ func TestFileVersion(t *testing.T) {
 func TestVersionsOfAFolder(t *testing.T) {
 	mod := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	file := func(p string) *store.Node {
-		return &store.Node{FileInfo: store.FileInfo{Path: p, Name: path.Base(p), Size: 3, ModTime: mod}}
+		return &store.Node{Path: p, Name: path.Base(p), Size: 3, ModTime: mod}
 	}
 	tree := func() *store.Node {
-		return &store.Node{FileInfo: store.FileInfo{IsDir: true, ModTime: mod}, Children: []*store.Node{
-			{FileInfo: store.FileInfo{Path: "a", Name: "a", IsDir: true, ModTime: mod}, Children: []*store.Node{
-				{FileInfo: store.FileInfo{Path: "a/b", Name: "b", IsDir: true, ModTime: mod}, Children: []*store.Node{
+		return &store.Node{IsDir: true, ModTime: mod, Children: []*store.Node{
+			{Path: "a", Name: "a", IsDir: true, ModTime: mod, Children: []*store.Node{
+				{Path: "a/b", Name: "b", IsDir: true, ModTime: mod, Children: []*store.Node{
 					file("a/b/deep.md"),
 				}},
 			}},
-			{FileInfo: store.FileInfo{Path: "c", Name: "c", IsDir: true, ModTime: mod}, Children: []*store.Node{
+			{Path: "c", Name: "c", IsDir: true, ModTime: mod, Children: []*store.Node{
 				file("c/sibling.md"),
 			}},
 		}}

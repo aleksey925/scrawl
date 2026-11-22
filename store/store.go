@@ -546,11 +546,11 @@ func (s *Store) mkParent(cleaned string) error {
 }
 
 func (s *Store) sweepTemp() {
-	err := filepath.WalkDir(s.dir, func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(s.root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(d.Name(), tmpSuffix) {
 			return nil //nolint:nilerr // an unreadable entry is not worth aborting the sweep
 		}
-		if rmErr := os.Remove(p); rmErr != nil {
+		if rmErr := s.root.Remove(p); rmErr != nil {
 			log.Printf("[WARN] remove leftover temp file %s: %v", p, rmErr)
 			return nil
 		}

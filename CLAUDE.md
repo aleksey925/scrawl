@@ -68,7 +68,7 @@ docs/screenshots/      the pictures of the README
 These hold everywhere. The rules of each part, and the reasons, are in the doc
 the link names.
 
-- Go 1.25, module `github.com/aleksey925/scrawl`.
+- Go 1.27, module `github.com/aleksey925/scrawl`.
 - Follow umputun's style: `go-flags` with `env` tags, `go-pkgz/lgr` for logs,
   `go-pkgz/rest` middlewares, `routegroup` for routing, testify for tests,
   `moq` for mocks. Packages are flat at the repository root, there is no `app/`

@@ -395,8 +395,7 @@ func (m *mount) apiUpload(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			jsonError(w, http.StatusRequestEntityTooLarge, "file is too large")
 			return
 		}
@@ -553,8 +552,7 @@ func (m *mount) refuseReadOnly(w http.ResponseWriter, r *http.Request) bool {
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		var tooBig *http.MaxBytesError
-		if errors.As(err, &tooBig) {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			jsonError(w, http.StatusRequestEntityTooLarge, "request body is too large")
 			return false
 		}

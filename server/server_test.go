@@ -143,15 +143,13 @@ func newTestServer(t *testing.T, opts testOpts) *testServer {
 	require.NoError(t, err)
 
 	res.Web = &Web{
-		Config: Config{
-			Apps:         apps,
-			TrustedProxy: opts.trustedProxy,
-			Title:        "Test Notes",
-			Version:      "v1.2.3",
-			ReadOnly:     opts.readOnly,
-			MaxUpload:    64 << 10,
-			AuthDisabled: !opts.withAuth,
-		},
+		Apps:            apps,
+		TrustedProxy:    opts.trustedProxy,
+		Title:           "Test Notes",
+		Version:         "v1.2.3",
+		ReadOnly:        opts.readOnly,
+		MaxUpload:       64 << 10,
+		AuthDisabled:    !opts.withAuth,
 		Spaces:          spaces,
 		Auth:            svc,
 		Formatter:       &fakeFormatter{err: opts.formatErr},
@@ -335,7 +333,7 @@ func TestStaticAndPing(t *testing.T) {
 		{name: "favicon", path: "/static/v1.2.3/favicon.svg", status: http.StatusOK, contentType: "image/svg+xml"},
 		{name: "missing asset", path: "/static/v1.2.3/css/nope.css", status: http.StatusNotFound},
 		{name: "empty asset path", path: "/static/v1.2.3/", status: http.StatusNotFound},
-		{name: "templates are not assets", path: "/static/v1.2.3/../templates/login.html", status: http.StatusMovedPermanently},
+		{name: "templates are not assets", path: "/static/v1.2.3/../templates/login.html", status: http.StatusTemporaryRedirect},
 	}
 
 	for _, tc := range tests {
@@ -1686,7 +1684,7 @@ func TestUploadDir(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// arrange
-			wb := &Web{Config: Config{UploadDir: tc.shared}}
+			wb := &Web{UploadDir: tc.shared}
 
 			// act & assert
 			assert.Equal(t, tc.want, wb.uploadDir(tc.doc, tc.requested))
@@ -2273,7 +2271,7 @@ func revOf(t *testing.T, ts *testServer, contentPath string) string {
 }
 
 func TestLoginTemplateExecutes(t *testing.T) {
-	wb := &Web{Config: Config{Title: "Test Notes", Version: "v1"}}
+	wb := &Web{Title: "Test Notes", Version: "v1"}
 	require.NoError(t, wb.parseTemplates())
 
 	tests := []struct {
@@ -2454,15 +2452,14 @@ func TestWebRunEmptyListenAddr(t *testing.T) {
 func TestWebRunGracefulShutdown(t *testing.T) {
 	// arrange
 	addr := fmt.Sprintf("127.0.0.1:%d", freePort(t))
-	wb := &Web{Spaces: []*Space{{Name: testSpace}}, Config: Config{
+	wb := &Web{Spaces: []*Space{{Name: testSpace}},
 		ListenAddr:        addr,
 		Version:           "test",
 		ReadHeaderTimeout: time.Second,
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      5 * time.Second,
 		IdleTimeout:       5 * time.Second,
-		ShutdownTimeout:   2 * time.Second,
-	}}
+		ShutdownTimeout:   2 * time.Second}
 
 	ctx, cancel := context.WithCancel(t.Context())
 	errCh := make(chan error, 1)
@@ -2488,7 +2485,7 @@ func TestWebRunBusyPort(t *testing.T) {
 	require.NoError(t, err)
 	defer ln.Close()
 
-	wb := &Web{Spaces: []*Space{{Name: testSpace}}, Config: Config{ListenAddr: ln.Addr().String()}}
+	wb := &Web{Spaces: []*Space{{Name: testSpace}}, ListenAddr: ln.Addr().String()}
 
 	// act
 	err = wb.Run(t.Context())
@@ -2500,7 +2497,7 @@ func TestWebRunBusyPort(t *testing.T) {
 
 func TestShutdownCancelsRequestsThatOutliveIt(t *testing.T) {
 	// arrange
-	wb := &Web{Config: Config{ShutdownTimeout: 50 * time.Millisecond}}
+	wb := &Web{ShutdownTimeout: 50 * time.Millisecond}
 	started, canceled := make(chan struct{}), make(chan struct{})
 	srv, cancelRequests := wb.httpServer(t.Context(), http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		close(started)
@@ -2523,7 +2520,7 @@ func TestShutdownCancelsRequestsThatOutliveIt(t *testing.T) {
 func TestARequestOutlivesTheCancelOfTheRunContext(t *testing.T) {
 	// arrange
 	run, cancelRun := context.WithCancel(t.Context())
-	wb := &Web{Config: Config{ShutdownTimeout: 5 * time.Second}}
+	wb := &Web{ShutdownTimeout: 5 * time.Second}
 	started, release := make(chan struct{}), make(chan struct{})
 	requestErr := make(chan error, 1)
 	srv, cancelRequests := wb.httpServer(run, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

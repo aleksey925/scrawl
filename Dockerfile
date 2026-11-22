@@ -1,5 +1,5 @@
 # pin stage to host arch (it then runs once) because go cross-compiles
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 
 ARG TARGETOS
 ARG TARGETARCH

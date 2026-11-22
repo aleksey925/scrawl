@@ -236,7 +236,7 @@ func openRepo(ctx context.Context) (*gitRepo, error) {
 }
 
 func (r *gitRepo) git(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) //nolint:gosec // the arguments are built by this command, not taken from input
 	cmd.Dir = r.top
 	if cmd.Dir == "" {
 		cmd.Dir = r.cwd

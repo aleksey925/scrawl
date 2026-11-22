@@ -157,7 +157,7 @@ func workerConfigOf(t *testing.T, script string) workerConfig {
 func offlineAppOf(t *testing.T, title, version string) *offlineApp {
 	t.Helper()
 	wb := &Web{
-		Config: Config{Title: title, Version: version, AuthDisabled: true},
+		Title: title, Version: version, AuthDisabled: true,
 		Spaces: []*Space{testSpaceAt(t, testSpace, testNotes(t), false)},
 	}
 	_, err := wb.router()

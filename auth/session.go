@@ -53,11 +53,11 @@ func (s *Service) sign(user string, expiry time.Time) string {
 }
 
 func (s *Service) parse(value string, now time.Time) (token, bool) {
-	cut := strings.LastIndex(value, tokenSep)
-	if cut < 0 {
+	before, after, ok := strings.CutLast(value, tokenSep)
+	if !ok {
 		return token{}, false
 	}
-	payload, sig := value[:cut], value[cut+1:]
+	payload, sig := before, after
 
 	parts := strings.Split(payload, tokenSep)
 	if len(parts) != tokenParts {
@@ -133,7 +133,7 @@ func (s *Service) SetCookie(w http.ResponseWriter, r *http.Request, user string)
 }
 
 func (s *Service) issue(w http.ResponseWriter, r *http.Request, user string) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is set for https, and plain http has no secure cookie
 		Name:     s.sessionCookieName(r),
 		Value:    s.sign(user, s.now().Add(s.ttl)),
 		Path:     "/",
@@ -151,7 +151,7 @@ func (s *Service) SetSignInCookie(w http.ResponseWriter, r *http.Request, user s
 		cookieNames = []string{SecureSignInCookieName, SignInCookieName}
 	}
 	for _, name := range cookieNames {
-		http.SetCookie(w, &http.Cookie{
+		http.SetCookie(w, &http.Cookie{ //nolint:gosec // the app reads this cookie when it starts, so it is not HttpOnly
 			Name:     name,
 			Value:    url.QueryEscape(user),
 			Path:     "/",
@@ -162,7 +162,7 @@ func (s *Service) SetSignInCookie(w http.ResponseWriter, r *http.Request, user s
 }
 
 func (s *Service) ClearCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // Secure is set for https, and plain http has no secure cookie
 		Name:     s.sessionCookieName(r),
 		Value:    "",
 		Path:     "/",

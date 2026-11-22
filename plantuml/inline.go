@@ -60,8 +60,7 @@ func (r *Renderer) figure(ctx context.Context, source string, room int) (string,
 func keptAsCode(block string, err error, room int) (string, int, error) {
 	message := err.Error()
 	var failure error
-	var diagramErr *diagramError
-	if !errors.As(err, &diagramErr) {
+	if _, ok := errors.AsType[*diagramError](err); !ok {
 		message, failure = "the diagram could not be rendered", err
 	}
 	reason := html.EscapeString(message)

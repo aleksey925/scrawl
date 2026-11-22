@@ -179,7 +179,7 @@ test.describe.serial('history', () => {
 
             // assert
             const when = page.getByTestId('version').nth(1).getByTestId('version-when');
-            await expect(when).toHaveText(/^Today, \d{2}:\d{2}$/);
+            await expect(when).toHaveText(/^(Today|Yesterday), \d{2}:\d{2}$/);
             await expect(when).toHaveAttribute('title', /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{2}:\d{2}$/);
         });
     });

@@ -234,7 +234,8 @@ Before changing a part, read its doc:
 - the editor screen and its toolbar, the Changes layout, text files, the draft
   kept on the device, the draft offer, leaving the editor:
   [editor](docs/ui/editor.md)
-- palettes, controls, the focus ring, menus, icons: [look](docs/ui/look.md)
+- palettes, controls, the focus ring, menus, icons, dates and times:
+  [look](docs/ui/look.md)
 - the capsule, its tab bar and New, the note and file bars, the grouped lists,
   the sheets, Profile, the search and find cards, a rename in a row, dialogs,
   toasts, screen moves, swipe back: [phone](docs/ui/phone.md)

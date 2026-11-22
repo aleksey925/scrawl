@@ -53,11 +53,10 @@ func (s *Service) sign(user string, expiry time.Time) string {
 }
 
 func (s *Service) parse(value string, now time.Time) (token, bool) {
-	before, after, ok := strings.CutLast(value, tokenSep)
+	payload, sig, ok := strings.CutLast(value, tokenSep)
 	if !ok {
 		return token{}, false
 	}
-	payload, sig := before, after
 
 	parts := strings.Split(payload, tokenSep)
 	if len(parts) != tokenParts {

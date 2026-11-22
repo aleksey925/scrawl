@@ -145,7 +145,7 @@ test.describe('search', () => {
         // assert
         await expect(lines).toHaveCount(1);
         await expect(lines).toContainText('some pear here');
-        await page.goto(`${routes.search(' pear')}&mode=exact`);
+        await page.goto(routes.search(' pear'));
         await expect(page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`))
             .toHaveCount(1);
     });

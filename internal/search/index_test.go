@@ -1,6 +1,7 @@
 package search
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"math/rand"
@@ -161,7 +162,7 @@ func TestIndexSearchMatching(t *testing.T) {
 	}
 }
 
-func TestIndexSearchPrefix(t *testing.T) {
+func TestIndexFuzzyPrefix(t *testing.T) {
 	ix := loadNotes(t)
 	tests := []struct {
 		name  string
@@ -172,15 +173,16 @@ func TestIndexSearchPrefix(t *testing.T) {
 		{"complete term still matches", "копирование", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
 		{"only the last term is expanded", "резервн копирование", []string{}},
 		{"earlier terms stay exact", "резервное копир", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
-		{"trailing space takes the term literally", "копир ", []string{}},
-		{"trailing punctuation takes the term literally", "копир.", []string{}},
+		{"trailing space takes the term literally", "коп ", []string{}},
+		{"trailing punctuation takes the term literally", "коп.", []string{}},
 		{"quoted term is never expanded", `"резервное копир"`, []string{}},
 		{"prefix of nothing finds nothing", "щщщ", []string{}},
+		{"a short last term is a prefix too", "коп", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pathsOf(ix.SearchPrefix(tt.query, 10)))
+			assert.Equal(t, tt.want, paths(fuzzyFind(t, ix, tt.query, 10)))
 		})
 	}
 
@@ -189,7 +191,7 @@ func TestIndexSearchPrefix(t *testing.T) {
 	})
 }
 
-func TestIndexSearchPrefixRanking(t *testing.T) {
+func TestIndexFuzzyPrefixRanking(t *testing.T) {
 	// arrange
 	ix := indexOf(map[string]string{
 		"exact.md":  "Заметка\n=======\n\nсервер в этом документе\n",
@@ -197,38 +199,37 @@ func TestIndexSearchPrefixRanking(t *testing.T) {
 	})
 
 	// act
-	hits := ix.SearchPrefix("сервер", 10)
+	found := fuzzyFind(t, ix, "сервер", 10)
 
 	// assert
-	assert.Equal(t, []string{"exact.md", "longer.md"}, pathsOf(hits))
-	assert.Contains(t, string(hits[1].Snippet), "<mark>серверами</mark>")
+	assert.Equal(t, []string{"exact.md", "longer.md"}, paths(found))
+	assert.Contains(t, string(found.Results[1].Snippet), "<mark>серверами</mark>")
 }
 
-func TestIndexSearchPrefixStaysBounded(t *testing.T) {
+func TestIndexFuzzyPrefixStaysBounded(t *testing.T) {
 	// arrange
 	ix := loadNotes(t)
 
 	// act
-	hits := ix.SearchPrefix("с", 5)
+	found := fuzzyFind(t, ix, "с", 5)
 
 	// assert
-	assert.NotPanics(t, func() { ix.SearchPrefix("с", 5) })
-	assert.LessOrEqual(t, len(hits), 5)
+	assert.LessOrEqual(t, len(found.Results), 5)
 	assert.LessOrEqual(t, len(ix.prefixMatches("с")), maxPrefixTerms)
 }
 
-func TestIndexSearchPrefixAfterUpdate(t *testing.T) {
+func TestIndexFuzzyPrefixAfterUpdate(t *testing.T) {
 	// arrange
 	ix := New()
 	ix.Set("a.md", []byte("Заметка\n=======\n\nсерверами\n"))
-	require.NotEmpty(t, ix.SearchPrefix("сервер", 5))
+	require.NotEmpty(t, fuzzyFind(t, ix, "сервер", 5).Results)
 
 	// act
 	ix.Set("a.md", []byte("Заметка\n=======\n\nхранилищем\n"))
 
 	// assert
-	assert.Empty(t, ix.SearchPrefix("сервер", 5))
-	assert.Equal(t, []string{"a.md"}, pathsOf(ix.SearchPrefix("хранил", 5)))
+	assert.Empty(t, fuzzyFind(t, ix, "сервер", 5).Results)
+	assert.Equal(t, []string{"a.md"}, paths(fuzzyFind(t, ix, "хранил", 5)))
 }
 
 func TestIndexSearchDegenerateQuery(t *testing.T) {
@@ -312,7 +313,7 @@ func TestIndexConcurrentAccess(t *testing.T) {
 					ix.Set(paths[i%len(paths)], content)
 				default:
 					ix.Search("мониторинг сети", 5)
-					ix.SearchPrefix("монитор", 5)
+					_, _ = ix.Find(context.Background(), Query{Text: "монитор", Mode: ModeFuzzy}, 5)
 					ix.Search(`"резервное копирование"`, 5)
 					ix.Len()
 					ix.Size()
@@ -388,7 +389,7 @@ func BenchmarkSearch(b *testing.B) {
 	for _, bm := range prefixes {
 		b.Run(bm.name, func(b *testing.B) {
 			for b.Loop() {
-				ix.SearchPrefix(bm.query, 10)
+				fuzzyFind(b, ix, bm.query, 10)
 			}
 		})
 	}
@@ -484,4 +485,11 @@ func pathsOf(hits []Hit) []string {
 		res = append(res, h.Path)
 	}
 	return res
+}
+
+func fuzzyFind(tb testing.TB, ix *Index, query string, limit int) Found {
+	tb.Helper()
+	found, err := ix.Find(context.Background(), Query{Text: query, Mode: ModeFuzzy}, limit)
+	require.NoError(tb, err)
+	return found
 }

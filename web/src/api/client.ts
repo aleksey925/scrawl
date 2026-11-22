@@ -109,7 +109,7 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
 
 function searchParams(settings: SearchSettings): Record<string, string | undefined> {
   return {
-    mode: settings.fuzzy ? 'fuzzy' : 'exact',
+    mode: settings.fuzzy ? 'fuzzy' : undefined,
     case: settings.matchCase ? '1' : undefined,
     word: settings.word ? '1' : undefined,
     regex: settings.regex ? '1' : undefined,
@@ -119,7 +119,7 @@ function searchParams(settings: SearchSettings): Record<string, string | undefin
 
 export function settingsOfSearch(params: URLSearchParams): SearchSettings {
   return {
-    fuzzy: params.get('mode') !== 'exact',
+    fuzzy: params.get('mode') === 'fuzzy',
     ...togglesOf(params),
     titles: params.get('titles') === '1',
   };

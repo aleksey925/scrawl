@@ -68,15 +68,11 @@ type compareRequest struct {
 }
 
 type searchHit struct {
-	Path    string  `json:"path"`
-	Title   string  `json:"title"`
-	Snippet string  `json:"snippet"`
-	Score   float64 `json:"score"`
-	URL     string  `json:"url"`
-	*findHit
-}
-
-type findHit struct {
+	Path       string       `json:"path"`
+	Title      string       `json:"title"`
+	Snippet    string       `json:"snippet"`
+	Score      float64      `json:"score"`
+	URL        string       `json:"url"`
 	TitleSpans []searchSpan `json:"title_spans,omitempty"`
 	MatchCount int          `json:"match_count"`
 	LineCount  int          `json:"line_count"`
@@ -481,8 +477,7 @@ func (m *mount) renderPreview(docPath string, source []byte) (render.Result, err
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	find, extended, err := searchQueryOf(r.URL.Query())
+	find, err := searchQueryOf(r.URL.Query())
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
@@ -497,27 +492,7 @@ func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
 		limit = min(parsed, searchPageLimit)
 	}
 
-	start := time.Now()
-	if extended {
-		m.findSearch(w, r, find, limit, start)
-		return
-	}
-	hits := make([]searchHit, 0, limit)
-	if query != "" && m.spc.Index != nil {
-		for _, hit := range m.spc.Index.SearchPrefix(query, limit) {
-			hits = append(hits, searchHit{
-				Path:    hit.Path,
-				Title:   hit.Title,
-				Snippet: string(hit.Snippet),
-				Score:   hit.Score,
-				URL:     view.SearchURL(hit.Path, query),
-			})
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"hits":       hits,
-		"elapsed_ms": time.Since(start).Milliseconds(),
-	})
+	m.findSearch(w, r, find, limit, time.Now())
 }
 
 func (m *mount) touch(paths ...string) {
@@ -590,25 +565,22 @@ func relativeLink(doc, target string) string {
 	return path.Join(append(res, targetSegments[shared:]...)...)
 }
 
-func searchQueryOf(values url.Values) (search.Query, bool, error) {
-	q := search.Query{Text: values.Get("q"), Mode: search.ModeFuzzy}
-	extended := false
+func searchQueryOf(values url.Values) (search.Query, error) {
+	q := search.Query{Text: values.Get("q"), Mode: search.ModeExact}
 	switch mode := values.Get("mode"); mode {
 	case "":
 	case string(search.ModeFuzzy), string(search.ModeExact):
-		q.Mode, extended = search.Mode(mode), true
+		q.Mode = search.Mode(mode)
 	default:
-		return q, false, fmt.Errorf("mode must be %s or %s", search.ModeFuzzy, search.ModeExact)
+		return q, fmt.Errorf("mode must be %s or %s", search.ModeFuzzy, search.ModeExact)
 	}
 	for name, field := range map[string]*bool{"case": &q.Case, "word": &q.Word, "regex": &q.Regex, "titles": &q.TitlesOnly} {
-		if values.Has(name) {
-			*field, extended = values.Get(name) == "1", true
-		}
+		*field = values.Get(name) == "1"
 	}
 	if q.Mode == search.ModeFuzzy && !q.Regex {
 		q.Text = strings.TrimSpace(q.Text)
 	}
-	return q, extended, nil
+	return q, nil
 }
 
 func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int, start time.Time) {
@@ -631,17 +603,15 @@ func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Quer
 			lines = append(lines, searchLine{Line: matched.Line, URL: view.FindURL(res.Path, find, matched.Line), Spans: spansOf(matched.Spans)})
 		}
 		hits = append(hits, searchHit{
-			Path:    res.Path,
-			Title:   res.Title,
-			Snippet: string(res.Snippet),
-			Score:   res.Score,
-			URL:     view.FindURL(res.Path, find, 0),
-			findHit: &findHit{
-				TitleSpans: spansOf(res.TitleSpans),
-				MatchCount: res.MatchCount,
-				LineCount:  res.LineCount,
-				Lines:      lines,
-			},
+			Path:       res.Path,
+			Title:      res.Title,
+			Snippet:    string(res.Snippet),
+			Score:      res.Score,
+			URL:        view.FindURL(res.Path, find, 0),
+			TitleSpans: spansOf(res.TitleSpans),
+			MatchCount: res.MatchCount,
+			LineCount:  res.LineCount,
+			Lines:      lines,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{

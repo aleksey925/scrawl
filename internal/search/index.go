@@ -114,16 +114,11 @@ func (ix *Index) Size() int64 {
 }
 
 func (ix *Index) Search(query string, limit int) []Hit {
-	return ix.find(query, limit, false)
+	return ix.find(query, limit)
 }
 
-func (ix *Index) SearchPrefix(query string, limit int) []Hit {
-	ix.ensureVocab()
-	return ix.find(query, limit, true)
-}
-
-func (ix *Index) find(query string, limit int, prefix bool) []Hit {
-	q := parseQuery(query, prefix)
+func (ix *Index) find(query string, limit int) []Hit {
+	q := parseQuery(query, false)
 	if len(q.terms) == 0 || limit <= 0 {
 		return nil
 	}

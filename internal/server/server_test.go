@@ -11,7 +11,6 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
-	"maps"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -21,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1516,6 +1514,8 @@ func TestAPISearch(t *testing.T) {
 
 	// act
 	resp, body := ts.json(t, request{path: "/api/search?q=widgets&limit=5"})
+	_, typo := ts.json(t, request{path: "/api/search?q=widgts"})
+	_, fuzzy := ts.json(t, request{path: "/api/search?q=widgts&mode=fuzzy"})
 
 	// assert
 	assert.Equal(t, http.StatusOK, resp.status)
@@ -1525,11 +1525,10 @@ func TestAPISearch(t *testing.T) {
 	assert.Equal(t, "guide.md", hit["path"])
 	assert.Equal(t, "/doc/guide.md?q=widgets", hit["url"],
 		"the hit carries the query on, so the page it opens can jump to the match")
-	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
+	assert.Equal(t, float64(1), hit["match_count"])
 	assert.NotNil(t, body["elapsed_ms"])
-	assert.Equal(t, []string{"path", "score", "snippet", "title", "url"}, slices.Sorted(maps.Keys(hit)),
-		"a request that names no mode is answered the way scripts know it")
-	assert.NotContains(t, body, "truncated")
+	assert.Empty(t, typo["hits"], "a request that names no mode looks for the text as typed")
+	assert.Len(t, fuzzy["hits"], 1)
 }
 
 func TestAPISearchModes(t *testing.T) {

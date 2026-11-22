@@ -31,10 +31,8 @@ The server's search and the note's find bar.
   text with RE2 under a deadline, a cap on the pattern and a cap on matched
   lines, skip empty matches, and say when they stopped early. The server builds
   the url that opens a result with the note's find bar filled in, and for Fuzzy
-  it is the whole words the postings matched, typos included. The API only
-  grows: a request that names no mode or toggle is answered the way it always
-  was, Fuzzy, while the app asks for Exact first, and `snippet` stays escaped
-  HTML.
+  it is the whole words the postings matched, typos included. A request that
+  names no mode is Exact, the way the app opens, and `snippet` is escaped HTML.
 - `Cmd+F` on a note opens the reader's own find bar, in the app and in a site.
   It matches each block's visible text as one string, the way the index
   flattens a note, so a phrase across bold is one match, and marks the text

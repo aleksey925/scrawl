@@ -360,6 +360,8 @@ test.describe('find in the note', () => {
             '',
             'Молоко́ и мой дом, документация.',
             '',
+            'За́мок, 1️⃣, ΩΣ, wording and otherwise.',
+            '',
             '<details>',
             '<summary>More</summary>',
             '',
@@ -449,6 +451,29 @@ test.describe('find in the note', () => {
         await page.keyboard.press('Alt+KeyR');
         await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'false');
+    });
+
+    test('marks, a final sigma and a repeated word match as on the server', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const input = page.getByTestId('doc-find-input');
+        await openFind(page);
+
+        // act & assert
+        await input.fill('1️⃣');
+        await expect(page.getByTestId('find-hit')).toHaveText(['1️⃣']);
+        await input.fill('мок');
+        await expect(page.getByTestId('find-hit')).toHaveText(['мок']);
+        await page.keyboard.press('Alt+KeyW');
+        await expect(counter).toHaveText('No results');
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+        await input.fill('ως');
+        await expect(page.getByTestId('find-hit')).toHaveText(['ΩΣ']);
+        await input.fill('за́');
+        await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
+        await input.fill('word other word');
+        await expect(page.getByTestId('find-hit')).toHaveText(['wording']);
     });
 
     test('a phrase across bold is one match', async ({page}) => {

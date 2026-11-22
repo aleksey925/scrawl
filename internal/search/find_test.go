@@ -539,7 +539,7 @@ func TestWithinTypos(t *testing.T) {
 
 func TestFindIgnoresAccents(t *testing.T) {
 	ix := indexOf(map[string]string{
-		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n",
+		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n\nЗа\u0301мок, 1\ufe0f\u20e3, ΩΣ.\n",
 	})
 
 	tests := []struct {
@@ -559,6 +559,14 @@ func TestFindIgnoresAccents(t *testing.T) {
 		{name: "fuzzy in a short word", query: Query{Text: "ou", Mode: ModeFuzzy}, want: []string{"où"}},
 		{name: "an accent is never a typo", query: Query{Text: "σπιτη", Mode: ModeFuzzy}, want: []string{"σπίτι"}},
 		{name: "regex keeps the accent", query: Query{Text: "σπιτι", Regex: true}, want: []string{}},
+		{name: "an emoji keeps its variation selector", query: Query{Text: "1\ufe0f\u20e3", Mode: ModeExact},
+			want: []string{"1\ufe0f\u20e3"}},
+		{name: "whole word looks past a stress mark", query: Query{Text: "мок", Mode: ModeExact, Word: true}, want: []string{}},
+		{name: "match case and whole word end past a stress mark", query: Query{Text: "Молоко", Mode: ModeExact, Case: true, Word: true},
+			want: []string{"Молоко"}},
+		{name: "fuzzy takes a final sigma for a sigma", query: Query{Text: "ως", Mode: ModeFuzzy}, want: []string{"ΩΣ"}},
+		{name: "a stress mark at the end keeps the prefix", query: Query{Text: "за\u0301", Mode: ModeFuzzy},
+			want: []string{"За\u0301мок"}},
 	}
 
 	for _, tc := range tests {

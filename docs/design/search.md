@@ -21,7 +21,9 @@ The server's search and the note's find bar.
   of the alphabets, so the Japanese kana and the CJK characters are left as
   they are. Match case compares the characters as written, so `молоко` still
   finds `молоко́` and leaves the stress mark, a character of its own, out of the
-  match.
+  match. A mark belongs to the letter before it: Whole word looks past it, and
+  a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
+  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word

@@ -24,8 +24,9 @@ It ships as one static binary or a Docker image.
 
 ## Features
 
-- **Search** across all notes, in any case and with or without accents: exact,
-  by regular expression, or fuzzy, which also finds a word typed with a typo
+- **Search** across all notes, exact or fuzzy, in any case and with or without
+  accents, or by regular expression; fuzzy search also finds a word typed with
+  a typo
 - **Editor** with live preview and a view of your unsaved changes
 - **Consistent formatting**: every save runs the note through prettier, so all
   notes keep one style and stay easy to read and diff as plain files in git

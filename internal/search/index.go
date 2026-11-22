@@ -454,7 +454,7 @@ func parseQuery(query string) parsedQuery {
 }
 
 func endsWithWord(query string) bool {
-	r, _ := utf8.DecodeLastRuneInString(query)
+	r, _ := utf8.DecodeLastRuneInString(strings.TrimRightFunc(query, ignorable))
 	return wordRune(r)
 }
 

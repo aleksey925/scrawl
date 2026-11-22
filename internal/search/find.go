@@ -522,17 +522,9 @@ func patternMarks(text string, re *regexp.Regexp, word bool) []mark {
 }
 
 func wordBounded(text string, start, end int) bool {
-	if start > 0 {
-		if r, _ := utf8.DecodeLastRuneInString(text[:start]); isWordChar(r) {
-			return false
-		}
-	}
-	if end < len(text) {
-		if r, _ := utf8.DecodeRuneInString(text[end:]); isWordChar(r) {
-			return false
-		}
-	}
-	return true
+	before, _ := utf8.DecodeLastRuneInString(strings.TrimRightFunc(text[:start], isMark))
+	after, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(text[end:], isMark))
+	return !isWordChar(before) && !isWordChar(after)
 }
 
 func isWordChar(r rune) bool {

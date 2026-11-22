@@ -23,6 +23,8 @@ const twoTypoChars = 8;
 const firstAccented = 0xc0;
 const lastAccented = 0x2fff;
 const ownLetters = 'йЙїЇўЎ';
+const finalSigma = 'ς';
+const sigma = 'σ';
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -96,16 +98,18 @@ function accents(): AccentTable {
 }
 
 function fold(char: string): string {
-  return accents().base.get(char) ?? char.toLowerCase();
+  return accents().base.get(char) ?? (char === finalSigma ? sigma : char.toLowerCase());
 }
 
 function accentFree(text: string): string {
   let source = '';
+  let afterLetter = false;
   for (const char of text) {
-    if (/\p{Mn}/u.test(char)) {
+    if (afterLetter && /\p{Mn}/u.test(char)) {
       continue;
     }
-    if (!/\p{L}/u.test(char)) {
+    afterLetter = /\p{L}/u.test(char);
+    if (!afterLetter) {
       source += escapeRegExp(char);
       continue;
     }
@@ -123,9 +127,9 @@ function termOf(word: string): string {
 }
 
 function termsOf(text: string): FindTerm[] {
-  const words = [...new Set([...text.matchAll(wordChars)].map((found) => termOf(found[0])).filter((term) => term !== ''))];
-  const prefix = /[\p{L}\p{N}]$/u.test(text.trim());
-  return words.map((term, at) => ({ text: term, prefix: prefix && at === words.length - 1 }));
+  const typed = [...text.matchAll(wordChars)].map((found) => termOf(found[0])).filter((term) => term !== '');
+  const last = /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? typed.at(-1) : undefined;
+  return [...new Set(typed)].map((term) => ({ text: term, prefix: term === last }));
 }
 
 export function patternOf(query: FindQuery): FindPattern {
@@ -138,7 +142,7 @@ export function patternOf(query: FindQuery): FindPattern {
     : { source: query.matchCase ? escapeRegExp(text) : accentFree(text), flags: '' };
   let source = typed.source;
   if (query.word) {
-    source = `(?<![\\p{L}\\p{N}_])(?:${source})(?![\\p{L}\\p{N}_])`;
+    source = `(?<![\\p{L}\\p{N}_]\\p{Mn}*)(?:${source})(?!\\p{Mn}*[\\p{L}\\p{N}_])`;
   }
   const flags = [...new Set(`gmu${query.matchCase ? '' : 'i'}${typed.flags}`)].join('');
   new RegExp(source, flags);

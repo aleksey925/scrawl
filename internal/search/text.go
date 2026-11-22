@@ -37,6 +37,8 @@ const (
 	firstAccented = 0xc0
 	lastAccented  = 0x2fff
 	ownLetters    = "йЙїЇўЎ"
+	finalSigma    = 'ς'
+	sigma         = 'σ'
 )
 
 type accentTable struct {
@@ -68,28 +70,38 @@ var accents = sync.OnceValue(func() accentTable {
 
 func allMarks(runes []rune) bool {
 	for _, r := range runes {
-		if !unicode.Is(unicode.Mn, r) {
+		if !isMark(r) {
 			return false
 		}
 	}
 	return true
 }
 
+func isMark(r rune) bool {
+	return unicode.Is(unicode.Mn, r)
+}
+
 func fold(r rune) rune {
 	if base, ok := accents().base[r]; ok {
 		return base
+	}
+	if r == finalSigma {
+		return sigma
 	}
 	return unicode.ToLower(r)
 }
 
 func accentFree(text string) string {
 	var b strings.Builder
+	afterLetter := false
 	for _, r := range text {
 		switch {
-		case unicode.Is(unicode.Mn, r):
+		case afterLetter && isMark(r):
 		case !unicode.IsLetter(r):
+			afterLetter = false
 			b.WriteString(regexp.QuoteMeta(string(r)))
 		default:
+			afterLetter = true
 			b.WriteString(letterClass(r))
 			b.WriteString(`\p{Mn}*`)
 		}
@@ -110,7 +122,7 @@ func ignorable(r rune) bool {
 	case softHyphen, zeroWidthSpace, zeroWidthNonJoiner, zeroWidthJoiner, byteOrderMark:
 		return true
 	}
-	return unicode.Is(unicode.Mn, r)
+	return isMark(r)
 }
 
 func wordRune(r rune) bool {

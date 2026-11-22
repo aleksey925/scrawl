@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -11,15 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/unicode/norm"
 )
-
-func findIndex(t *testing.T, notes map[string]string) *Index {
-	t.Helper()
-	ix := New()
-	for path, text := range notes {
-		ix.Set(path, []byte(text))
-	}
-	return ix
-}
 
 func paths(found Found) []string {
 	res := []string{}
@@ -41,8 +33,16 @@ func hits(r Result) []string {
 	return res
 }
 
+func allHits(found Found) []string {
+	res := []string{}
+	for _, r := range found.Results {
+		res = append(res, hits(r)...)
+	}
+	return res
+}
+
 func TestFindFuzzy(t *testing.T) {
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"db.md":   "# Индексы\n\nПро индексы, репликацию и vacuum в базе.\n",
 		"misc.md": "# Разное\n\nfoo bar here\n",
 	})
@@ -73,7 +73,7 @@ func TestFindFuzzy(t *testing.T) {
 
 func TestFindFuzzyHandsTheMatchedWordsToTheNote(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"db.md": "# DB\n\nThe vacuum (full) runs. Vacuum again.\n"})
+	ix := indexOf(map[string]string{"db.md": "# DB\n\nThe vacuum (full) runs. Vacuum again.\n"})
 
 	// act
 	got, err := ix.Find(context.Background(), Query{Text: "vacum", Mode: ModeFuzzy}, 10)
@@ -87,7 +87,7 @@ func TestFindFuzzyHandsTheMatchedWordsToTheNote(t *testing.T) {
 
 func TestFindFuzzyHandsAWordJoinedByUnderscoreWhole(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"db.md": "# DB\n\nCall foo_bar and bar.\n"})
+	ix := indexOf(map[string]string{"db.md": "# DB\n\nCall foo_bar and bar.\n"})
 
 	// act
 	got, err := ix.Find(context.Background(), Query{Text: "bar", Mode: ModeFuzzy}, 10)
@@ -100,7 +100,7 @@ func TestFindFuzzyHandsAWordJoinedByUnderscoreWhole(t *testing.T) {
 
 func TestFindFuzzyCountsEveryMatch(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# A\n\n" + strings.Repeat("word word\n\n", maxSnippetMarks)})
+	ix := indexOf(map[string]string{"a.md": "# A\n\n" + strings.Repeat("word word\n\n", maxSnippetMarks)})
 
 	// act
 	got, err := ix.Find(context.Background(), Query{Text: "word", Mode: ModeFuzzy}, 10)
@@ -114,7 +114,7 @@ func TestFindFuzzyCountsEveryMatch(t *testing.T) {
 
 func TestFindFuzzyMarksATypoInTheTitle(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"db.md": "# Vacuum notes\n\nbody\n"})
+	ix := indexOf(map[string]string{"db.md": "# Vacuum notes\n\nbody\n"})
 
 	// act
 	got, err := ix.Find(context.Background(), Query{Text: "vacum", Mode: ModeFuzzy}, 10)
@@ -131,7 +131,7 @@ func TestFindFuzzyWidensATypoToAFewWords(t *testing.T) {
 	for i, r := range []rune("abcdefghijklmnopqrstuwxyzабвгдежзийклмнопрстуфхцчшщ") {
 		notes[fmt.Sprintf("n%02d.md", i)] = "# N\n\n" + string(r) + "acuum\n"
 	}
-	ix := findIndex(t, notes)
+	ix := indexOf(notes)
 
 	// act
 	got, err := ix.Find(context.Background(), Query{Text: "vacuum", Mode: ModeFuzzy}, 100)
@@ -142,7 +142,7 @@ func TestFindFuzzyWidensATypoToAFewWords(t *testing.T) {
 }
 
 func TestFindExactOrder(t *testing.T) {
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"d.md": "# D\n\nword\n",
 		"b.md": "# B\n\nword word\n\nword\n",
 		"c.md": "# The word\n\nnothing\n",
@@ -171,7 +171,7 @@ func TestFindExactOrder(t *testing.T) {
 }
 
 func TestFindExact(t *testing.T) {
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md": "# Notes\n\nfoo **bar** baz\n\nИндексы, индекс.\nиндексы\n\na.b axb (x) x\n",
 	})
 
@@ -198,11 +198,7 @@ func TestFindExact(t *testing.T) {
 
 			// assert
 			require.NoError(t, err)
-			res := []string{}
-			for _, r := range got.Results {
-				res = append(res, hits(r)...)
-			}
-			assert.Equal(t, tc.want, res)
+			assert.Equal(t, tc.want, allHits(got))
 		})
 	}
 }
@@ -211,7 +207,7 @@ func TestFindExactAndRegexMatchADecomposedQuery(t *testing.T) {
 	// arrange
 	composed := "café"
 	decomposed := norm.NFD.String(composed)
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md":                   "# Notes\n\nA " + decomposed + " here.\n",
 		decomposed + "-notes.md": "nothing\n",
 	})
@@ -232,7 +228,7 @@ func TestFindExactAndRegexMatchADecomposedQuery(t *testing.T) {
 
 func TestFindRegexRunsOverTheTextAsShown(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# Title\n\n## Heading two\n\ntext\n"})
+	ix := indexOf(map[string]string{"a.md": "# Title\n\n## Heading two\n\ntext\n"})
 
 	// act
 	heading, err := ix.Find(context.Background(), Query{Text: "^Heading", Regex: true}, 10)
@@ -247,7 +243,7 @@ func TestFindRegexRunsOverTheTextAsShown(t *testing.T) {
 }
 
 func TestFindSkipsEmptyMatches(t *testing.T) {
-	ix := findIndex(t, map[string]string{"a.md": "# Z\n\nbbb\n"})
+	ix := indexOf(map[string]string{"a.md": "# Z\n\nbbb\n"})
 
 	for _, pattern := range []string{"^", "$", "a*"} {
 		t.Run(pattern, func(t *testing.T) {
@@ -263,7 +259,7 @@ func TestFindSkipsEmptyMatches(t *testing.T) {
 
 func TestFindTitlesOnly(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# Vacuum\n\nvacuum body\n", "b.md": "# Other\n\nvacuum body\n"})
+	ix := indexOf(map[string]string{"a.md": "# Vacuum\n\nvacuum body\n", "b.md": "# Other\n\nvacuum body\n"})
 
 	// act
 	fuzzy, err := ix.Find(context.Background(), Query{Text: "vacuum", Mode: ModeFuzzy, TitlesOnly: true}, 10)
@@ -282,7 +278,7 @@ func TestFindTitlesOnly(t *testing.T) {
 
 func TestFindTitlesOnlyMatchesAPhraseInTheTitle(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"foo bar.md": "unrelated text\n",
 		"bar foo.md": "the body says foo bar\n",
 	})
@@ -297,7 +293,7 @@ func TestFindTitlesOnlyMatchesAPhraseInTheTitle(t *testing.T) {
 
 func TestFindTitlesOnlyCountsTheTitleMatches(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md": "# Vacuum\n\nvacuum vacuum vacuum\n",
 		"b.md": "# Vacuum and vacuum\n\nbody\n",
 	})
@@ -331,7 +327,7 @@ func TestFindTitlesOnlyCountsTheTitleMatches(t *testing.T) {
 
 func TestFindTitlesOnlyRanksExactAndRegexByTheTitleMatches(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md": "# Vacuum\n\nvacuum vacuum vacuum\n",
 		"b.md": "# Vacuum and vacuum\n\nbody\n",
 	})
@@ -357,7 +353,7 @@ func TestFindTitlesOnlyRanksExactAndRegexByTheTitleMatches(t *testing.T) {
 
 func TestFindTitlesOnlyKeepsTheSnippet(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# Vacuum\n\nsome vacuum body\n"})
+	ix := indexOf(map[string]string{"a.md": "# Vacuum\n\nsome vacuum body\n"})
 	tests := []struct {
 		name  string
 		query Query
@@ -389,7 +385,7 @@ func TestFindTitlesOnlyKeepsTheSnippet(t *testing.T) {
 func TestFindLineNumbersAndCounts(t *testing.T) {
 	// arrange
 	many := strings.Repeat("word\n\n", 30)
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md": "# A\n\n```go\ncode\n```\n\nafter the fence\n",
 		"b.md": "# B\n\n" + many,
 	})
@@ -409,7 +405,7 @@ func TestFindLineNumbersAndCounts(t *testing.T) {
 }
 
 func TestFindRefusesABadPattern(t *testing.T) {
-	ix := findIndex(t, map[string]string{"a.md": "# A\n"})
+	ix := indexOf(map[string]string{"a.md": "# A\n"})
 
 	for name, q := range map[string]Query{
 		"too long":      {Text: strings.Repeat("a", MaxPattern+1), Mode: ModeExact},
@@ -427,7 +423,7 @@ func TestFindRefusesABadPattern(t *testing.T) {
 
 func TestFindStopsAtTheDeadline(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# A\n\nword\n"})
+	ix := indexOf(map[string]string{"a.md": "# A\n\nword\n"})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -454,7 +450,7 @@ func (c *cancelAfter) Err() error {
 
 func TestFindStopsInsideANote(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{"a.md": "# A\n\n" + strings.Repeat("word\n\n", checkEvery+10)})
+	ix := indexOf(map[string]string{"a.md": "# A\n\n" + strings.Repeat("word\n\n", checkEvery+10)})
 	ctx := &cancelAfter{Context: context.Background(), calls: 2}
 
 	// act
@@ -469,7 +465,7 @@ func TestFindStopsInsideANote(t *testing.T) {
 
 func TestFindStopsAtTheCapOnMatchedLines(t *testing.T) {
 	// arrange
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"a.md": "# A\n\n" + strings.Repeat("word\n\n", maxMatchedLines+10),
 		"b.md": "# B\n\nword\n",
 	})
@@ -542,7 +538,7 @@ func TestWithinTypos(t *testing.T) {
 }
 
 func TestFindIgnoresAccents(t *testing.T) {
-	ix := findIndex(t, map[string]string{
+	ix := indexOf(map[string]string{
 		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n",
 	})
 
@@ -572,11 +568,334 @@ func TestFindIgnoresAccents(t *testing.T) {
 
 			// assert
 			require.NoError(t, err)
-			res := []string{}
-			for _, r := range got.Results {
-				res = append(res, hits(r)...)
-			}
-			assert.Equal(t, tc.want, res)
+			assert.Equal(t, tc.want, allHits(got))
 		})
 	}
+}
+
+func TestFindRanking(t *testing.T) {
+	tests := []struct {
+		name  string
+		docs  map[string]string
+		query string
+		want  []string
+	}{
+		{
+			name:  "title beats heading beats body beats code",
+			query: "мониторинг",
+			want:  []string{"rank/title.md", "rank/heading.md", "rank/body.md", "rank/code.md"},
+		},
+		{
+			name: "one title match beats many body matches",
+			docs: map[string]string{
+				"title.md": "Мониторинг\n==========\n\nтекст без ключевого слова\n",
+				"body.md":  "Заметка\n=======\n\nмониторинг мониторинг мониторинг мониторинг\n",
+			},
+			query: "мониторинг",
+			want:  []string{"title.md", "body.md"},
+		},
+		{
+			name: "more occurrences rank higher",
+			docs: map[string]string{
+				"many.md": "Заметка\n=======\n\nсеть сеть сеть сеть\n",
+				"one.md":  "Заметка\n=======\n\nсеть один два три\n",
+			},
+			query: "сеть",
+			want:  []string{"many.md", "one.md"},
+		},
+		{
+			name: "match closer to the start ranks higher",
+			docs: map[string]string{
+				"early.md": "Заметка\n=======\n\nсеть в начале документа.\n\n" + filler,
+				"late.md":  "Заметка\n=======\n\n" + filler + "\n\nсеть в конце документа.\n",
+			},
+			query: "сеть",
+			want:  []string{"early.md", "late.md"},
+		},
+		{
+			name: "terms standing close rank higher",
+			docs: map[string]string{
+				"near.md": "Заметка\n=======\n\nрезервное копирование включено. " + filler,
+				"far.md":  "Заметка\n=======\n\nрезервное хранение включено. " + filler + " копирование\n",
+			},
+			query: "резервное копирование",
+			want:  []string{"near.md", "far.md"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ix := loadNotes(t)
+			if tt.docs != nil {
+				ix = indexOf(tt.docs)
+			}
+			assert.Equal(t, tt.want, paths(fuzzyFind(t, ix, tt.query, 10)))
+		})
+	}
+}
+
+func TestFindMatching(t *testing.T) {
+	ix := loadNotes(t)
+	tests := []struct {
+		name  string
+		query string
+		want  []string
+	}{
+		{"single term", "восстановление", []string{"notes/бэкап.md"}},
+		{"case does not matter", "УСТАНОВКА", []string{"docker/setup.md"}},
+		{"all terms must be present", "резервное копирование",
+			[]string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+		{"one missing term drops the document", "резервное nginx", []string{}},
+		{"link text is indexed", "compose", []string{"docker/compose.md", "index.md"}},
+		{"link target is not indexed", "setup", []string{}},
+		{"image alt is indexed", "схема", []string{"docker/setup.md"}},
+		{"image target is not indexed", "png", []string{}},
+		{"html attribute is not indexed", "name", []string{}},
+		{"code is searchable", "systemctl", []string{"rank/code.md"}},
+		{"yo matches ye", "еще", []string{"notes/unicode.md"}},
+		{"ye matches yo", "ещё", []string{"notes/unicode.md"}},
+		{"decomposed query matches composed text", "же\u0308лтый", []string{"notes/unicode.md"}},
+		{"zero width space inside a word", "контейнер",
+			[]string{"notes/unicode.md", "index.md", "docker/setup.md"}},
+		{"combining accent inside a word", "поверх", []string{"notes/unicode.md"}},
+		{"non breaking space splits words", "неразрывный пробел", []string{"notes/unicode.md"}},
+		{"phrase over a non breaking space", `"резервное копирование"`,
+			[]string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+		{"phrase in the wrong order", `"копирование резервное"`, []string{}},
+		{"phrase with a word between", `"резервное данных"`, []string{}},
+		{"unbalanced quote is still a phrase", `"резервное копирование`,
+			[]string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, paths(fuzzyFind(t, ix, tt.query, 10)))
+		})
+	}
+}
+
+func TestFindFuzzyPrefix(t *testing.T) {
+	ix := loadNotes(t)
+	tests := []struct {
+		name  string
+		query string
+		want  []string
+	}{
+		{"last term matches by prefix", "копир", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+		{"complete term still matches", "копирование", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+		{"only the last term is expanded", "резервн копирование", []string{}},
+		{"earlier terms stay exact", "резервное копир", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+		{"trailing space ends the prefix", "коп ", []string{}},
+		{"trailing punctuation ends the prefix", "коп.", []string{}},
+		{"quoted term is never expanded", `"резервное копир"`, []string{}},
+		{"prefix of nothing finds nothing", "щщщ", []string{}},
+		{"a short last term is a prefix too", "коп", []string{"notes/бэкап.md", "index.md", "notes/unicode.md"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, paths(fuzzyFind(t, ix, tt.query, 10)))
+		})
+	}
+}
+
+func TestFindFuzzyPrefixRanking(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{
+		"exact.md":  "Заметка\n=======\n\nсервер в этом документе\n",
+		"longer.md": "Заметка\n=======\n\nсерверами в этом документе\n",
+	})
+
+	// act
+	found := fuzzyFind(t, ix, "сервер", 10)
+
+	// assert
+	assert.Equal(t, []string{"exact.md", "longer.md"}, paths(found))
+	assert.Contains(t, string(found.Results[1].Snippet), "<mark>серверами</mark>")
+}
+
+func TestFindFuzzyPrefixStaysBounded(t *testing.T) {
+	// arrange
+	ix := loadNotes(t)
+
+	// act
+	found := fuzzyFind(t, ix, "с", 5)
+
+	// assert
+	assert.LessOrEqual(t, len(found.Results), 5)
+	assert.LessOrEqual(t, len(ix.prefixMatches("с")), maxPrefixTerms)
+}
+
+func TestFindFuzzyPrefixAfterUpdate(t *testing.T) {
+	// arrange
+	ix := New()
+	ix.Set("a.md", []byte("Заметка\n=======\n\nсерверами\n"))
+	require.NotEmpty(t, fuzzyFind(t, ix, "сервер", 5).Results)
+
+	// act
+	ix.Set("a.md", []byte("Заметка\n=======\n\nхранилищем\n"))
+
+	// assert
+	assert.Empty(t, fuzzyFind(t, ix, "сервер", 5).Results)
+	assert.Equal(t, []string{"a.md"}, paths(fuzzyFind(t, ix, "хранил", 5)))
+}
+
+func TestFindDegenerateQuery(t *testing.T) {
+	ix := loadNotes(t)
+	tests := []struct {
+		name  string
+		query string
+		limit int
+	}{
+		{"empty", "", 10},
+		{"whitespace only", " \t\n ", 10},
+		{"non breaking space only", "\u00a0", 10},
+		{"punctuation only", "!!! ??? ...", 10},
+		{"regex metacharacters", `(.*)+[a-z]{2,}\\`, 10},
+		{"quotes only", `""`, 10},
+		{"single letter", "щ", 10},
+		{"very long query", strings.Repeat("несуществующее слово ", 2000), 10},
+		{"one long token", strings.Repeat("щ", 100000), 10},
+		{"zero limit", "мониторинг", 0},
+		{"negative limit", "мониторинг", -5},
+		{"invalid utf8", "\xff\xfe", 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var found Found
+			assert.NotPanics(t, func() { found = fuzzyFind(t, ix, tt.query, tt.limit) })
+			assert.Empty(t, found.Results)
+		})
+	}
+}
+
+func TestFindLimit(t *testing.T) {
+	// arrange
+	ix := loadNotes(t)
+
+	// act
+	found := fuzzyFind(t, ix, "мониторинг", 2)
+
+	// assert
+	assert.Equal(t, []string{"rank/title.md", "rank/heading.md"}, paths(found))
+}
+
+func TestFindResult(t *testing.T) {
+	ix := loadNotes(t)
+
+	t.Run("title and line point at the source", func(t *testing.T) {
+		found := fuzzyFind(t, ix, "nginx", 5)
+		require.Len(t, found.Results, 1)
+		hit := found.Results[0]
+		assert.Equal(t, "docker/compose.md", hit.Path)
+		assert.Equal(t, "Docker Compose", hit.Title)
+		lines := make([]int, 0, len(hit.Lines))
+		for _, row := range hit.Lines {
+			lines = append(lines, row.Line)
+		}
+		assert.Equal(t, []int{9, 14}, lines)
+		assert.Positive(t, hit.Score)
+	})
+
+	t.Run("title falls back to the file name", func(t *testing.T) {
+		ix := indexOf(map[string]string{"заметки/без-заголовка.md": "просто текст\n"})
+		found := fuzzyFind(t, ix, "текст", 5)
+		require.Len(t, found.Results, 1)
+		assert.Equal(t, "без-заголовка", found.Results[0].Title)
+	})
+}
+
+func FuzzFind(f *testing.F) {
+	seeds := []struct{ doc, query string }{
+		{"Заголовок\n=========\n\nтекст документа\n", "текст"},
+		{"# Раздел\n\n```go\nкод\n```\n", `"раздел код"`},
+		{"[ссылка](a.md) <b>жирный</b> ![альт](i.png)\n", "ссылка альт"},
+		{"", ""},
+	}
+	for _, s := range seeds {
+		f.Add(s.doc, s.query)
+	}
+
+	f.Fuzz(func(t *testing.T, doc, query string) {
+		ix := New()
+		ix.Set("fuzz.md", []byte(doc))
+		found := fuzzyFind(t, ix, query, 3)
+		require.LessOrEqual(t, len(found.Results), 3)
+		for _, res := range found.Results {
+			snippet := string(res.Snippet)
+			require.True(t, utf8.ValidString(snippet) || !utf8.ValidString(doc))
+			bare := strings.NewReplacer("<mark>", "", "</mark>", "").Replace(snippet)
+			require.NotContains(t, bare, "<")
+			require.NotContains(t, bare, ">")
+			for _, line := range res.Lines {
+				require.Positive(t, line.Line)
+			}
+		}
+	})
+}
+
+func BenchmarkFind(b *testing.B) {
+	ix := benchIndex(b, 300, 60)
+	b.Logf("documents: %d, index size: %.1f MB", ix.Len(), float64(ix.Size())/(1<<20))
+
+	benchmarks := []struct {
+		name  string
+		query string
+	}{
+		{"one term", "мониторинг"},
+		{"two terms", "резервное копирование"},
+		{"three terms", "настройка сеть контейнера"},
+		{"phrase", `"резервное копирование"`},
+		{"no match", "несуществующееслово"},
+		{"prefix one term", "монитор"},
+		{"prefix two terms", "резервное копир"},
+		{"prefix one letter", "к"},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for b.Loop() {
+				fuzzyFind(b, ix, bm.query, 10)
+			}
+		})
+	}
+}
+
+const filler = "остальной текст заметки нужен только чтобы документы были одинаковой длины " +
+	"и отличались лишь местом совпадения внутри текста документа заметки"
+
+var benchWords = strings.Fields(`настройка сервер сеть контейнер образ резервное копирование данных
+	хранилище метрика мониторинг запуск команда файл каталог пользователь группа демон служба
+	политика доступа журнал ошибка отладка сборка тег ветка коммит слияние конфликт`)
+
+func benchIndex(tb testing.TB, docs, lines int) *Index {
+	tb.Helper()
+
+	rnd := rand.New(rand.NewSource(1))
+	ix := New()
+	var b strings.Builder
+	for d := range docs {
+		b.Reset()
+		fmt.Fprintf(&b, "Заметка номер %d\n===============\n\n", d)
+		for l := range lines {
+			if l%10 == 0 {
+				b.WriteString("\n## Раздел про сеть и контейнера\n\n")
+			}
+			for range 12 {
+				b.WriteString(benchWords[rnd.Intn(len(benchWords))])
+				b.WriteByte(' ')
+			}
+			b.WriteByte('\n')
+		}
+		ix.Set(fmt.Sprintf("dir%d/doc%d.md", d%20, d), []byte(b.String()))
+	}
+	return ix
+}
+
+func fuzzyFind(tb testing.TB, ix *Index, query string, limit int) Found {
+	tb.Helper()
+	found, err := ix.Find(context.Background(), Query{Text: query, Mode: ModeFuzzy}, limit)
+	require.NoError(tb, err)
+	return found
 }

@@ -477,22 +477,36 @@ func (m *mount) renderPreview(docPath string, source []byte) (render.Result, err
 }
 
 func (m *mount) apiSearch(w http.ResponseWriter, r *http.Request) {
-	find, err := searchQueryOf(r.URL.Query())
+	q, err := searchQueryOf(r.URL.Query())
 	if err != nil {
 		jsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	limit := searchAPILimit
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed <= 0 {
+		parsed, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || parsed <= 0 {
 			jsonError(w, http.StatusBadRequest, "limit must be a positive number")
 			return
 		}
 		limit = min(parsed, searchPageLimit)
 	}
 
-	m.findSearch(w, r, find, limit)
+	start := time.Now()
+	found := search.Found{}
+	if m.spc.Index != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
+		defer cancel()
+		if found, err = m.spc.Index.Find(ctx, q, limit); err != nil {
+			jsonError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"hits":       searchHitsOf(found.Results),
+		"elapsed_ms": time.Since(start).Milliseconds(),
+		"truncated":  found.Truncated,
+	})
 }
 
 func (m *mount) touch(paths ...string) {
@@ -584,43 +598,27 @@ func searchQueryOf(values url.Values) (search.Query, error) {
 	return q, nil
 }
 
-func (m *mount) findSearch(w http.ResponseWriter, r *http.Request, q search.Query, limit int) {
-	start := time.Now()
-	found := search.Found{}
-	if m.spc.Index != nil {
-		ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
-		defer cancel()
-		var err error
-		if found, err = m.spc.Index.Find(ctx, q, limit); err != nil {
-			jsonError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
-
-	hits := make([]searchHit, 0, len(found.Results))
-	for _, res := range found.Results {
-		find := view.Find(res.Find)
+func searchHitsOf(results []search.Result) []searchHit {
+	hits := make([]searchHit, 0, len(results))
+	for _, res := range results {
+		opts := view.Find(res.Find)
 		lines := make([]searchLine, 0, len(res.Lines))
 		for _, matched := range res.Lines {
-			lines = append(lines, searchLine{Line: matched.Line, URL: view.FindURL(res.Path, find, matched.Line), Spans: spansOf(matched.Spans)})
+			lines = append(lines, searchLine{Line: matched.Line, URL: view.FindURL(res.Path, opts, matched.Line), Spans: spansOf(matched.Spans)})
 		}
 		hits = append(hits, searchHit{
 			Path:       res.Path,
 			Title:      res.Title,
 			Snippet:    string(res.Snippet),
 			Score:      res.Score,
-			URL:        view.FindURL(res.Path, find, 0),
+			URL:        view.FindURL(res.Path, opts, 0),
 			TitleSpans: spansOf(res.TitleSpans),
 			MatchCount: res.MatchCount,
 			LineCount:  res.LineCount,
 			Lines:      lines,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"hits":       hits,
-		"elapsed_ms": time.Since(start).Milliseconds(),
-		"truncated":  found.Truncated,
-	})
+	return hits
 }
 
 func spansOf(spans []search.Span) []searchSpan {

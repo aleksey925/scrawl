@@ -135,7 +135,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
     }
   };
 
-  const matches = hits.reduce((sum, row) => sum + (row.match_count ?? 0), 0);
+  const matches = hits.reduce((sum, row) => sum + row.match_count, 0);
 
   const icon = <IconSearch size={layout.iconSize} />;
   const input = (
@@ -185,7 +185,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   const stats = answer.response !== undefined && !empty && (
     <span data-testid="search-stats" className={classes.stats}>
       {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}
-      {answer.response.elapsed_ms} ms{answer.response.truncated === true ? ', stopped early' : ''}
+      {answer.response.elapsed_ms} ms{answer.response.truncated ? ', stopped early' : ''}
     </span>
   );
   const body = (

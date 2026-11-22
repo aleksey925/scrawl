@@ -34,8 +34,9 @@ func normalize(s string) string {
 }
 
 const (
-	lastAccented = 0x2fff
-	ownLetters   = "йЙїЇўЎ"
+	firstAccented = 0xc0
+	lastAccented  = 0x2fff
+	ownLetters    = "йЙїЇўЎ"
 )
 
 type accentTable struct {
@@ -45,7 +46,7 @@ type accentTable struct {
 
 var accents = sync.OnceValue(func() accentTable {
 	res := accentTable{base: make(map[rune]rune), variants: make(map[rune][]rune)}
-	for r := rune(0xc0); r <= lastAccented; r++ {
+	for r := rune(firstAccented); r <= lastAccented; r++ {
 		if !unicode.IsLetter(r) || strings.ContainsRune(ownLetters, r) {
 			continue
 		}

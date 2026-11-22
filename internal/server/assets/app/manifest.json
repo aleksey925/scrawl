@@ -57,12 +57,19 @@
       "_Text.js"
     ]
   },
+  "_FindToggles.css": {
+    "file": "assets/FindToggles.css",
+    "src": "_FindToggles.css"
+  },
   "_FindToggles.js": {
     "file": "assets/FindToggles.js",
     "name": "FindToggles",
     "imports": [
       "_naming.js",
       "_client.js"
+    ],
+    "css": [
+      "assets/FindToggles.css"
     ]
   },
   "_NoteExtensions.css": {

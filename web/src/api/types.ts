@@ -1,3 +1,5 @@
+import type { FindOptions } from '../reader/findOptions';
+
 export interface Crumb {
   name: string;
   url: string;
@@ -231,22 +233,18 @@ export interface SearchHit {
   score: number;
   url: string;
   title_spans?: SearchSpan[];
-  match_count?: number;
-  line_count?: number;
-  lines?: SearchLine[];
+  match_count: number;
+  line_count: number;
+  lines: SearchLine[];
 }
 
 export interface SearchResponse {
   hits: SearchHit[];
   elapsed_ms: number;
-  truncated?: boolean;
+  truncated: boolean;
 }
 
-export interface SearchSettings {
-  matchCase: boolean;
-  word: boolean;
-  regex: boolean;
-  fuzzy: boolean;
+export interface SearchSettings extends FindOptions {
   titles: boolean;
 }
 

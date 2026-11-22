@@ -35,7 +35,7 @@ export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: b
   const input = useRef<HTMLInputElement>(null);
   const atBottom = useBelow(layoutBreakpoints.phone);
   const { query, setQuery } = find;
-  const flip = (name: FindOption): void => setQuery(withOption(query, name));
+  const toggle = (name: FindOption): void => setQuery(withOption(query, name));
 
   useEffect(() => {
     const view = window.visualViewport;
@@ -85,7 +85,7 @@ export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: b
       const name = optionKeys[event.nativeEvent.code];
       if (name !== undefined) {
         event.preventDefault();
-        flip(name);
+        toggle(name);
       }
       return;
     }
@@ -140,7 +140,7 @@ export function FindBar({ find, docked = false }: { find: FindOnPage; docked?: b
         {counterOf(find)}
       </span>
       <span className={classes.break} aria-hidden />
-      <FindToggles options={query} testIdPrefix="doc-find" className={classes.toggle} onToggle={flip} onMouseDown={keepField} />
+      <FindToggles options={query} testIdPrefix="doc-find" className={classes.toggle} onToggle={toggle} onMouseDown={keepField} />
       <ActionIcon data-testid="doc-find-prev" className={classes.prev} variant="subtle" color="gray" aria-label="Previous match"
         disabled={find.total === 0} onMouseDown={keepField} onClick={() => find.step(-1)}>
         <IconChevronUp size={layout.iconSizeSmall} />

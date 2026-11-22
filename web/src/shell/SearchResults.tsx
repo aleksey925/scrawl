@@ -29,7 +29,7 @@ export interface SearchTarget {
 export function targetsOf(hits: readonly SearchHit[], expanded: ReadonlySet<string>): SearchTarget[] {
   return hits.flatMap((row) => [
     { key: row.path, url: row.url },
-    ...(row.lines ?? [])
+    ...row.lines
       .slice(0, expanded.has(row.path) ? undefined : linesShown)
       .map((match) => ({ key: `${row.path}:${match.line}`, url: match.url })),
   ]);
@@ -63,9 +63,8 @@ export const SearchResults = memo(function SearchResults({ hits, active, expande
   return (
     <div data-testid="search-results">
       {hits.map((row) => {
-        const lines = row.lines ?? [];
-        const shown = expanded.has(row.path) ? lines : lines.slice(0, linesShown);
-        const rest = Math.max(row.line_count ?? 0, lines.length) - shown.length;
+        const shown = expanded.has(row.path) ? row.lines : row.lines.slice(0, linesShown);
+        const rest = row.line_count - shown.length;
         const restLabel = `${rest} more ${rest === 1 ? 'line' : 'lines'}`;
         return (
           <div key={row.path} className={classes.file}>
@@ -87,7 +86,7 @@ export const SearchResults = memo(function SearchResults({ hits, active, expande
               </span>
               <span className={picker.path}>{row.path}</span>
               <SyncBadge path={row.path} />
-              {row.match_count !== undefined && row.match_count > 0 && (
+              {row.match_count > 0 && (
                 <span className={picker.count}>
                   {row.match_count} {row.match_count === 1 ? 'match' : 'matches'}
                 </span>
@@ -113,7 +112,7 @@ export const SearchResults = memo(function SearchResults({ hits, active, expande
               );
             })}
             {rest > 0 &&
-              (shown.length < lines.length ? (
+              (shown.length < row.lines.length ? (
                 <button type="button" data-testid="search-more" className={classes.more} onClick={() => onExpand(row.path)}>
                   {restLabel}
                 </button>

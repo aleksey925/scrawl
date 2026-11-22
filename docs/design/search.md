@@ -16,9 +16,12 @@ The server's search and the note's find bar.
   with the same base, followed by any combining marks, which also finds a
   stress mark written as a mark of its own, as in `молоко́`. A class keeps the
   offsets of the text, so the marks and the line numbers need no mapping, and
-  the server and the find bar build it from the same rule. Match case compares
-  the characters as written, so `молоко` still finds `молоко́` and leaves the
-  stress mark, a character of its own, out of the match.
+  the server and the find bar build it from the same rule, over the same
+  letters: U+00C0 to U+2FFF, from `À`, the first letter with a mark, to the end
+  of the alphabets, so the Japanese kana and the CJK characters are left as
+  they are. Match case compares the characters as written, so `молоко` still
+  finds `молоко́` and leaves the stress mark, a character of its own, out of the
+  match.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word

@@ -1,6 +1,7 @@
 import type { JSX, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 
 import { optionDisabled, type FindOption, type FindOptions } from './findOptions';
+import classes from './FindToggles.module.css';
 
 const buttons: readonly { name: FindOption; testId: string; label: string; face: ReactNode }[] = [
   { name: 'matchCase', testId: 'case', label: 'Match case', face: 'Aa' },
@@ -26,7 +27,7 @@ export function FindToggles({ options, testIdPrefix, className, onToggle, onMous
           type="button"
           data-testid={`${testIdPrefix}-${entry.testId}`}
           data-on={options[entry.name] ? 'true' : 'false'}
-          className={className}
+          className={`${classes.toggle} ${className}`}
           aria-label={entry.label}
           aria-pressed={options[entry.name]}
           title={entry.label}

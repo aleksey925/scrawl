@@ -20,6 +20,7 @@ export type FindPattern = { kind: 'regex'; source: string; flags: string } | { k
 const maxMatches = 1000;
 const oneTypoChars = 4;
 const twoTypoChars = 8;
+const firstAccented = 0xc0;
 const lastAccented = 0x2fff;
 const ownLetters = 'йЙїЇўЎ';
 
@@ -73,7 +74,7 @@ function accents(): AccentTable {
   }
   const base = new Map<string, string>();
   const grouped = new Map<string, Set<string>>();
-  for (let code = 0xc0; code <= lastAccented; code++) {
+  for (let code = firstAccented; code <= lastAccented; code++) {
     const char = String.fromCodePoint(code);
     if (!/\p{L}/u.test(char) || ownLetters.includes(char)) {
       continue;

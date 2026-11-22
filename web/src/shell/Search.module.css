@@ -5,34 +5,9 @@
 }
 
 .toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: 28px;
   height: 26px;
   padding: 0 5px;
-  border: 0;
-  border-radius: var(--mantine-radius-md);
-  background: none;
-  color: var(--scrawl-icon-secondary);
-  font: 600 12px/1 var(--mantine-font-family-monospace);
-  cursor: pointer;
-}
-
-.toggle[data-on='true'] {
-  background: var(--scrawl-accent-tint);
-  color: var(--scrawl-accent);
-}
-
-.toggle:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-@media (hover: hover) {
-  .toggle:not([data-on='true'], :disabled):hover {
-    background: var(--scrawl-hover);
-  }
 }
 
 .options {

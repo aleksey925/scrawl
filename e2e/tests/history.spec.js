@@ -164,6 +164,26 @@ test.describe.serial('history', () => {
         await expect(page.getByTestId('version-restore')).toBeEnabled();
     });
 
+    test.describe('in a 12-hour locale', () => {
+        test.use({locale: 'en-US'});
+
+        test('a version shows its time in 24 hours, with no AM or PM', async ({page}) => {
+            // arrange
+            const {docPath, stamp} = freshDoc('clock');
+            await page.goto(HISTORY.url.edit(docPath));
+            await saveInEditor(page, `clock ${stamp}\n`);
+            await saveInEditor(page, `clock again ${stamp}\n`);
+
+            // act
+            await page.goto(HISTORY.url.history(docPath));
+
+            // assert
+            const when = page.getByTestId('version').nth(1).getByTestId('version-when');
+            await expect(when).toHaveText(/^Today, \d{2}:\d{2}$/);
+            await expect(when).toHaveAttribute('title', /^[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{2}:\d{2}$/);
+        });
+    });
+
     test('a deletion has nothing to undo, and a deleted note nothing to undo in', async ({page}) => {
         // arrange
         const {docPath, stamp} = freshDoc('undo-deletion');

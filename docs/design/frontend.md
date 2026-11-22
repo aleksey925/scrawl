@@ -41,12 +41,12 @@ How the react app in `web/` is built, shipped and wired.
   every page route boots the same shell and the client router decides what it
   is, so the shell preloads no page of a route: the page's chunk comes after
   the entry. Preloading it by route saved one round trip only on the first open
-  after a release, for a second table of the routes in Go. `server/templates/`
-  holds one page, the sign-in form, because it has to work before the bundle
-  loads and with javascript off.
+  after a release, for a second table of the routes in Go.
+  `internal/server/templates/` holds one page, the sign-in form, because it has
+  to work before the bundle loads and with javascript off.
 - Nothing is fetched from a CDN at runtime, and the build stays out of the
-  release path: vite writes into `server/assets/app/` and `page/assets/`, which
-  are committed and picked up by `//go:embed`
+  release path: vite writes into `internal/server/assets/app/` and
+  `internal/page/assets/`, which are committed and picked up by `//go:embed`
   ([ADR 1](../adr/0001-committed-frontend-build.md)). `make ui` rebuilds it and
   CI fails when what is committed is stale.
 - The bundle's file names carry no hash, so a rebuild changes in git only the
@@ -71,42 +71,42 @@ How the react app in `web/` is built, shipped and wired.
   rest.
 - A release embeds the bundle, the pages' assets, the formatter and the
   server's PlantUML engine gzip-compressed, under the `gzassets` build tag:
-  `make build`, the image and goreleaser run `go run ./gzassets/pack` first,
-  which writes the copies into each package's `gzassets/`, kept out of git
-  ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)). A build without the tag
+  `make build`, the image and goreleaser run `go run ./internal/gzassets/pack`
+  first, which writes the copies into each package's `gzassets/`, kept out of
+  git ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)). A build without the tag
   embeds the committed files as they are, so `go install` and a fresh clone
   keep building. A file stored compressed is read through `gzassets` and goes
   out as stored to a client that accepts gzip, so the server spends nothing
   compressing it.
 - `npm run build` in `web/` runs `tsc --noEmit` for the app and the workers,
   then a vite build for the app, the workers and the pages. The app goes to
-  `server/assets/app/` (`index.html`, `manifest.json`, `assets/*.js` and
-  `assets/*.css`), and the workers where the bullets below say. The pages of
-  `render`, `diff` and `site` get their scripts and stylesheets in
-  `page/assets/`, built by `vite.page.config.ts`, one classic script per entry,
-  because a page opened from disk can load no module. The pages are one vite
-  build per entry, because rolldown splits chunks whenever a build has more
-  than one input, and a script inlined into a page cannot load a chunk. A chunk
-  name never starts with `_` or `.`, which `go:embed` skips.
+  `internal/server/assets/app/` (`index.html`, `manifest.json`, `assets/*.js`
+  and `assets/*.css`), and the workers where the bullets below say. The pages
+  of `render`, `diff` and `site` get their scripts and stylesheets in
+  `internal/page/assets/`, built by `vite.page.config.ts`, one classic script
+  per entry, because a page opened from disk can load no module. The pages are
+  one vite build per entry, because rolldown splits chunks whenever a build has
+  more than one input, and a script inlined into a page cannot load a chunk. A
+  chunk name never starts with `_` or `.`, which `go:embed` skips.
 - `build.manifest` is the plain name `manifest.json` rather than Vite's default
   `.vite/manifest.json`. `go:embed` on a directory skips dot-prefixed entries,
   so the default would embed the bundle and none of its index. The Go side
-  parses `server/assets/app/manifest.json` to find the entry chunk plus the CSS
-  it needs. `base` is `./` for a build and `/` for the dev server.
+  parses `internal/server/assets/app/manifest.json` to find the entry chunk
+  plus the CSS it needs. `base` is `./` for a build and `/` for the dev server.
 - `build.assetsInlineLimit` is `0`. The CSP allows `img-src 'self' data:` but
   not fonts from `data:`, and an inlined font would fail at runtime with
   nothing in the build output hinting at why.
 - The offline copy's worker is a classic script of its own, built from
-  `web/src/sw/` by `vite.sw.config.ts` into `server/assets/sw/sw.js` and
-  checked by `tsconfig.sw.json` with the worker's types. It imports only
+  `web/src/sw/` by `vite.sw.config.ts` into `internal/server/assets/sw/sw.js`
+  and checked by `tsconfig.sw.json` with the worker's types. It imports only
   `web/src/offline/keys.ts` and the `web/src/contentPath.ts` it uses, which
   touch no DOM. The worker keeps the app version before its own, so a page left
   open on it still finds its next chunk
   ([offline copy](offline.md#the-worker)).
 - The two scripts of an HTML app's host, the enter page's and its worker, are
   built from `web/src/htmlapp/` by `vite.htmlapp.config.ts`, one IIFE file
-  each, into `server/assets/htmlapp/enter.js` and `sw.js`. The worker is
-  checked by `tsconfig.sw.json` with the worker's types and shares
+  each, into `internal/server/assets/htmlapp/enter.js` and `sw.js`. The worker
+  is checked by `tsconfig.sw.json` with the worker's types and shares
   `web/src/sw/range.ts`, the 206 cut from a stored body, with the copy's
   worker. `appOnly` of `vite.page.config.ts` lists `src/htmlapp/` and
   `pages/RunPage`, so a page of the command line or a site that imports them
@@ -190,8 +190,8 @@ How the react app in `web/` is built, shipped and wired.
   weight draws, and a missing one shows only in a build. The plugin fails the
   build when an icon's file no longer has the six weights it expects, so an
   upgrade of the package that changes their shape is noticed.
-- PlantUML's library is the one exception: `plantuml/library/` is committed
-  compressed and read the same way in every build
+- PlantUML's library is the one exception: `internal/plantuml/library/` is
+  committed compressed and read the same way in every build
   ([server](server.md#plantuml)).
 
 ## App
@@ -211,11 +211,11 @@ How the react app in `web/` is built, shipped and wired.
   `components/DocumentHtml.tsx` for a note, `diff/RenderedDiff.tsx` for the two
   sides of a version and `shell/FileView.tsx` for a highlighted text file. It
   is safe because the server made it: a note and a diff side are sanitized with
-  the bluemonday policy in `render/policy.go`, and a text file is highlighted
-  by `render` from escaped source. Keeping the injection in these three places
-  keeps that trust boundary small. The one other `dangerouslySetInnerHTML` is
-  `shell/AppLogo.tsx`, which draws the logo, a file of the bundle and never
-  input.
+  the bluemonday policy in `internal/render/policy.go`, and a text file is
+  highlighted by `render` from escaped source. Keeping the injection in these
+  three places keeps that trust boundary small. The one other
+  `dangerouslySetInnerHTML` is `shell/AppLogo.tsx`, which draws the logo, a
+  file of the bundle and never input.
 - Breakpoints have one home, `web/src/breakpoints.json`, reached through the
   theme: `breakpoints`, `minWidthQuery`, `maxWidthQuery`, `useAtLeast` and
   `useBelow` of `web/src/theme.ts`, `$mantine-breakpoint-*` in PostCSS, and

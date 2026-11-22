@@ -11,11 +11,11 @@ WORKDIR /build
 
 COPY . .
 
-RUN go run -mod=vendor ./gzassets/pack && \
+RUN go run -mod=vendor ./internal/gzassets/pack && \
     GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build \
       -mod=vendor -trimpath -buildvcs=false -tags gzassets \
       -ldflags "-X main.revision=${VERSION} -s -w" \
-      -o /build/scrawl .
+      -o /build/scrawl ./cmd/scrawl
 
 #------------------------------------------------------------------------------
 

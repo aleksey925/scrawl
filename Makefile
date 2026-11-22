@@ -20,8 +20,8 @@ deps:
 	@go mod tidy
 	@go mod vendor
 	@cd web && npm i --no-audit --no-fund
-	@cd format/js && npm i --no-audit --no-fund
-	@cd plantuml/js && npm i --no-audit --no-fund
+	@cd internal/format/js && npm i --no-audit --no-fund
+	@cd internal/plantuml/js && npm i --no-audit --no-fund
 	@cd e2e && npm i --no-audit --no-fund && npx playwright install chromium firefox
 
 ui:
@@ -30,40 +30,40 @@ ui:
 # prettier and QuickJS in one module, committed for the reason the bundle is.
 # The plugins are the ones the command line loads for a markdown file, so a
 # note formatted here does not come back changed from `prettier --write`.
-PRETTIER = format/js/node_modules/prettier
+PRETTIER = internal/format/js/node_modules/prettier
 PRETTIER_PLUGINS = markdown yaml babel estree typescript postcss html graphql glimmer
 
 JAVY_FLAGS = -J event-loop=y -J javy-stream-io=y -J text-encoding=y
 
 formatter:
-	@cd format/js && npm i --no-audit --no-fund
-	@cat $(PRETTIER)/standalone.js $(PRETTIER_PLUGINS:%=$(PRETTIER)/plugins/%.js) format/js/main.js > format/js/bundle.js
-	@javy build $(JAVY_FLAGS) -o format/prettier.wasm format/js/bundle.js
-	@rm format/js/bundle.js
+	@cd internal/format/js && npm i --no-audit --no-fund
+	@cat $(PRETTIER)/standalone.js $(PRETTIER_PLUGINS:%=$(PRETTIER)/plugins/%.js) internal/format/js/main.js > internal/format/js/bundle.js
+	@javy build $(JAVY_FLAGS) -o internal/format/prettier.wasm internal/format/js/bundle.js
+	@rm internal/format/js/bundle.js
 
 # the PlantUML engine of the server in QuickJS, and the libraries an include
 # loads, both from the PlantUML commit the browser's engine was built from.
 plantuml:
-	@cd plantuml/js && npm i --no-audit --no-fund
-	@cd plantuml/js && node build.mjs bundle.js
-	@javy build $(JAVY_FLAGS) -C source=omitted -o plantuml/engine.wasm plantuml/js/bundle.js
-	@rm plantuml/js/bundle.js
-	@cd plantuml/js && node library.mjs ../library
+	@cd internal/plantuml/js && npm i --no-audit --no-fund
+	@cd internal/plantuml/js && node build.mjs bundle.js
+	@javy build $(JAVY_FLAGS) -C source=omitted -o internal/plantuml/engine.wasm internal/plantuml/js/bundle.js
+	@rm internal/plantuml/js/bundle.js
+	@cd internal/plantuml/js && node library.mjs ../library
 
 # the assets above compressed, for a binary that embeds them that way. They
 # are not committed: a build without the gzassets tag embeds the files as they
 # are, which is what keeps go install working
 gzassets:
-	@go run ./gzassets/pack
+	@go run ./internal/gzassets/pack
 
 build: gzassets
-	@CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags gzassets $(LDFLAGS) -o $(BIN_PATH) .
+	@CGO_ENABLED=0 go build $(BUILD_FLAGS) -tags gzassets $(LDFLAGS) -o $(BIN_PATH) ./cmd/scrawl
 
 snapshot:
 	@goreleaser release --snapshot --skip=publish --clean
 
 run:
-	go run . serve \
+	go run ./cmd/scrawl serve \
     --space.dir=./examples/data \
     --space.name=notes \
     --listen=:7272 \
@@ -73,7 +73,7 @@ run:
     --auth.secret-file=/tmp/scrawl-session.key
 
 readme-promo:
-	@go build -o $(DIST_DIR)/readme-promo/scrawl .
+	@go build -o $(DIST_DIR)/readme-promo/scrawl ./cmd/scrawl
 	@node scripts/readme-shots/shoot.js $(DIST_DIR)/readme-promo/scrawl docs/screenshots
 
 e2e: build

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const assets = join(root, 'server', 'assets');
+const assets = join(root, 'internal', 'server', 'assets');
 
 interface Colors {
   text: string;
@@ -13,7 +13,7 @@ interface Colors {
 }
 
 function colorsOf(theme: string): Colors {
-  const file = JSON.parse(readFileSync(join(root, 'theme', 'themes', `${theme}.json`), 'utf8')) as {
+  const file = JSON.parse(readFileSync(join(root, 'internal', 'theme', 'themes', `${theme}.json`), 'utf8')) as {
     palette: Colors;
   };
   return { text: file.palette.text, bg: file.palette.bg };
@@ -22,12 +22,12 @@ function colorsOf(theme: string): Colors {
 const logo = readFileSync(join(assets, 'logo.svg'), 'utf8');
 const viewBox = /viewBox="([^"]+)"/.exec(logo)?.[1];
 if (viewBox === undefined) {
-  throw new Error('server/assets/logo.svg has no viewBox');
+  throw new Error('internal/server/assets/logo.svg has no viewBox');
 }
 const inner = logo.replace(/^\s*<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
 const width = Number(viewBox.split(/\s+/)[2]);
 if (!Number.isFinite(width)) {
-  throw new Error(`server/assets/logo.svg has a viewBox with no width: ${viewBox}`);
+  throw new Error(`internal/server/assets/logo.svg has a viewBox with no width: ${viewBox}`);
 }
 const middle = width / 2;
 

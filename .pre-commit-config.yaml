@@ -1,10 +1,10 @@
-exclude: ^(vendor|server/assets/app|server/assets/sw|server/assets/htmlapp|page/assets)/
+exclude: ^(vendor|internal/server/assets/app|internal/server/assets/sw|internal/server/assets/htmlapp|internal/page/assets)/
 
 repos:
   - repo: builtin
     hooks:
       - id: end-of-file-fixer
-        exclude: &fixtures ^(render/testdata|search/testdata|plantuml/testdata|examples/data)/
+        exclude: &fixtures ^(internal/render/testdata|internal/search/testdata|internal/plantuml/testdata|examples/data)/
       - id: trailing-whitespace
         exclude: *fixtures
       - id: detect-private-key

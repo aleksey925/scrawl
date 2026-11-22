@@ -5,7 +5,7 @@ import { woff2Only } from './vite.fonts.ts';
 import { phosphorWeights } from './vite.icons.ts';
 import { themeStylesheet } from './vite.themes.ts';
 
-const outDir = '../page/assets';
+const outDir = '../internal/page/assets';
 
 const entries = {
   page: 'src/page/page.ts',

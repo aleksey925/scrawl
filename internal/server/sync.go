@@ -1,0 +1,110 @@
+package server
+
+import (
+	"errors"
+	"log"
+	"net/http"
+
+	"github.com/aleksey925/scrawl/internal/auth"
+	"github.com/aleksey925/scrawl/internal/history"
+)
+
+type divergenceResponse struct {
+	Head          string        `json:"head"`
+	Remote        string        `json:"remote"`
+	Clean         bool          `json:"clean"`
+	Lost          unsyncedPaths `json:"lost"`
+	CanPushBackup bool          `json:"can_push_backup"`
+}
+
+type resetRequest struct {
+	Head       string `json:"head"`
+	Remote     string `json:"remote"`
+	PushBackup bool   `json:"push_backup"`
+}
+
+type resetResponse struct {
+	Backup       string `json:"backup"`
+	BackupPushed bool   `json:"backup_pushed"`
+}
+
+func (m *mount) canReset(r *http.Request) bool {
+	if !m.history().Remote() || auth.ReadOnlyToken(r) {
+		return false
+	}
+	if m.AuthDisabled || m.Auth == nil {
+		return !m.readOnly()
+	}
+	_, known := m.Auth.User(r)
+	return known
+}
+
+func (m *mount) refuseReset(w http.ResponseWriter, r *http.Request) bool {
+	if m.canReset(r) {
+		return false
+	}
+	jsonError(w, http.StatusForbidden, "resetting this space is not allowed")
+	return true
+}
+
+func (m *mount) apiSyncCheck(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReset(w, r) {
+		return
+	}
+	res, err := m.history().CheckDivergence(r.Context())
+	if err != nil {
+		failSync(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, divergenceResponse{
+		Head:          res.Head,
+		Remote:        res.Remote,
+		Clean:         res.Clean,
+		Lost:          unsyncedOf(res.Lost),
+		CanPushBackup: !m.readOnly(),
+	})
+}
+
+func (m *mount) apiSyncReset(w http.ResponseWriter, r *http.Request) {
+	if m.refuseReset(w, r) {
+		return
+	}
+	var req resetRequest
+	if !decodeJSON(w, r, &req, maxJSONBody) {
+		return
+	}
+	res, err := m.history().ResetToRemote(r.Context(), history.ResetOp{
+		Actor:      m.actor(r),
+		Head:       req.Head,
+		Remote:     req.Remote,
+		PushBackup: req.PushBackup,
+	})
+	if err != nil {
+		failSync(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resetResponse{Backup: res.Backup, BackupPushed: res.BackupPushed})
+}
+
+func failSync(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, history.ErrDisabled), errors.Is(err, history.ErrNotDiverged):
+		jsonError(w, http.StatusConflict, "this space has not diverged from the remote")
+	case errors.Is(err, history.ErrStateChanged):
+		jsonError(w, http.StatusPreconditionFailed, "the space changed since it was checked")
+	case errors.Is(err, history.ErrResetRefused):
+		log.Printf("[WARN] %s %s: %v", r.Method, r.URL.Path, err)
+		jsonError(w, http.StatusUnprocessableEntity, err.Error())
+	default:
+		log.Printf("[WARN] %s %s: %v", r.Method, r.URL.Path, err)
+		jsonError(w, http.StatusBadGateway, err.Error())
+	}
+}
+
+func unsyncedOf(paths history.Unsynced) unsyncedPaths {
+	res := unsyncedPaths{Paths: paths.Paths, Many: paths.Many}
+	if res.Paths == nil {
+		res.Paths = []string{}
+	}
+	return res
+}

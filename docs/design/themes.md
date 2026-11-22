@@ -2,19 +2,19 @@
 
 How a theme file becomes the colors of the app, a page and the code.
 
-- A theme is one file in `theme/themes/`, and nothing else names a color of
-  one: adding a theme is a file and `make ui`. The file holds Notion's color
-  roles, its nine block colors, six shadows, the weight of bold and that of the
-  sidebar's current row, and how a Mac smooths the letters: the light theme
-  keeps the system's own, as Notion's light page does, and the dark one draws
-  them thinner, since light letters on a dark page glow; mantine's antialiased
-  everywhere made the light page read thin beside Notion's. The server, the
-  command line and the frontend build all read those files. The build turns
-  every key into a `--scrawl-*` custom property in one stylesheet, which the
-  app bundles, a page of the command line inlines and the sign-in page links as
-  `app/themes.css`; `render` builds a chroma style from the six code colors
-  each one lists; the server takes the list and the bar color. `light` and
-  `dark` must exist, because they are what Auto follows.
+- A theme is one file in `internal/theme/themes/`, and nothing else names a
+  color of one: adding a theme is a file and `make ui`. The file holds Notion's
+  color roles, its nine block colors, six shadows, the weight of bold and that
+  of the sidebar's current row, and how a Mac smooths the letters: the light
+  theme keeps the system's own, as Notion's light page does, and the dark one
+  draws them thinner, since light letters on a dark page glow; mantine's
+  antialiased everywhere made the light page read thin beside Notion's. The
+  server, the command line and the frontend build all read those files. The
+  build turns every key into a `--scrawl-*` custom property in one stylesheet,
+  which the app bundles, a page of the command line inlines and the sign-in
+  page links as `app/themes.css`; `render` builds a chroma style from the six
+  code colors each one lists; the server takes the list and the bar color.
+  `light` and `dark` must exist, because they are what Auto follows.
 - The keys of a theme file, whose name is its id: `name`, what the pickers
   show; `scheme`, `light` or `dark`, what the browser draws for a form control,
   and the editor and diagram defaults; `code`, six colors of code, `keyword`,

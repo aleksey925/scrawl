@@ -8,7 +8,7 @@ const {
     signIn, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
-const lightTheme = require('../../theme/themes/light.json');
+const lightTheme = require('../../internal/theme/themes/light.json');
 
 const FOLDER = 'e2e-history';
 

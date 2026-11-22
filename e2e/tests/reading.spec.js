@@ -8,8 +8,8 @@ const {
     rgb, routes, shot, showOutline, signIn, stays, titleRoom, writeFixture,
 } = require('../support/helpers');
 const text = require('../support/text');
-const darkTheme = require('../../theme/themes/dark.json');
-const lightTheme = require('../../theme/themes/light.json');
+const darkTheme = require('../../internal/theme/themes/dark.json');
+const lightTheme = require('../../internal/theme/themes/light.json');
 
 const DOC = docs.doc;
 const ANCHORS = 'e2e-anchors.md';

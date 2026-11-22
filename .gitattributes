@@ -5,4 +5,4 @@ vendor/** -text
 
 # `make ui` writes this tree and every name in it is content hashed, so a diff
 # of it is noise around the one thing worth reviewing, the source in web/
-server/assets/app/** linguist-generated=true -diff
+internal/server/assets/app/** linguist-generated=true -diff

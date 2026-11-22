@@ -10,7 +10,7 @@ const {
 } = require('../support/helpers');
 const text = require('../support/text');
 const {user} = require('../support/env');
-const lightTheme = require('../../theme/themes/light.json');
+const lightTheme = require('../../internal/theme/themes/light.json');
 
 const MIN_TAP = 44;
 const BUTTON_HEIGHT = 40;

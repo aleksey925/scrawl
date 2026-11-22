@@ -16,7 +16,7 @@ export default defineConfig((): UserConfig => {
   return {
     publicDir: false,
     build: {
-      outDir: '../server/assets/htmlapp',
+      outDir: '../internal/server/assets/htmlapp',
       emptyOutDir: false,
       target: 'es2022',
       sourcemap: false,

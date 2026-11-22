@@ -229,7 +229,7 @@ This installs the latest
 ### From source
 
 ```
-go install github.com/aleksey925/scrawl@latest
+go install github.com/aleksey925/scrawl/cmd/scrawl@latest
 ```
 
 ## Markdown features

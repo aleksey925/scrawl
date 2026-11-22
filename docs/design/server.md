@@ -189,16 +189,17 @@ Spaces, routes, settings and the guards on every request.
   two minutes. A new engine in the same process would hold 1.1GB instead of
   115MB ([quirks](../quirks.md#mermaid-plantuml-and-katex)). After each answer
   the worker gives the memory Go freed back to the system.
-- `plantuml/engine.wasm` and `plantuml/library/` are committed, and
-  `make plantuml` builds both again, which needs the network. javy does not
-  build the same bytes twice, so nothing compares the wasm with its source;
-  `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that the server's
-  engine is the version the browser has, and the library the commit it names.
-  An upgrade bumps `@plantuml/core` in `web/package.json`, `@plantuml/mcp-js`
-  in `plantuml/js/package.json`, and by hand the commit and the 20 sha256 sums
-  in `plantuml/js/library.json`, then runs `make ui` and `make plantuml`. The
-  icon sets [ADR 19](../adr/0019-plantuml-library-without-some-icon-sets.md)
-  names stay out of that file.
+- `internal/plantuml/engine.wasm` and `internal/plantuml/library/` are
+  committed, and `make plantuml` builds both again, which needs the network.
+  javy does not build the same bytes twice, so nothing compares the wasm with
+  its source; `TestTheBrowserTheServerAndTheLibraryAreOnePlantUML` checks that
+  the server's engine is the version the browser has, and the library the
+  commit it names. An upgrade bumps `@plantuml/core` in `web/package.json`,
+  `@plantuml/mcp-js` in `internal/plantuml/js/package.json`, and by hand the
+  commit and the 20 sha256 sums in `internal/plantuml/js/library.json`, then
+  runs `make ui` and `make plantuml`. The icon sets
+  [ADR 19](../adr/0019-plantuml-library-without-some-icon-sets.md) names stay
+  out of that file.
 - The library is committed compressed, unlike every other embedded file
   ([ADR 3](../adr/0003-gzip-assets-out-of-git.md)): raw it is some 29MB against
   4MB compressed, the raw bytes would sit in a `go install` binary, and it

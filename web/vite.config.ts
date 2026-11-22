@@ -53,7 +53,7 @@ export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : '/',
 
   build: {
-    outDir: '../server/assets/app',
+    outDir: '../internal/server/assets/app',
     assetsDir: 'assets',
     emptyOutDir: true,
     target: 'es2022',

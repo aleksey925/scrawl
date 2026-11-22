@@ -363,6 +363,9 @@ words; the fact itself is written here.
 - A trial merge runs a merge driver the repository config names, and a driver's
   name is looked up in the config first, where even `text` can be a command.
   [Remote sync](design/remote-sync.md#conflicts-and-reset)
+- `git merge-file` reads no attribute and runs no merge driver, even one the
+  config names for `*`. With `-p` it exits with the number of conflicts, and
+  with 255 on an error. Checked with git 2.47.3. [History](design/history.md)
 - A repository's config and its `.gitattributes` each name commands git runs
   during an ordinary commit: hooks, `core.fsmonitor`, filters. A diff driver
   and a textconv filter are commands it names too, run on diff and log.

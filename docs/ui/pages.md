@@ -243,26 +243,31 @@ opens over them.
 - History is a large dialog over the note at `/history/<path>`, so a link and
   Back still reach it: what the picked version changed on the left, the
   versions with the colored initial of their author and a tag on the right,
-  Restore below them. The tag says how a version was made when it was not in
-  the app (API, On disk) and otherwise what it did (Create, Edit, Rename,
-  Delete). Closing it goes to the note. A button beside the close one expands
-  it to the window less 16px a side, and the choice is kept. The change of size
-  is part of mantine's own transition, because mantine writes that one inline
-  and it outranks the stylesheet. The server says which versions can be
+  Undo and Restore below them. The tag says how a version was made when it was
+  not in the app (API, On disk) and otherwise what it did (Create, Edit,
+  Rename, Delete). Closing it goes to the note. A button beside the close one
+  expands it to the window less 16px a side, and the choice is kept. The change
+  of size is part of mantine's own transition, because mantine writes that one
+  inline and it outranks the stylesheet. The server says which versions can be
   restored, in `restorable`: never a deletion and never the text the file has
-  now, hashed the way git names a blob. The client read it off the blob and the
-  row's place once, and the newest row stops being the current text the moment
-  the file changes on disk. On a phone the history is a sheet of nearly the
-  screen's height, "History" and the count of versions over the file's name,
-  and each version a card with its time, marked current for the text the file
-  has now, the initial and the name of who made it, a user, a token's name or
-  "outside the app", the colored tag, and "as" and the old path when the file
-  moved. The picked card, the first one at the start, opens to show the
-  switches of Rendered and Source and of Split and Unified, the change, and
-  "Restore this version", which is hidden without the right to write and
-  disabled with the reason when the version cannot be restored. Restore still
-  asks first, the address stays `/history/<path>`, and the ✕ goes back to the
-  note.
+  now, hashed the way git names a blob. It says which can be undone in
+  `undoable`: never the first version, a deletion or a rename alone. The client
+  read it off the blob and the row's place once, and the newest row stops being
+  the current text the moment the file changes on disk. On a phone the history
+  is a sheet of nearly the screen's height, "History" and the count of versions
+  over the file's name, and each version a card with its time, marked current
+  for the text the file has now, the initial and the name of who made it, a
+  user, a token's name or "outside the app", the colored tag, and "as" and the
+  old path when the file moved. The picked card, the first one at the start,
+  opens to show the switches of Rendered and Source and of Split and Unified,
+  the change, then "Undo this change" in the secondary color over "Restore this
+  version" in the accent. On a desktop the same two stand below the versions,
+  Undo in the default look over Restore filled. Undo takes out only the change
+  the version made and keeps the later ones, and Restore brings the whole note
+  back to the version. A line under each says what it does, or why it is
+  disabled, and both are hidden without the right to write. An undo whose lines
+  were changed again later is refused in a toast. Each asks first, the address
+  stays `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

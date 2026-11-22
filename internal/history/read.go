@@ -28,6 +28,7 @@ const (
 
 type Entry struct {
 	Rev, Short, Blob, Actor, Message string
+	Before                           string
 	Path                             string
 	Kind                             Kind
 	At                               time.Time
@@ -268,15 +269,20 @@ func entryOf(fields []string, row rawRow) (Entry, error) {
 	if err != nil {
 		return Entry{}, fmt.Errorf("unexpected timestamp %q: %w", fields[3], err)
 	}
-	blob := nonZero(row.blob)
+	kind := kindOf(row.status)
+	var before string
+	if kind != KindAdded {
+		before = nonZero(row.srcBlob)
+	}
 	return Entry{
 		Rev:     fields[1],
 		Short:   shortOID(fields[1]),
-		Blob:    blob,
+		Blob:    nonZero(row.blob),
+		Before:  before,
 		Actor:   fields[2],
 		Message: fields[4],
 		Path:    row.path,
-		Kind:    kindOf(row.status),
+		Kind:    kind,
 		At:      time.Unix(at, 0),
 	}, nil
 }

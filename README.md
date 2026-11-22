@@ -275,9 +275,9 @@ scrawl makes sure a change is not lost and does not overwrite another one.
   another device or in another editor, scrawl does not save over it and shows
   you both versions.
 - **Every save goes into the history** (a git commit), so any earlier version
-  can be restored. History is on by default. With a remote repository the
-  change is also pushed to your git host, and scrawl retries until the push
-  goes through.
+  can be restored, or one change undone while the later ones stay. History is
+  on by default. With a remote repository the change is also pushed to your git
+  host, and scrawl retries until the push goes through.
 - **A deleted file or folder** comes back with Undo for 5 minutes.
 
 ## Static site

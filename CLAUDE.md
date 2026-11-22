@@ -138,11 +138,14 @@ the link names.
   variables, and the commands an adopted repository names never run.
   [remote sync](docs/design/remote-sync.md#credentials),
   [history](docs/design/history.md#recording)
-- scrawl never merges, rebases or resolves a conflict, and nothing destructive
-  runs without a person confirming it. A delete is the one exception: it asks
-  nothing and goes to a trash for a few minutes, with Undo in its toast.
+- scrawl never merges a branch, rebases or resolves a conflict, and nothing
+  destructive runs without a person confirming it. A delete is the one
+  exception: it asks nothing and goes to a trash for a few minutes, with Undo
+  in its toast. An undo of one change in the history merges the text of one
+  note, and a conflict refuses it.
   [remote sync](docs/design/remote-sync.md#conflicts-and-reset),
-  [ADR 20](docs/adr/0020-delete-to-a-trash-with-undo.md)
+  [ADR 20](docs/adr/0020-delete-to-a-trash-with-undo.md),
+  [ADR 34](docs/adr/0034-a-change-is-undone-on-its-own.md)
 - A person never waits on git or the network for an action they made. The
   screen shows a result it can predict at once - a delete has its toast and
   leaves the page before the server answers - and a write from the page is

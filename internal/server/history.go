@@ -37,6 +37,7 @@ type History interface {
 	Change(ctx context.Context, rev, p string) (history.Change, error)
 	Show(ctx context.Context, blob string) ([]byte, error)
 	Diff(ctx context.Context, rev, p string) (string, error)
+	Undo(ctx context.Context, rev, p string, current []byte) ([]byte, error)
 }
 
 var errHistoryNotRecorded = errors.New("not recorded in history")
@@ -51,6 +52,7 @@ type historyEntry struct {
 	Kind       string    `json:"kind"`
 	At         time.Time `json:"at"`
 	Restorable bool      `json:"restorable"`
+	Undoable   bool      `json:"undoable"`
 }
 
 type restoreRequest struct {
@@ -191,32 +193,71 @@ func (m *mount) versionContent(ctx context.Context, rev, p string) ([]byte, erro
 	return m.history().Show(ctx, blob)
 }
 
-func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
+func (m *mount) historyRequest(w http.ResponseWriter, r *http.Request) (string, restoreRequest, bool) {
 	if m.refuseReadOnly(w, r) {
-		return
+		return "", restoreRequest{}, false
 	}
 	p, ok := m.historyPath(w, r)
 	if !ok {
-		return
+		return "", restoreRequest{}, false
 	}
 	var req restoreRequest
 	if !decodeJSON(w, r, &req, maxJSONBody) {
-		return
+		return "", restoreRequest{}, false
 	}
-	from := req.From
-	if from == "" {
-		from = p
+	if req.From == "" {
+		req.From = p
 	}
-	if !m.isDocument(from) {
-		failJSON(w, r, fmt.Errorf("history %q: %w", from, store.ErrNotFound))
-		return
+	if !m.isDocument(req.From) {
+		failJSON(w, r, fmt.Errorf("history %q: %w", req.From, store.ErrNotFound))
+		return "", restoreRequest{}, false
 	}
+	return p, req, true
+}
 
-	data, err := m.versionContent(r.Context(), req.Version, from)
+func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
+	p, req, ok := m.historyRequest(w, r)
+	if !ok {
+		return
+	}
+	data, err := m.versionContent(r.Context(), req.Version, req.From)
 	if err != nil {
 		failHistory(w, r, err)
 		return
 	}
+	m.writeVersion(w, r, p, req.Rev, data, "restore "+p)
+}
+
+func (m *mount) apiHistoryUndo(w http.ResponseWriter, r *http.Request) {
+	p, req, ok := m.historyRequest(w, r)
+	if !ok {
+		return
+	}
+	current, _, err := m.spc.Store.Read(p)
+	if err != nil {
+		failJSON(w, r, err)
+		return
+	}
+	if store.Rev(current) != req.Rev {
+		writeConflict(w, http.StatusPreconditionFailed, "conflict", store.Rev(current), current)
+		return
+	}
+	data, err := m.history().Undo(r.Context(), req.Version, req.From, current)
+	switch {
+	case errors.Is(err, history.ErrUndoConflict):
+		jsonError(w, http.StatusConflict, "later changes touched the same lines, restore a version instead")
+		return
+	case errors.Is(err, history.ErrNothingToUndo):
+		jsonError(w, http.StatusConflict, history.ErrNothingToUndo.Error())
+		return
+	case err != nil:
+		failHistory(w, r, err)
+		return
+	}
+	m.writeVersion(w, r, p, req.Rev, data, "undo a change to "+p)
+}
+
+func (m *mount) writeVersion(w http.ResponseWriter, r *http.Request, p, rev string, data []byte, message string) {
 	if len(data) > maxEditableFile {
 		jsonError(w, http.StatusRequestEntityTooLarge, errMessage(store.ErrTooLarge))
 		return
@@ -225,9 +266,9 @@ func (m *mount) apiHistoryRestore(w http.ResponseWriter, r *http.Request) {
 	data = []byte(m.formatOnSave(r, p, string(data)).text)
 
 	var fi store.FileInfo
-	err = m.record(r, history.Op{Message: "restore " + p, Paths: []string{p}}, func() ([]string, error) {
+	err := m.record(r, history.Op{Message: message, Paths: []string{p}}, func() ([]string, error) {
 		var writeErr error
-		fi, writeErr = m.spc.Store.Write(p, data, req.Rev)
+		fi, writeErr = m.spc.Store.Write(p, data, rev)
 		return nil, writeErr
 	})
 	var conflict *store.ConflictError
@@ -307,6 +348,7 @@ func historyEntries(entries []history.Entry, current string) []historyEntry {
 			Kind:       string(ent.Kind),
 			At:         ent.At,
 			Restorable: ent.Blob != "" && ent.Blob != current,
+			Undoable:   ent.Before != "" && ent.Blob != "" && ent.Before != ent.Blob,
 		})
 	}
 	return res

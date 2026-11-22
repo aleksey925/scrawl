@@ -902,6 +902,21 @@ func TestServiceLog(t *testing.T) {
 		assert.WithinRange(t, entries[0].At, before, time.Now().Add(time.Minute))
 	})
 
+	t.Run("names the blob before each change, and none before the first", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}}, map[string]string{"note.md": "one\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"note.md"}}, map[string]string{"note.md": "two\n"}))
+
+		// act
+		entries, err := s.Log(t.Context(), "note.md", 0)
+
+		// assert
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+		assert.Equal(t, []string{entries[1].Blob, ""}, []string{entries[0].Before, entries[1].Before})
+	})
+
 	t.Run("refuses a path that escapes the root", func(t *testing.T) {
 		// arrange
 		s := newService(t)
@@ -1301,4 +1316,156 @@ func TestIdent(t *testing.T) {
 			assert.Equal(t, tc.want, ident(tc.actor))
 		})
 	}
+}
+
+func TestServiceUndo(t *testing.T) {
+	head := func(t *testing.T, s *Service) string {
+		t.Helper()
+		return strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+	}
+	lines := "one\ntwo\nthree\nfour\nfive\nsix\nseven\n"
+
+	t.Run("the last change gives back the text before it", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "at home\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "at work\n"}))
+
+		// act
+		got, err := s.Undo(t.Context(), head(t, s), "a.md", []byte("at work\n"))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, "at home\n", string(got))
+	})
+
+	t.Run("an older change is taken out and the later ones stay", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
+			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
+		undone := head(t, s)
+		later := strings.Replace(strings.Replace(lines, "two", "TWO", 1), "six", "SIX", 1)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": later}))
+
+		// act
+		got, err := s.Undo(t.Context(), undone, "a.md", []byte(later))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, strings.Replace(lines, "six", "SIX", 1), string(got))
+	})
+
+	t.Run("the text on disk is merged, not the last version", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
+			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
+		onDisk := strings.Replace(strings.Replace(lines, "two", "TWO", 1), "seven", "SEVEN", 1)
+
+		// act
+		got, err := s.Undo(t.Context(), head(t, s), "a.md", []byte(onDisk))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, strings.Replace(lines, "seven", "SEVEN", 1), string(got))
+	})
+
+	t.Run("refuses a change whose lines were edited again later", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
+			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
+		undone := head(t, s)
+		later := strings.Replace(lines, "two", "Two!", 1)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": later}))
+
+		// act
+		_, err := s.Undo(t.Context(), undone, "a.md", []byte(later))
+
+		// assert
+		require.ErrorIs(t, err, ErrUndoConflict)
+	})
+
+	t.Run("a change made under the old name of a renamed note", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": lines}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}},
+			map[string]string{"old.md": strings.Replace(lines, "two", "TWO", 1)}))
+		undone := head(t, s)
+		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
+			return nil, os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md"))
+		}))
+
+		// act
+		got, err := s.Undo(t.Context(), undone, "old.md", []byte(strings.Replace(lines, "two", "TWO", 1)))
+
+		// assert
+		require.NoError(t, err)
+		assert.Equal(t, lines, string(got))
+	})
+
+	t.Run("refuses a version with no change of text", func(t *testing.T) {
+		tests := []struct {
+			name   string
+			second func(t *testing.T, s *Service)
+			path   string
+		}{
+			{name: "the first version", path: "a.md", second: func(*testing.T, *Service) {}},
+			{name: "a deletion", path: "a.md", second: func(t *testing.T, s *Service) {
+				t.Helper()
+				require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md"}}, func() ([]string, error) {
+					return nil, os.Remove(filepath.Join(s.Root(), "a.md"))
+				}))
+			}},
+			{name: "a rename alone", path: "b.md", second: func(t *testing.T, s *Service) {
+				t.Helper()
+				require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md", "b.md"}}, func() ([]string, error) {
+					return nil, os.Rename(filepath.Join(s.Root(), "a.md"), filepath.Join(s.Root(), "b.md"))
+				}))
+			}},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				// arrange
+				s := newService(t)
+				require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
+				tc.second(t, s)
+
+				// act
+				_, err := s.Undo(t.Context(), head(t, s), tc.path, []byte(lines))
+
+				// assert
+				require.ErrorIs(t, err, ErrNothingToUndo)
+			})
+		}
+	})
+
+	t.Run("refuses a commit that never touched the path", func(t *testing.T) {
+		// arrange
+		s := newService(t)
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
+		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
+
+		// act
+		_, err := s.Undo(t.Context(), head(t, s), "a.md", []byte("first\n"))
+
+		// assert
+		require.ErrorIs(t, err, ErrNoVersion)
+	})
+
+	t.Run("a disabled service reports it", func(t *testing.T) {
+		// arrange
+		var s *Service
+
+		// act
+		_, err := s.Undo(t.Context(), strings.Repeat("a", 40), "a.md", nil)
+
+		// assert
+		require.ErrorIs(t, err, ErrDisabled)
+	})
 }

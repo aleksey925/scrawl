@@ -30,6 +30,9 @@ type fakeHistory struct {
 	before   map[string]history.Change
 	diff     string
 	readErr  error
+	undone   []byte
+	undoErr  error
+	merged   [][]byte
 
 	unpublished bool
 	pushFails   error
@@ -141,6 +144,14 @@ func (f *fakeHistory) Diff(context.Context, string, string) (string, error) {
 	return f.diff, f.readErr
 }
 
+func (f *fakeHistory) Undo(ctx context.Context, rev, p string, current []byte) ([]byte, error) {
+	if _, err := f.Version(ctx, rev, p); err != nil {
+		return nil, err
+	}
+	f.merged = append(f.merged, current)
+	return f.undone, f.undoErr
+}
+
 func (f *fakeHistory) messages() []string {
 	res := make([]string, 0, len(f.ops))
 	for _, op := range f.ops {
@@ -160,7 +171,7 @@ func (f *fakeHistory) given() [][]string {
 func TestAPIHistoryList(t *testing.T) {
 	// arrange
 	entry := history.Entry{
-		Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"),
+		Rev: oid("a1"), Short: oid("a1")[:7], Blob: oid("b2"), Before: oid("b1"),
 		Actor: "token:agent", Message: "save index.md", Path: "index.md",
 		Kind: history.KindModified, At: time.Date(2024, time.March, 1, 10, 30, 0, 0, time.UTC),
 	}
@@ -184,6 +195,7 @@ func TestAPIHistoryList(t *testing.T) {
 			"kind":       string(entry.Kind),
 			"at":         entry.At.Format(time.RFC3339),
 			"restorable": true,
+			"undoable":   true,
 		}},
 	}, body)
 }
@@ -231,6 +243,44 @@ func TestAPIHistoryRestorable(t *testing.T) {
 			got, ok := listed[0].(map[string]any)
 			require.True(t, ok)
 			assert.Equal(t, tc.want, got["restorable"])
+		})
+	}
+}
+
+func TestAPIHistoryUndoable(t *testing.T) {
+	tests := []struct {
+		name  string
+		entry history.Entry
+		want  bool
+	}{
+		{name: "an edit has text before and after it",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindModified},
+			want:  true},
+		{name: "the first version has nothing before it",
+			entry: history.Entry{Rev: oid("a1"), Blob: oid("b2"), Path: "note.md", Kind: history.KindAdded}},
+		{name: "a deletion has nothing after it",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b1"), Path: "note.md", Kind: history.KindDeleted}},
+		{name: "a rename alone changed no text",
+			entry: history.Entry{Rev: oid("a1"), Before: oid("b2"), Blob: oid("b2"), Path: "note.md", Kind: history.KindRenamed}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ts := newTestServer(t, testOpts{history: &fakeHistory{entries: []history.Entry{tc.entry}}})
+			require.NoError(t, os.WriteFile(filepath.Join(ts.root, "note.md"), []byte("# Now\n"), 0o600))
+
+			// act
+			resp, body := ts.json(t, request{path: "/api/history/note.md"})
+
+			// assert
+			require.Equal(t, http.StatusOK, resp.status)
+			listed, ok := body["entries"].([]any)
+			require.True(t, ok)
+			require.Len(t, listed, 1)
+			got, ok := listed[0].(map[string]any)
+			require.True(t, ok)
+			assert.Equal(t, tc.want, got["undoable"])
 		})
 	}
 }
@@ -546,6 +596,147 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method:  http.MethodPost,
 			path:    "/api/history/restore/index.md",
+			body:    jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
+			headers: map[string]string{"Authorization": "Bearer " + testReadToken},
+		})
+
+		// assert
+		assert.Equal(t, http.StatusForbidden, resp.status)
+		assert.Equal(t, "read-only token, writing is disabled", body["error"])
+	})
+}
+
+func TestAPIHistoryUndo(t *testing.T) {
+	undone := []byte("# the text without the change\n")
+	version := history.Entry{Rev: oid("a1"), Before: oid("b1"), Blob: oid("b2"), Path: "index.md", Kind: history.KindModified}
+	newFake := func() *fakeHistory {
+		return &fakeHistory{entries: []history.Entry{version}, undone: undone}
+	}
+	undo := func(t *testing.T, ts *testServer, req restoreRequest) (response, map[string]any) {
+		t.Helper()
+		return ts.json(t, request{method: http.MethodPost, path: "/api/history/undo/index.md", body: jsonBody(t, req)})
+	}
+
+	t.Run("merges the text on disk and writes the result through the store", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+
+		// assert
+		require.Equal(t, http.StatusOK, resp.status, body)
+		assert.Equal(t, store.Rev(undone), body["rev"])
+		assert.Equal(t, [][]byte{[]byte(current["content"].(string))}, fake.merged)
+		onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+		require.NoError(t, err)
+		assert.Equal(t, undone, onDisk)
+		assert.Equal(t, []history.Op{{Actor: "anonymous", Message: "undo a change to index.md", Paths: []string{"index.md"}}},
+			fake.ops)
+	})
+
+	t.Run("refuses a change that cannot be taken out", func(t *testing.T) {
+		tests := []struct {
+			name    string
+			undoErr error
+			want    string
+		}{
+			{name: "later changes touched its lines", undoErr: history.ErrUndoConflict,
+				want: "later changes touched the same lines, restore a version instead"},
+			{name: "it changed no text", undoErr: history.ErrNothingToUndo, want: "this version changed no text to undo"},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				// arrange
+				fake := newFake()
+				fake.undoErr = fmt.Errorf("history: undo: %w", tc.undoErr)
+				ts := newTestServer(t, testOpts{history: fake})
+				_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+				// act
+				resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+
+				// assert
+				assert.Equal(t, http.StatusConflict, resp.status)
+				assert.Equal(t, tc.want, body["error"])
+				assert.Empty(t, fake.ops)
+				onDisk, err := os.ReadFile(filepath.Join(ts.root, "index.md"))
+				require.NoError(t, err)
+				assert.Equal(t, current["content"], string(onDisk))
+			})
+		}
+	})
+
+	t.Run("refuses a version that does not belong to the path", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{history: newFake()})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: oid("9f"), From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status)
+		assert.Equal(t, "no such version", body["error"])
+	})
+
+	t.Run("refuses a revision that is no longer the one on disk, before merging", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		ts := newTestServer(t, testOpts{history: fake})
+		_, current := ts.json(t, request{path: "/api/file/index.md"})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Rev: "written-by-somebody-else", Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusPreconditionFailed, resp.status)
+		assert.Equal(t, "conflict", body["error"])
+		assert.Equal(t, current["rev"], body["current_rev"])
+		assert.Equal(t, current["content"], body["current_content"])
+		assert.Empty(t, fake.merged)
+	})
+
+	t.Run("refuses a note that is not on disk", func(t *testing.T) {
+		// arrange
+		fake := newFake()
+		fake.entries = []history.Entry{{Rev: version.Rev, Before: version.Before, Blob: version.Blob, Path: "gone.md"}}
+		ts := newTestServer(t, testOpts{history: fake})
+
+		// act
+		resp, _ := ts.json(t, request{
+			method: http.MethodPost,
+			path:   "/api/history/undo/gone.md",
+			body:   jsonBody(t, restoreRequest{Version: version.Rev}),
+		})
+
+		// assert
+		assert.Equal(t, http.StatusNotFound, resp.status)
+		assert.Empty(t, fake.merged)
+	})
+
+	t.Run("is refused in read-only mode", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{readOnly: true, history: newFake()})
+
+		// act
+		resp, body := undo(t, ts, restoreRequest{Version: version.Rev, From: version.Path})
+
+		// assert
+		assert.Equal(t, http.StatusForbidden, resp.status)
+		assert.Equal(t, "read-only mode, writing is disabled", body["error"])
+	})
+
+	t.Run("is refused for a read-only token", func(t *testing.T) {
+		// arrange
+		ts := newTestServer(t, testOpts{withAuth: true, history: newFake()})
+
+		// act
+		resp, body := ts.json(t, request{
+			method:  http.MethodPost,
+			path:    "/api/history/undo/index.md",
 			body:    jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
 			headers: map[string]string{"Authorization": "Bearer " + testReadToken},
 		})

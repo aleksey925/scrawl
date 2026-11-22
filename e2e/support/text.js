@@ -12,6 +12,7 @@ module.exports = {
         discardUploading: 'A picture is still uploading, so the changes are lost if you leave.',
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
+        undo: 'Undo this change?',
         restoreConflict: 'This page changed while the history was open',
     },
 
@@ -19,6 +20,7 @@ module.exports = {
         saved: 'Saved',
         draftKept: 'Changes kept as a draft on this device',
         restored: 'Restored',
+        undone: 'Undone',
         created: 'Created',
         folderCreated: 'Created folder',
         moved: 'Moved',

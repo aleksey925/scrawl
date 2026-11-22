@@ -230,6 +230,22 @@ function historyUrl(path: string): string {
 
 export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; current: string };
 
+async function writeVersion(
+  action: 'restore' | 'undo',
+  path: string,
+  body: RestoreRequest,
+  options?: RequestOptions,
+): Promise<RestoreOutcome> {
+  const res = await call<RestoreResponse | ApiErrorBody>(
+    'POST',
+    spaceUrl(`/api/history/${action}/${encodeContentPath(path)}`),
+    { ...options, body, allowStatus: [412] },
+  );
+  return 'current_content' in res && res.current_content !== undefined
+    ? { ok: false, current: res.current_content }
+    : { ok: true, state: res as MutationState };
+}
+
 export interface ScrawlApi {
   page(path: string, options?: RequestOptions): Promise<PageResponse>;
   dir(path: string, options?: RequestOptions): Promise<DirListing>;
@@ -247,6 +263,7 @@ export interface ScrawlApi {
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
   restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
+  undoChange(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
   compare(body: CompareRequest, options?: RequestOptions): Promise<CompareResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;
@@ -312,16 +329,9 @@ export const api: ScrawlApi = {
   historyVersion: (path, rev, options) =>
     call<HistoryVersionResponse>('GET', withQuery(historyUrl(path), { rev }), options),
 
-  restoreVersion: async (path, body, options) => {
-    const res = await call<RestoreResponse | ApiErrorBody>(
-      'POST',
-      spaceUrl(`/api/history/restore/${encodeContentPath(path)}`),
-      { ...options, body, allowStatus: [412] },
-    );
-    return 'current_content' in res && res.current_content !== undefined
-      ? { ok: false, current: res.current_content }
-      : { ok: true, state: res as MutationState };
-  },
+  restoreVersion: (path, body, options) => writeVersion('restore', path, body, options),
+
+  undoChange: (path, body, options) => writeVersion('undo', path, body, options),
 
   preview: (body, options) =>
     call<PreviewResponse>('POST', spaceUrl('/api/preview'), { ...options, body }),

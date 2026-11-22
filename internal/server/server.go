@@ -317,6 +317,7 @@ func (wb *Web) spaceRoutes(g *routegroup.Bundle, spc *Space) {
 	mutating.HandleFunc("POST /api/preview", m.apiPreview)
 	mutating.HandleFunc("POST /api/compare", m.apiCompare)
 	mutating.HandleFunc("POST /api/history/restore/{path...}", m.apiHistoryRestore)
+	mutating.HandleFunc("POST /api/history/undo/{path...}", m.apiHistoryUndo)
 	mutating.HandleFunc("POST /api/sync/check", m.apiSyncCheck)
 	mutating.HandleFunc("POST /api/sync/reset", m.apiSyncReset)
 	if wb.Auth != nil {

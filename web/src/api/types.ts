@@ -262,6 +262,7 @@ export interface HistoryEntry {
   kind: string;
   at: string;
   restorable: boolean;
+  undoable: boolean;
 }
 
 export interface HistoryResponse {

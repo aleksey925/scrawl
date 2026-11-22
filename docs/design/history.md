@@ -48,6 +48,26 @@ Git-backed versions of the notes, and how two versions are compared.
   and the path it belonged to, never taken from the request, and a restore is
   bounded by the same size an ordinary save takes.
 
+## Undo and restore
+
+- A version offers two writes
+  ([ADR 34](../adr/0034-a-change-is-undone-on-its-own.md)). Restore writes the
+  text of the version back. Undo takes out only the change the version made:
+  `git merge-file` merges the text on disk with the text before the change,
+  over the version's text as the base, so the later changes stay. The text on
+  disk is hashed into the repository with `hash-object -w` first, as
+  `--object-id` reads objects; until it is committed it is a loose object that
+  nothing points to, and git's own gc removes it. `--object-id` needs git 2.43.
+- A merge that conflicts is refused with a `409`, and nothing is resolved: a
+  conflict marker never reaches a note. `merge-file` reads no attribute and
+  runs no merge driver ([quirks](../quirks.md#git-and-git-hosts)), so an
+  adopted repository names no command here either.
+- The list says what each can do: `restorable` as above, and `undoable` when
+  the version has text both before and after its change and the two differ,
+  which leaves out the first version, a deletion and a rename alone. Both are
+  checked against the revision the page read, an undo before it merges, and
+  both write through `store`, formatted as a save is and under the same size.
+
 ## Comparing versions
 
 - A version is compared as a reader sees it

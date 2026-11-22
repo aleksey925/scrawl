@@ -53,7 +53,7 @@ var accents = sync.OnceValue(func() accentTable {
 			continue
 		}
 		parts := []rune(norm.NFD.String(string(r)))
-		if len(parts) < 2 || !allMarks(parts[1:]) {
+		if len(parts) < 2 || !allAccents(parts[1:]) {
 			continue
 		}
 		base := unicode.ToLower(parts[0])
@@ -68,9 +68,9 @@ var accents = sync.OnceValue(func() accentTable {
 	return res
 })
 
-func allMarks(runes []rune) bool {
+func allAccents(runes []rune) bool {
 	for _, r := range runes {
-		if !isMark(r) {
+		if !isAccent(r) {
 			return false
 		}
 	}
@@ -79,6 +79,10 @@ func allMarks(runes []rune) bool {
 
 func isMark(r rune) bool {
 	return unicode.Is(unicode.Mn, r)
+}
+
+func isAccent(r rune) bool {
+	return unicode.Is(unicode.Inherited, r)
 }
 
 func fold(r rune) rune {
@@ -96,14 +100,14 @@ func accentFree(text string) string {
 	afterLetter := false
 	for _, r := range text {
 		switch {
-		case afterLetter && isMark(r):
+		case afterLetter && isAccent(r):
 		case !unicode.IsLetter(r):
 			afterLetter = false
 			b.WriteString(regexp.QuoteMeta(string(r)))
 		default:
 			afterLetter = true
 			b.WriteString(letterClass(r))
-			b.WriteString(`\p{Mn}*`)
+			b.WriteString(`\p{Inherited}*`)
 		}
 	}
 	return b.String()

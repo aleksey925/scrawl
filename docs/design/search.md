@@ -10,17 +10,21 @@ The server's search and the note's find bar.
   asks for the text exactly. A regular expression is taken as written. Fuzzy
   looks for words: Match case and Whole word mean nothing there and are
   disabled, and Fuzzy and Regex turn each other off.
-- An accent is any combining mark of a letter's canonical decomposition, so `ά`
-  is `α` and `ё` is `е`, while `й`, `ї` and `ў` stay letters of their own, as
-  Russian has `мой` and `мои`. A query letter becomes the class of every letter
-  with the same base, followed by any combining marks, which also finds a
-  stress mark written as a mark of its own, as in `молоко́`. A class keeps the
-  offsets of the text, so the marks and the line numbers need no mapping, and
-  the server and the find bar build it from the same rule, over the same
-  letters: U+00C0 to U+2FFF, from `À`, the first letter with a mark, to the end
-  of the alphabets, so the Japanese kana and the CJK characters are left as
-  they are. Match case compares the characters as written, so `молоко` still
-  finds `молоко́` and leaves the stress mark, a character of its own, out of the
+- An accent is a combining mark that Unicode gives to no script of its own
+  (script Inherited): the Latin, Greek and Cyrillic accents and the Arabic
+  vowel marks. A letter whose canonical decomposition adds only accents is its
+  base, so `ά` is `α` and `ё` is `е`. The vowel signs of Hindi or Thai, the
+  nukta and the Hebrew points belong to their script and are not accents, as
+  `कल` and `कुल` are two words. And `й`, `ї` and `ў` stay letters of their own,
+  as Russian has `мой` and `мои`. A query letter becomes the class of every
+  letter with the same base, followed by any accents, which also finds a stress
+  mark written as a mark of its own, as in `молоко́`. A class keeps the offsets
+  of the text, so the marks and the line numbers need no mapping, and the
+  server and the find bar build it from the same rule, over the same letters:
+  U+00C0 to U+2FFF, from `À`, the first letter with a mark, to the end of the
+  alphabets, so the Japanese kana and the CJK characters are left as they are.
+  Match case compares the characters as written, so `молоко` still finds
+  `молоко́` and leaves the stress mark, a character of its own, out of the
   match. A mark belongs to the letter before it: Whole word looks past it, and
   a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
   Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`.

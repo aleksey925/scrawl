@@ -362,6 +362,8 @@ test.describe('find in the note', () => {
             '',
             'За́мок, 1️⃣, ΩΣ, wording and otherwise.',
             '',
+            'कुल مُحَمَّد',
+            '',
             '<details>',
             '<summary>More</summary>',
             '',
@@ -462,6 +464,10 @@ test.describe('find in the note', () => {
         // act & assert
         await input.fill('1️⃣');
         await expect(page.getByTestId('find-hit')).toHaveText(['1️⃣']);
+        await input.fill('कल');
+        await expect(counter).toHaveText('No results');
+        await input.fill('محمد');
+        await expect(page.getByTestId('find-hit')).toHaveText(['مُحَمَّد']);
         await input.fill('мок');
         await expect(page.getByTestId('find-hit')).toHaveText(['мок']);
         await page.keyboard.press('Alt+KeyW');

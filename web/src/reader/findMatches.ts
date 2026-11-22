@@ -25,6 +25,7 @@ const lastAccented = 0x2fff;
 const ownLetters = 'йЙїЇўЎ';
 const finalSigma = 'ς';
 const sigma = 'σ';
+const accent = /^\p{Script=Inherited}$/u;
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -82,7 +83,7 @@ function accents(): AccentTable {
       continue;
     }
     const [first = '', ...marks] = [...char.normalize('NFD')];
-    if (marks.length === 0 || !marks.every((part) => /\p{Mn}/u.test(part))) {
+    if (marks.length === 0 || !marks.every((part) => accent.test(part))) {
       continue;
     }
     const lower = first.toLowerCase();
@@ -105,7 +106,7 @@ function accentFree(text: string): string {
   let source = '';
   let afterLetter = false;
   for (const char of text) {
-    if (afterLetter && /\p{Mn}/u.test(char)) {
+    if (afterLetter && accent.test(char)) {
       continue;
     }
     afterLetter = /\p{L}/u.test(char);
@@ -114,7 +115,7 @@ function accentFree(text: string): string {
       continue;
     }
     const variants = accents().variants.get(fold(char));
-    source += `${variants === undefined ? char : `[${variants}]`}\\p{Mn}*`;
+    source += `${variants === undefined ? char : `[${variants}]`}\\p{Script=Inherited}*`;
   }
   return source;
 }

@@ -43,7 +43,7 @@ func hits(r Result) []string {
 
 func TestFindFuzzy(t *testing.T) {
 	ix := findIndex(t, map[string]string{
-		"db.md":   "# Индексы\n\nПро индексы и vacuum в базе.\n",
+		"db.md":   "# Индексы\n\nПро индексы, репликацию и vacuum в базе.\n",
 		"misc.md": "# Разное\n\nfoo bar here\n",
 	})
 
@@ -55,6 +55,7 @@ func TestFindFuzzy(t *testing.T) {
 		{name: "the last word is a prefix", query: "индек", want: []string{"db.md"}},
 		{name: "one typo in a long word", query: "vacum", want: []string{"db.md"}},
 		{name: "no typo in a short word", query: "fop bar", want: []string{}},
+		{name: "two typos in a long word", query: "реплкацыю", want: []string{"db.md"}},
 		{name: "every word is required", query: "foo vacuum", want: []string{}},
 	}
 
@@ -510,7 +511,7 @@ func TestCutLineKeepsAShortLine(t *testing.T) {
 	assert.Equal(t, []Span{{Text: "a "}, {Text: "цель", Hit: true}, {Text: " b"}}, got)
 }
 
-func TestOneEdit(t *testing.T) {
+func TestWithinTypos(t *testing.T) {
 	tests := []struct {
 		a, b string
 		want bool
@@ -521,11 +522,54 @@ func TestOneEdit(t *testing.T) {
 		{"vacuum", "vacuum", false},
 		{"vacm", "vacuum", false},
 		{"индекс", "индекч", true},
+		{"σπτιι", "σπιτι", true},
+		{"fop", "foo", false},
+		{"настрйка", "настройки", true},
+		{"настрйка", "наастройкой", false},
+		{"vacum", "vcm", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.a+" "+tc.b, func(t *testing.T) {
 			// act & assert
-			assert.Equal(t, tc.want, oneEdit(tc.a, tc.b))
+			assert.Equal(t, tc.want, withinTypos(tc.a, tc.b))
+		})
+	}
+}
+
+func TestFindIgnoresAccents(t *testing.T) {
+	ix := findIndex(t, map[string]string{
+		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait.\n\nМолоко́ и мой дом.\n",
+	})
+
+	tests := []struct {
+		name  string
+		query Query
+		want  []string
+	}{
+		{name: "exact without the accent", query: Query{Text: "σπιτι", Mode: ModeExact}, want: []string{"σπίτι"}},
+		{name: "exact with an accent the text lacks", query: Query{Text: "Το", Mode: ModeExact, Word: true},
+			want: []string{"Το"}},
+		{name: "exact in a capital", query: Query{Text: "CAFE", Mode: ModeExact}, want: []string{"Café"}},
+		{name: "exact over a stress mark", query: Query{Text: "молоко", Mode: ModeExact}, want: []string{"Молоко́"}},
+		{name: "match case keeps the accent", query: Query{Text: "σπιτι", Mode: ModeExact, Case: true}, want: []string{}},
+		{name: "a short i is a letter of its own", query: Query{Text: "мои", Mode: ModeExact}, want: []string{}},
+		{name: "fuzzy without the accent", query: Query{Text: "μεγαλο", Mode: ModeFuzzy}, want: []string{"μεγάλο"}},
+		{name: "fuzzy in a short word", query: Query{Text: "το", Mode: ModeFuzzy}, want: []string{"Το"}},
+		{name: "regex keeps the accent", query: Query{Text: "σπιτι", Regex: true}, want: []string{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// act
+			got, err := ix.Find(context.Background(), tc.query, 10)
+
+			// assert
+			require.NoError(t, err)
+			res := []string{}
+			for _, r := range got.Results {
+				res = append(res, hits(r)...)
+			}
+			assert.Equal(t, tc.want, res)
 		})
 	}
 }

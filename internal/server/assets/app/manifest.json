@@ -57,6 +57,14 @@
       "_Text.js"
     ]
   },
+  "_FindToggles.js": {
+    "file": "assets/FindToggles.js",
+    "name": "FindToggles",
+    "imports": [
+      "_naming.js",
+      "_client.js"
+    ]
+  },
   "_NoteExtensions.css": {
     "file": "assets/NoteExtensions.css",
     "src": "_NoteExtensions.css"
@@ -67,7 +75,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_anchor.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -146,6 +154,16 @@
       "assets/SearchResults.css"
     ]
   },
+  "_Segmented.js": {
+    "file": "assets/Segmented.js",
+    "name": "Segmented",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_screenMotion.js",
+      "_icons.js"
+    ]
+  },
   "_Stack.js": {
     "file": "assets/Stack.js",
     "name": "Stack",
@@ -171,7 +189,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_Stack.js",
       "_Text.js",
       "_useVisibleArea.js",
@@ -181,7 +199,8 @@
       "_icons.js",
       "_platform.js",
       "_diagramSvg.js",
-      "index.html"
+      "index.html",
+      "_FindToggles.js"
     ],
     "css": [
       "assets/anchor.css"
@@ -495,16 +514,6 @@
     "file": "assets/errors.js",
     "name": "errors"
   },
-  "_findControl.js": {
-    "file": "assets/findControl.js",
-    "name": "findControl",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_naming.js",
-      "_screenMotion.js",
-      "_icons.js"
-    ]
-  },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
@@ -716,7 +725,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_Stack.js",
       "_Text.js",
       "_useVisibleArea.js",
@@ -2618,7 +2627,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_use-debounced-value.js",
       "_anchor.js",
       "_Stack.js",
@@ -2780,6 +2789,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Segmented.js",
       "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2836,6 +2846,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_naming.js",
+      "_Segmented.js",
       "_client.js",
       "_icons.js",
       "index.html"
@@ -2954,6 +2965,7 @@
       "_client.js",
       "_icons.js",
       "index.html",
+      "_FindToggles.js",
       "_recentNotes.js",
       "_Picker.module.js",
       "_SearchResults.js"

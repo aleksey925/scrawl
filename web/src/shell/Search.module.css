@@ -219,10 +219,6 @@
   gap: 8px;
 }
 
-.phoneMode {
-  width: 150px;
-}
-
 .fieldRow {
   display: flex;
   align-items: center;

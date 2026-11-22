@@ -1,7 +1,10 @@
 package search
 
 import (
+	"regexp"
+	"slices"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -30,12 +33,72 @@ func normalize(s string) string {
 	return norm.NFC.String(s)
 }
 
-func fold(r rune) rune {
-	r = unicode.ToLower(r)
-	if r == 'ё' {
-		return 'е'
+const lastAccented = 0x2fff
+
+type accentTable struct {
+	base     map[rune]rune
+	variants map[rune][]rune
+}
+
+var accents = sync.OnceValue(func() accentTable {
+	res := accentTable{base: make(map[rune]rune), variants: make(map[rune][]rune)}
+	for r := rune(0xc0); r <= lastAccented; r++ {
+		if !unicode.IsLetter(r) || r == 'й' || r == 'Й' {
+			continue
+		}
+		parts := []rune(norm.NFD.String(string(r)))
+		if len(parts) < 2 || !allMarks(parts[1:]) {
+			continue
+		}
+		base := unicode.ToLower(parts[0])
+		res.base[r] = base
+		res.variants[base] = append(res.variants[base], r)
 	}
-	return r
+	for base, list := range res.variants {
+		list = append(list, base, unicode.ToUpper(base))
+		slices.Sort(list)
+		res.variants[base] = slices.Compact(list)
+	}
+	return res
+})
+
+func allMarks(runes []rune) bool {
+	for _, r := range runes {
+		if !unicode.Is(unicode.Mn, r) {
+			return false
+		}
+	}
+	return true
+}
+
+func fold(r rune) rune {
+	if base, ok := accents().base[r]; ok {
+		return base
+	}
+	return unicode.ToLower(r)
+}
+
+func accentFree(text string) string {
+	var b strings.Builder
+	for _, r := range text {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+		case !unicode.IsLetter(r):
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		default:
+			b.WriteString(letterClass(r))
+			b.WriteString(`\p{Mn}*`)
+		}
+	}
+	return b.String()
+}
+
+func letterClass(r rune) string {
+	variants := accents().variants[fold(r)]
+	if len(variants) == 0 {
+		return regexp.QuoteMeta(string(r))
+	}
+	return "[" + string(variants) + "]"
 }
 
 func ignorable(r rune) bool {

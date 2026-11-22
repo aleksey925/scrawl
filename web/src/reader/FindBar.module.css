@@ -67,8 +67,13 @@
   color: var(--scrawl-accent);
 }
 
+.toggle:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 @media (hover: hover) {
-  .toggle:not([data-on='true']):hover {
+  .toggle:not([data-on='true'], :disabled):hover {
     background: var(--scrawl-hover);
   }
 }

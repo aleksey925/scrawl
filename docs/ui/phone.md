@@ -124,20 +124,20 @@ How the app works on a phone.
 - The search and Find in note are light cards over the keyboard, as the capsule
   holds no field: a field in a bar of buttons squeezed both, and the keyboard
   covered the bar. The search fills the screen and covers the tab bar, with the
-  recent notes or the results above and the card at the bottom: Fuzzy or Exact
-  and Titles only at its top, the hint of the mode under them, and the field
-  with Aa, ab, .\* and ✕ last, nearest the thumb, as the options are tapped
-  less often than the field. A field at the top of a tall phone is out of the
-  thumb's reach. The field has the focus as soon as the search opens, so the
-  keyboard comes up with it; the dialog's focus trap is told to keep it there,
-  as on its own it moved the focus to Fuzzy, the first control of the card. The
-  card stands 8px over the keyboard, or over the home indicator when no
-  keyboard is up. The count of matches is a small line over the card, shown
-  only once there is a query. The recent notes head the screen, each its title
-  over its path, with Clear in their header, which empties the list at once; a
-  desktop's search has no Clear. With the reading copy the Search tab stays,
-  and the search shows only the recent notes, with the field disabled and the
-  line "Search needs the network", so the notes read last are still a tap away.
+  recent notes or the results above and the card at the bottom: Titles only at
+  its top, the hint of the options under it, and the field with Aa, ab, .\*, ≈
+  and ✕ last, nearest the thumb, as the options are tapped less often than the
+  field. A field at the top of a tall phone is out of the thumb's reach. The
+  field has the focus as soon as the search opens, so the keyboard comes up
+  with it; the dialog's focus trap is told to keep it there, as on its own it
+  moved the focus to Titles only, the first control of the card. The card
+  stands 8px over the keyboard, or over the home indicator when no keyboard is
+  up. The count of matches is a small line over the card, shown only once there
+  is a query. The recent notes head the screen, each its title over its path,
+  with Clear in their header, which empties the list at once; a desktop's
+  search has no Clear. With the reading copy the Search tab stays, and the
+  search shows only the recent notes, with the field disabled and the line
+  "Search needs the network", so the notes read last are still a tap away.
 - Find in note is a card 8px from the bottom and the sides of the screen: the
   field, the count and ✕ in its first row, and Aa, ab and .\* with the steps up
   and down in the second. The note's capsule is hidden while the card is open,

@@ -76,9 +76,11 @@ test.describe('search', () => {
         await expect(page.locator('[data-testid=find-hit][data-active="true"]').first()).toBeInViewport();
     });
 
-    test('Alt+R turns Regex on, which takes the mode away and says what is wrong with a pattern', async ({page}) => {
+    test('Alt+R turns Regex on, which turns Fuzzy off and says what is wrong with a pattern', async ({page}) => {
         // arrange
         await openSearch(page);
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
         await page.getByTestId('search-input').fill('(');
 
         // act
@@ -86,28 +88,46 @@ test.describe('search', () => {
 
         // assert
         await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'true');
-        await expect(page.getByTestId('search-mode').locator('input').first()).toBeDisabled();
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'false');
         await expect(page.getByTestId('search-error')).toContainText('missing closing )');
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.regexHint);
     });
 
-    test('Exact turns on Match case and Whole word, which narrow the lines', async ({page}) => {
+    test('Match case and Whole word narrow the lines, and Fuzzy turns them off', async ({page}) => {
         // arrange
         writeFixture(MANY, '# Many\n\nKumquat here\n\nkumquat there\n\nkumquats elsewhere\n');
         await indexed(page, 'kumquats', MANY);
         await openSearch(page);
         await page.getByTestId('search-input').fill('kumquat');
         const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
-        await expect(page.getByTestId('search-case')).toBeDisabled();
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'false');
 
         // act & assert
-        await page.keyboard.press('Alt+KeyF');
-        await expect(page.getByTestId('search-mode')).toHaveAttribute('data-mode', 'exact');
         await expect(lines).toHaveCount(3);
         await page.keyboard.press('Alt+KeyW');
         await expect(lines).toHaveCount(2);
         await page.keyboard.press('Alt+KeyC');
         await expect(lines).toHaveCount(1);
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('search-case')).toBeDisabled();
+        await expect(page.getByTestId('search-word')).toBeDisabled();
+        await expect(lines).toHaveCount(3);
+    });
+
+    test('a word typed without its accent is found, and Fuzzy forgives a typo too', async ({page}) => {
+        // arrange
+        writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο.\n');
+        await indexed(page, 'σπίτι', MANY);
+        await openSearch(page);
+        const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
+
+        // act & assert
+        await page.getByTestId('search-input').fill('σπιτι');
+        await expect(lines.locator('mark')).toHaveText(['σπίτι']);
+        await page.getByTestId('search-input').fill('σπτιι');
+        await expect(lines).toHaveCount(0);
+        await page.keyboard.press('Alt+KeyF');
+        await expect(lines.locator('mark')).toHaveText(['σπίτι']);
     });
 
     test('a space typed around an exact text is part of what is looked for', async ({page}) => {
@@ -115,8 +135,6 @@ test.describe('search', () => {
         writeFixture(MANY, '# Many\n\nspearmint line\n\nsome pear here\n');
         await indexed(page, 'spearmint', MANY);
         await openSearch(page);
-        await page.keyboard.press('Alt+KeyF');
-        await expect(page.getByTestId('search-mode')).toHaveAttribute('data-mode', 'exact');
         const lines = page.locator(`[data-testid=search-result][data-path="${MANY}"] ~ [data-testid=search-line]`);
         await page.getByTestId('search-input').fill('pear');
         await expect(lines).toHaveCount(2);
@@ -313,6 +331,8 @@ test.describe('find in the note', () => {
             '',
             'Second Foo line.',
             '',
+            'Το σπίτι είναι μεγάλο.',
+            '',
             '<details>',
             '<summary>More</summary>',
             '',
@@ -365,6 +385,26 @@ test.describe('find in the note', () => {
         await page.getByTestId('doc-find-case').click();
         await page.getByTestId('doc-find-word').click();
         await expect(counter).toHaveAttribute('data-total', '2');
+    });
+
+    test('a word without its accent is found, and Fuzzy forgives a typo too', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const input = page.getByTestId('doc-find-input');
+        await openFind(page);
+
+        // act & assert
+        await input.fill('σπιτι');
+        await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
+        await page.getByTestId('doc-find-case').click();
+        await expect(counter).toHaveText('No results');
+        await page.getByTestId('doc-find-case').click();
+        await input.fill('σπτιι');
+        await expect(counter).toHaveText('No results');
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-case')).toBeDisabled();
+        await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
     });
 
     test('a phrase across bold is one match', async ({page}) => {

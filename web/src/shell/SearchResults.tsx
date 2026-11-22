@@ -13,7 +13,10 @@ export function hintOf(settings: SearchSettings): string {
   if (settings.regex) {
     return 'Regular expression over the text as shown, line by line';
   }
-  return settings.mode === 'exact' ? 'The text exactly as typed' : 'Words in any order, one typo per word is fine';
+  if (settings.fuzzy) {
+    return 'Words in any order, typos and accents are fine';
+  }
+  return settings.matchCase ? 'The text exactly as typed' : 'The text as typed, in any case, accents or not';
 }
 
 const linesShown = 3;

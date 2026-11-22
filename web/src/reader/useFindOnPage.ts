@@ -5,7 +5,8 @@ import { usePlatform } from '../platform';
 
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { centerMatch } from './findScreen';
-import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
+import { FindTimeout, patternOf, type FindPattern, type FindQuery } from './findMatches';
+import { togglesOf } from './findOptions';
 
 export const findParam = 'q';
 const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
@@ -28,14 +29,14 @@ export interface FindOnPage {
   close: () => void;
 }
 
-const emptyQuery: FindQuery = { text: '', matchCase: false, word: false, regex: false };
+const emptyQuery: FindQuery = { text: '', matchCase: false, word: false, regex: false, fuzzy: false };
 
 function queryOf(params: URLSearchParams): FindQuery | undefined {
   const text = params.get(findParam);
   if (text === null || text === '') {
     return undefined;
   }
-  return { text, ...togglesOf(params) };
+  return { text, ...togglesOf(params), fuzzy: false };
 }
 
 export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: string): FindOnPage {

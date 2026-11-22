@@ -5,7 +5,7 @@ import {
 } from '../offline/connection';
 import { answerUrl, dataCache, networkDeadlineMs } from '../offline/keys';
 import { offlineWanted } from '../offline/preference';
-import { togglesOf } from '../reader/findMatches';
+import { togglesOf } from '../reader/findOptions';
 
 import { ApiError } from './errors';
 import type {
@@ -109,7 +109,7 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
 
 function searchParams(settings: SearchSettings): Record<string, string | undefined> {
   return {
-    mode: settings.mode,
+    mode: settings.fuzzy ? 'fuzzy' : 'exact',
     case: settings.matchCase ? '1' : undefined,
     word: settings.word ? '1' : undefined,
     regex: settings.regex ? '1' : undefined,
@@ -119,14 +119,14 @@ function searchParams(settings: SearchSettings): Record<string, string | undefin
 
 export function settingsOfSearch(params: URLSearchParams): SearchSettings {
   return {
-    mode: params.get('mode') === 'exact' ? 'exact' : 'fuzzy',
+    fuzzy: params.get('mode') !== 'exact',
     ...togglesOf(params),
     titles: params.get('titles') === '1',
   };
 }
 
 export function searchTextOf(text: string, settings: SearchSettings): string {
-  return settings.mode === 'fuzzy' && !settings.regex ? text.trim() : text;
+  return settings.fuzzy && !settings.regex ? text.trim() : text;
 }
 
 async function errorBody(response: Response): Promise<ApiErrorBody> {

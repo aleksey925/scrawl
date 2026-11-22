@@ -43,6 +43,7 @@ const groups: readonly ShortcutGroup[] = [
       { keys: [altKey, 'C'], what: 'Match case' },
       { keys: [altKey, 'W'], what: 'Whole word' },
       { keys: [altKey, 'R'], what: 'Regular expression' },
+      { keys: [altKey, 'F'], what: 'Fuzzy' },
       { keys: ['E'], what: 'Edit the note', needs: 'editing' },
       { keys: ['↵'], what: 'Create a note that does not exist yet', needs: 'editing' },
       { keys: ['←', '→'], what: 'Step through the pictures in the viewer' },
@@ -57,10 +58,10 @@ const groups: readonly ShortcutGroup[] = [
     rows: [
       { keys: ['↑', '↓'], what: 'Select a result' },
       { keys: ['↵'], what: 'Open it' },
-      { keys: [altKey, 'F'], what: 'Fuzzy or exact' },
       { keys: [altKey, 'C'], what: 'Match case' },
       { keys: [altKey, 'W'], what: 'Whole word' },
       { keys: [altKey, 'R'], what: 'Regular expression' },
+      { keys: [altKey, 'F'], what: 'Fuzzy' },
     ],
   },
   {

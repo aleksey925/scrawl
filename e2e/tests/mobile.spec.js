@@ -3461,20 +3461,19 @@ test.describe('mobile', () => {
         const card = await boxOf(page, 'search-card');
         expect([card.left, card.right, card.bottom]).toEqual([8, width - 8, height - 8]);
         const field = await boxOf(page, 'search-input');
-        const mode = await boxOf(page, 'search-mode');
+        const titles = await boxOf(page, 'search-titles');
         const hint = await boxOf(page, 'search-hint');
-        expect(mode.bottom).toBeLessThanOrEqual(hint.top);
+        expect(titles.bottom).toBeLessThanOrEqual(hint.top);
         expect(hint.bottom).toBeLessThanOrEqual(field.top);
         await expect(page.getByTestId('search-footer')).toHaveCount(0);
-        const titles = await boxOf(page, 'search-titles');
-        expect([mode.bottom - mode.top, titles.bottom - titles.top]).toEqual([CHOICE_HEIGHT, CHOICE_HEIGHT]);
+        expect(titles.bottom - titles.top).toBe(CHOICE_HEIGHT);
         await expect(page.getByTestId('search-titles')).toHaveCSS('border-radius', `${CHOICE_HEIGHT / 2}px`);
         const sizes = [];
-        for (const name of ['search-case', 'search-word', 'search-regex', 'search-close']) {
+        for (const name of ['search-case', 'search-word', 'search-regex', 'search-fuzzy', 'search-close']) {
             const box = await boxOf(page, name);
             sizes.push(box.right - box.left >= CHOICE_HEIGHT && box.bottom - box.top >= MIN_TAP);
         }
-        expect(sizes).toEqual([true, true, true, true]);
+        expect(sizes).toEqual([true, true, true, true, true]);
         const covered = await page.evaluate(() => {
             const bar = document.querySelector('[data-testid=tab-bar]')?.getBoundingClientRect();
             return bar === undefined
@@ -5982,7 +5981,6 @@ test.describe('mobile offline access', () => {
         // assert
         await expect(page.getByTestId('search-offline')).toHaveText(text.search.offline);
         await expect(page.getByTestId('search-input')).toBeDisabled();
-        await expect(page.getByTestId('search-mode')).toHaveCount(0);
         await expect(page.getByTestId('search-case')).toHaveCount(0);
         await expect(page.getByTestId('search-recent-item').first()).toHaveAttribute('data-path', NOTE);
         await shot(page, 'mobile-offline-search');

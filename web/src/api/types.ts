@@ -242,13 +242,11 @@ export interface SearchResponse {
   truncated?: boolean;
 }
 
-export type SearchMode = 'fuzzy' | 'exact';
-
 export interface SearchSettings {
-  mode: SearchMode;
   matchCase: boolean;
   word: boolean;
   regex: boolean;
+  fuzzy: boolean;
   titles: boolean;
 }
 

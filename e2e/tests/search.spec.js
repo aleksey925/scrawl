@@ -362,7 +362,7 @@ test.describe('find in the note', () => {
             '',
             'За́мок, 1️⃣, ΩΣ, wording and otherwise.',
             '',
-            'कुल مُحَمَّد, παιδί.',
+            'कुल مُحَمَّد, παιδί, ᾱ\u0345β.',
             '',
             '<details>',
             '<summary>More</summary>',
@@ -472,6 +472,8 @@ test.describe('find in the note', () => {
         await expect(counter).toHaveText('No results');
         await input.fill('ΠΑΙΔΙ');
         await expect(page.getByTestId('find-hit')).toHaveText(['παιδί']);
+        await input.fill('ᾱ\u0345β');
+        await expect(page.getByTestId('find-hit')).toHaveText(['ᾱ\u0345β']);
         await input.fill('мок');
         await expect(page.getByTestId('find-hit')).toHaveText(['мок']);
         await page.keyboard.press('Alt+KeyW');

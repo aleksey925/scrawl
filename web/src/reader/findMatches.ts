@@ -25,6 +25,7 @@ const lastAccented = 0x2fff;
 const ownLetters = 'йЙїЇўЎ';
 const finalSigma = 'ς';
 const sigma = 'σ';
+const ypogegrammeni = '\u0345';
 const accent = /^\p{Script=Inherited}$/u;
 const accentMarks = '[^\\u0345\\P{Script=Inherited}]*';
 
@@ -107,7 +108,7 @@ function accentFree(text: string): string {
   let source = '';
   let afterLetter = false;
   for (const char of text) {
-    if (afterLetter && accent.test(char)) {
+    if (afterLetter && accent.test(char) && char !== ypogegrammeni) {
       continue;
     }
     afterLetter = /\p{L}/u.test(char);

@@ -539,7 +539,7 @@ func TestWithinTypos(t *testing.T) {
 
 func TestFindIgnoresAccents(t *testing.T) {
 	ix := indexOf(map[string]string{
-		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n\nЗа\u0301мок, 1\ufe0f\u20e3, ΩΣ.\n\nकुल مُحَمَّد. Ένα παιδί.\n",
+		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n\nЗа\u0301мок, 1\ufe0f\u20e3, ΩΣ.\n\nकुल مُحَمَّد. Ένα παιδί, ᾱ\u0345β.\n",
 	})
 
 	tests := []struct {
@@ -562,6 +562,8 @@ func TestFindIgnoresAccents(t *testing.T) {
 		{name: "exact without arabic vowel marks", query: Query{Text: "محمد", Mode: ModeExact}, want: []string{"مُحَمَّد"}},
 		{name: "a missing iota is not an accent", query: Query{Text: "παδί", Mode: ModeExact, Word: true}, want: []string{}},
 		{name: "exact finds the iota without its accent", query: Query{Text: "ΠΑΙΔΙ", Mode: ModeExact}, want: []string{"παιδί"}},
+		{name: "exact finds a ypogegrammeni after a macron", query: Query{Text: "ᾱ\u0345β", Mode: ModeExact},
+			want: []string{"ᾱ\u0345β"}},
 		{name: "regex keeps the accent", query: Query{Text: "σπιτι", Regex: true}, want: []string{}},
 		{name: "an emoji keeps its variation selector", query: Query{Text: "1\ufe0f\u20e3", Mode: ModeExact},
 			want: []string{"1\ufe0f\u20e3"}},

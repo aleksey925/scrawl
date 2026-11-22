@@ -39,6 +39,7 @@ const (
 	ownLetters    = "йЙїЇўЎ"
 	finalSigma    = 'ς'
 	sigma         = 'σ'
+	ypogegrammeni = '\u0345'
 	accentMarks   = `[^\x{345}\P{Inherited}]*`
 )
 
@@ -101,7 +102,7 @@ func accentFree(text string) string {
 	afterLetter := false
 	for _, r := range text {
 		switch {
-		case afterLetter && isAccent(r):
+		case afterLetter && isAccent(r) && r != ypogegrammeni:
 		case !unicode.IsLetter(r):
 			afterLetter = false
 			b.WriteString(regexp.QuoteMeta(string(r)))

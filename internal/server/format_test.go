@@ -128,7 +128,7 @@ func TestAPIHistoryRestoreFormatsTheNote(t *testing.T) {
 	resp, body := ts.json(t, request{
 		method: http.MethodPost,
 		path:   "/api/history/restore/index.md",
-		body:   jsonBody(t, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path}),
+		body:   jsonBody(t, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path}),
 	})
 
 	// assert

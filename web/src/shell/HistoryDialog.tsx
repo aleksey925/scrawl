@@ -79,11 +79,13 @@ async function diskRev(path: string, signal: AbortSignal): Promise<string> {
   }
 }
 
+const deletionReason = 'This version was a deletion';
+
 function restoreReason(entry: HistoryEntry): string | undefined {
   if (entry.restorable) {
     return undefined;
   }
-  return entry.blob === '' ? 'This version was a deletion' : 'Same as the current note';
+  return entry.blob === '' ? deletionReason : 'Same as the current note';
 }
 
 function undoReason(entry: HistoryEntry, rev: string | undefined): string | undefined {
@@ -94,7 +96,7 @@ function undoReason(entry: HistoryEntry, rev: string | undefined): string | unde
     return undefined;
   }
   if (entry.blob === '') {
-    return 'This version was a deletion';
+    return deletionReason;
   }
   return entry.kind === 'added' ? 'This version created the note' : 'This version changed no text';
 }
@@ -105,7 +107,7 @@ const restoreHint = 'Brings the whole note back to this version.';
 
 type VersionAction = 'restore' | 'undo';
 
-interface ActionText {
+interface VersionActionSpec {
   write: typeof api.restoreVersion;
   title: string;
   effect: (at: string) => string;
@@ -114,7 +116,7 @@ interface ActionText {
   failed: string;
 }
 
-const versionActions: Record<VersionAction, ActionText> = {
+const versionActions: Record<VersionAction, VersionActionSpec> = {
   restore: {
     write: api.restoreVersion,
     title: 'Restore this version?',
@@ -345,18 +347,18 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
       return;
     }
     setWriting(true);
-    const words = versionActions[action];
+    const spec = versionActions[action];
     try {
-      const outcome = await words.write(path, { rev: base, version: entry.rev, from: entry.path });
+      const outcome = await spec.write(path, { rev: base, version: entry.rev, from: entry.path });
       if (!outcome.ok) {
         setConflict(outcome.current);
         return;
       }
-      reportMutation(outcome.state, words.done);
+      reportMutation(outcome.state, spec.done);
       setToken((seen) => seen + 1);
       onNoteChanged();
     } catch (error) {
-      showToast('error', { title: words.failed, message: errorText(error) });
+      showToast('error', { title: spec.failed, message: errorText(error) });
     } finally {
       setWriting(false);
     }
@@ -366,15 +368,15 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
     if (rev === undefined) {
       return;
     }
-    const words = versionActions[action];
+    const spec = versionActions[action];
     modals.openConfirmModal({
-      title: words.title,
+      title: spec.title,
       children: (
         <Text data-testid="modal" data-variant="confirm" size="sm">
-          {words.effect(absoluteTime(entry.at))} The text it has now stays in history and can be restored back.
+          {spec.effect(absoluteTime(entry.at))} The text it has now stays in history and can be restored back.
         </Text>
       ),
-      labels: { confirm: words.confirm, cancel: 'Cancel' },
+      labels: { confirm: spec.confirm, cancel: 'Cancel' },
       confirmProps: { 'data-testid': 'modal-confirm' },
       cancelProps: { 'data-testid': 'modal-cancel' },
       groupProps: dialogActionsProps,
@@ -382,10 +384,10 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
     });
   }
 
-  const reason = selected === undefined ? undefined : restoreReason(selected);
+  const restoreBlockedBy = selected === undefined ? undefined : restoreReason(selected);
   const undoBlockedBy = selected === undefined ? undefined : undoReason(selected, rev);
   const busy = writing || rev === undefined || disk.loading || history.loading;
-  const restoreBlocked = reason !== undefined || busy;
+  const restoreBlocked = restoreBlockedBy !== undefined || busy;
   const undoBlocked = undoBlockedBy !== undefined || busy;
   const changes = detail.data?.changes !== undefined;
   const modeToggle = changes && (
@@ -473,7 +475,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                             Restore this version
                           </SheetButton>
                           <span data-testid="history-restore-reason" className={classes.reason}>
-                            {reason ?? restoreHint}
+                            {restoreBlockedBy ?? restoreHint}
                           </span>
                         </>
                       )}
@@ -583,7 +585,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                     Restore this version
                   </Button>
                   <span data-testid="history-restore-reason" className={classes.reason}>
-                    {reason ?? restoreHint}
+                    {restoreBlockedBy ?? restoreHint}
                   </span>
                 </div>
               </div>

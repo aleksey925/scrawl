@@ -19,27 +19,31 @@ func Undoable(before, after string) bool {
 }
 
 func (s *Service) Undo(ctx context.Context, rev, p string, current []byte) ([]byte, error) {
-	change, err := s.Change(ctx, rev, p)
+	cleaned, err := cleanPath(p)
+	if err != nil {
+		return nil, fmt.Errorf("history: undo: %w", err)
+	}
+	change, err := s.Change(ctx, rev, cleaned)
 	if err != nil {
 		return nil, err
 	}
 	if !Undoable(change.Before, change.After) {
-		return nil, fmt.Errorf("history: undo %s %q: %w", rev, p, ErrNothingToUndo)
+		return nil, fmt.Errorf("history: undo %s %q: %w", rev, cleaned, ErrNothingToUndo)
 	}
 
 	out, err := s.run(ctx, command{args: []string{"hash-object", "-w", "--stdin"}, stdin: current})
 	if err != nil {
-		return nil, fmt.Errorf("history: undo %s %q: %w", rev, p, err)
+		return nil, fmt.Errorf("history: undo %s %q: %w", rev, cleaned, err)
 	}
 	ours := strings.TrimSpace(string(out))
 
 	args := []string{"merge-file", "-p", "--object-id", ours, change.After, change.Before}
 	merged, err := s.run(ctx, command{args: args, limit: maxBlobBytes})
 	if code := exitCode(err); code > 0 && code <= maxConflictExit {
-		return nil, fmt.Errorf("history: undo %s %q: %w", rev, p, ErrUndoConflict)
+		return nil, fmt.Errorf("history: undo %s %q: %w", rev, cleaned, ErrUndoConflict)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("history: undo %s %q: %w", rev, p, err)
+		return nil, fmt.Errorf("history: undo %s %q: %w", rev, cleaned, err)
 	}
 	return merged, nil
 }

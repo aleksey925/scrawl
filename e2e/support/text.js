@@ -13,7 +13,7 @@ module.exports = {
         conflict: 'This file changed on disk',
         restore: 'Restore this version?',
         undo: 'Undo this change?',
-        restoreConflict: 'This page changed while the history was open',
+        historyConflict: 'This page changed while the history was open',
     },
 
     toast: {
@@ -21,6 +21,8 @@ module.exports = {
         draftKept: 'Changes kept as a draft on this device',
         restored: 'Restored',
         undone: 'Undone',
+        undoFailed: 'Undo failed',
+        undoConflict: 'later changes touched the same lines, restore a version instead',
         created: 'Created',
         folderCreated: 'Created folder',
         moved: 'Moved',

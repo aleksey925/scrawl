@@ -55,7 +55,7 @@ type historyEntry struct {
 	Undoable   bool      `json:"undoable"`
 }
 
-type restoreRequest struct {
+type versionWriteRequest struct {
 	Rev     string `json:"rev"`
 	Version string `json:"version"`
 	From    string `json:"from"`
@@ -193,24 +193,24 @@ func (m *mount) versionContent(ctx context.Context, rev, p string) ([]byte, erro
 	return m.history().Show(ctx, blob)
 }
 
-func (m *mount) historyRequest(w http.ResponseWriter, r *http.Request) (string, restoreRequest, bool) {
+func (m *mount) historyRequest(w http.ResponseWriter, r *http.Request) (string, versionWriteRequest, bool) {
 	if m.refuseReadOnly(w, r) {
-		return "", restoreRequest{}, false
+		return "", versionWriteRequest{}, false
 	}
 	p, ok := m.historyPath(w, r)
 	if !ok {
-		return "", restoreRequest{}, false
+		return "", versionWriteRequest{}, false
 	}
-	var req restoreRequest
+	var req versionWriteRequest
 	if !decodeJSON(w, r, &req, maxJSONBody) {
-		return "", restoreRequest{}, false
+		return "", versionWriteRequest{}, false
 	}
 	if req.From == "" {
 		req.From = p
 	}
 	if !m.isDocument(req.From) {
 		failJSON(w, r, fmt.Errorf("history %q: %w", req.From, store.ErrNotFound))
-		return "", restoreRequest{}, false
+		return "", versionWriteRequest{}, false
 	}
 	return p, req, true
 }
@@ -247,14 +247,7 @@ func (m *mount) apiHistoryUndo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data, err := m.history().Undo(r.Context(), req.Version, req.From, current)
-	switch {
-	case errors.Is(err, history.ErrUndoConflict):
-		jsonError(w, http.StatusConflict, "later changes touched the same lines, restore a version instead")
-		return
-	case errors.Is(err, history.ErrNothingToUndo):
-		jsonError(w, http.StatusConflict, history.ErrNothingToUndo.Error())
-		return
-	case err != nil:
+	if err != nil {
 		failHistory(w, r, err)
 		return
 	}
@@ -333,6 +326,10 @@ func failHistory(w http.ResponseWriter, r *http.Request, err error) {
 		jsonError(w, http.StatusBadRequest, "bad path")
 	case errors.Is(err, history.ErrNoVersion):
 		jsonError(w, http.StatusNotFound, "no such version")
+	case errors.Is(err, history.ErrUndoConflict):
+		jsonError(w, http.StatusConflict, "later changes touched the same lines, restore a version instead")
+	case errors.Is(err, history.ErrNothingToUndo):
+		jsonError(w, http.StatusConflict, "this version changed no text to undo")
 	default:
 		log.Printf("[ERROR] %s %s: %v", r.Method, r.URL.Path, err)
 		jsonError(w, http.StatusInternalServerError, "history is unavailable")

@@ -64,12 +64,13 @@ Git-backed versions of the notes, and how two versions are compared.
   take out is a `409` too. `merge-file` reads no attribute and runs no merge
   driver ([quirks](../quirks.md#git-and-git-hosts)), so an adopted repository
   names no command here either.
-- The list says what each can do: `restorable` as above, and `undoable` when
-  the version has text both before and after its change and the two differ,
-  which leaves out the first version, a deletion and a rename alone. Both are
-  checked against the revision the page read, an undo before it merges, along
-  with the size of the text on disk, and both write through `store`, formatted
-  as a save is and under the same size.
+- The list says what each can do: `restorable` when the version has text and it
+  is not the text on disk now, and `undoable` when the version has text both
+  before and after its change and the two differ, which leaves out the first
+  version, a deletion and a rename alone. Both are checked against the revision
+  the page read, an undo before it merges, along with the size of the text on
+  disk, and both write through `store`, formatted as a save is and under the
+  same size.
 
 ## Comparing versions
 

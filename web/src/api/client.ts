@@ -29,8 +29,6 @@ import type {
   PreviewResponse,
   ResetRequest,
   ResetResponse,
-  RestoreRequest,
-  RestoreResponse,
   RunTicket,
   SaveFileRequest,
   SaveFileResponse,
@@ -39,6 +37,8 @@ import type {
   SpaceEntry,
   TreeResponse,
   UploadResponse,
+  VersionWriteRequest,
+  VersionWriteResponse,
 } from './types';
 
 export type UnauthorizedHandler = () => void;
@@ -228,15 +228,15 @@ function historyUrl(path: string): string {
   return spaceUrl(`/api/history/${encodeContentPath(path)}`);
 }
 
-export type RestoreOutcome = { ok: true; state: MutationState } | { ok: false; current: string };
+export type VersionWriteOutcome = { ok: true; state: MutationState } | { ok: false; current: string };
 
 async function writeVersion(
   action: 'restore' | 'undo',
   path: string,
-  body: RestoreRequest,
+  body: VersionWriteRequest,
   options?: RequestOptions,
-): Promise<RestoreOutcome> {
-  const res = await call<RestoreResponse | ApiErrorBody>(
+): Promise<VersionWriteOutcome> {
+  const res = await call<VersionWriteResponse | ApiErrorBody>(
     'POST',
     spaceUrl(`/api/history/${action}/${encodeContentPath(path)}`),
     { ...options, body, allowStatus: [412] },
@@ -262,8 +262,8 @@ export interface ScrawlApi {
   find(query: string, settings: SearchSettings, limit?: number, options?: RequestOptions): Promise<SearchResponse>;
   history(path: string, options?: RequestOptions): Promise<HistoryResponse>;
   historyVersion(path: string, rev: string, options?: RequestOptions): Promise<HistoryVersionResponse>;
-  restoreVersion(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
-  undoChange(path: string, body: RestoreRequest, options?: RequestOptions): Promise<RestoreOutcome>;
+  restoreVersion(path: string, body: VersionWriteRequest, options?: RequestOptions): Promise<VersionWriteOutcome>;
+  undoChange(path: string, body: VersionWriteRequest, options?: RequestOptions): Promise<VersionWriteOutcome>;
   preview(body: PreviewRequest, options?: RequestOptions): Promise<PreviewResponse>;
   compare(body: CompareRequest, options?: RequestOptions): Promise<CompareResponse>;
   upload(dir: string, file: File, doc?: string, options?: RequestOptions): Promise<UploadResponse>;

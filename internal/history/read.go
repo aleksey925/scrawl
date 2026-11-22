@@ -27,11 +27,10 @@ const (
 )
 
 type Entry struct {
-	Rev, Short, Blob, Actor, Message string
-	Before                           string
-	Path                             string
-	Kind                             Kind
-	At                               time.Time
+	Rev, Short, Before, Blob, Actor, Message string
+	Path                                     string
+	Kind                                     Kind
+	At                                       time.Time
 }
 
 func (s *Service) Log(ctx context.Context, p string, limit int) ([]Entry, error) {

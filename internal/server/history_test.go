@@ -467,7 +467,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body: jsonBody(t, restoreRequest{
+			body: jsonBody(t, versionWriteRequest{
 				Rev: current["rev"].(string), Version: version.Rev, From: version.Path,
 			}),
 		})
@@ -518,7 +518,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body: jsonBody(t, restoreRequest{
+			body: jsonBody(t, versionWriteRequest{
 				Rev: current["rev"].(string), Version: oid("9f"), From: version.Path,
 			}),
 		})
@@ -544,7 +544,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body: jsonBody(t, restoreRequest{
+			body: jsonBody(t, versionWriteRequest{
 				Rev: current["rev"].(string), Version: huge.Rev, From: huge.Path,
 			}),
 		})
@@ -566,7 +566,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body: jsonBody(t, restoreRequest{
+			body: jsonBody(t, versionWriteRequest{
 				Rev: "written-by-somebody-else", Version: version.Rev, From: version.Path,
 			}),
 		})
@@ -586,7 +586,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/restore/index.md",
-			body:   jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
+			body:   jsonBody(t, versionWriteRequest{Version: version.Rev, From: version.Path}),
 		})
 
 		// assert
@@ -602,7 +602,7 @@ func TestAPIHistoryRestore(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method:  http.MethodPost,
 			path:    "/api/history/restore/index.md",
-			body:    jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
+			body:    jsonBody(t, versionWriteRequest{Version: version.Rev, From: version.Path}),
 			headers: map[string]string{"Authorization": "Bearer " + testReadToken},
 		})
 
@@ -618,7 +618,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 	newFake := func() *fakeHistory {
 		return &fakeHistory{entries: []history.Entry{version}, undone: undone}
 	}
-	undo := func(t *testing.T, ts *testServer, req restoreRequest) (response, map[string]any) {
+	undo := func(t *testing.T, ts *testServer, req versionWriteRequest) (response, map[string]any) {
 		t.Helper()
 		return ts.json(t, request{method: http.MethodPost, path: "/api/history/undo/index.md", body: jsonBody(t, req)})
 	}
@@ -630,7 +630,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
 
 		// assert
 		require.Equal(t, http.StatusOK, resp.status, body)
@@ -653,7 +653,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: renamed.Rev, From: renamed.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: renamed.Rev, From: renamed.Path})
 
 		// assert
 		require.Equal(t, http.StatusOK, resp.status, body)
@@ -672,7 +672,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.status)
@@ -691,7 +691,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(ts.root, "index.md"), huge, 0o600))
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: store.Rev(huge), Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: store.Rev(huge), Version: version.Rev, From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusRequestEntityTooLarge, resp.status)
@@ -708,7 +708,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusInternalServerError, resp.status)
@@ -738,7 +738,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 				_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 				// act
-				resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
+				resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: version.Rev, From: version.Path})
 
 				// assert
 				assert.Equal(t, http.StatusConflict, resp.status)
@@ -757,7 +757,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: current["rev"].(string), Version: oid("9f"), From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: current["rev"].(string), Version: oid("9f"), From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusNotFound, resp.status)
@@ -771,7 +771,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		_, current := ts.json(t, request{path: "/api/file/index.md"})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Rev: "written-by-somebody-else", Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Rev: "written-by-somebody-else", Version: version.Rev, From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusPreconditionFailed, resp.status)
@@ -791,7 +791,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method: http.MethodPost,
 			path:   "/api/history/undo/gone.md",
-			body:   jsonBody(t, restoreRequest{Version: version.Rev}),
+			body:   jsonBody(t, versionWriteRequest{Version: version.Rev}),
 		})
 
 		// assert
@@ -806,7 +806,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		ts := newTestServer(t, testOpts{readOnly: true, history: newFake()})
 
 		// act
-		resp, body := undo(t, ts, restoreRequest{Version: version.Rev, From: version.Path})
+		resp, body := undo(t, ts, versionWriteRequest{Version: version.Rev, From: version.Path})
 
 		// assert
 		assert.Equal(t, http.StatusForbidden, resp.status)
@@ -821,7 +821,7 @@ func TestAPIHistoryUndo(t *testing.T) {
 		resp, body := ts.json(t, request{
 			method:  http.MethodPost,
 			path:    "/api/history/undo/index.md",
-			body:    jsonBody(t, restoreRequest{Version: version.Rev, From: version.Path}),
+			body:    jsonBody(t, versionWriteRequest{Version: version.Rev, From: version.Path}),
 			headers: map[string]string{"Authorization": "Bearer " + testReadToken},
 		})
 
@@ -847,7 +847,7 @@ func TestHistoryAnswersOnlyForDocumentsTheStoreShows(t *testing.T) {
 		return request{
 			method: http.MethodPost,
 			path:   "/api/history/" + action + "/" + p,
-			body:   jsonBody(t, restoreRequest{Rev: store.Rev(leaked), Version: secret.Rev, From: secret.Path}),
+			body:   jsonBody(t, versionWriteRequest{Rev: store.Rev(leaked), Version: secret.Rev, From: secret.Path}),
 		}
 	}
 	tests := []struct {
@@ -903,7 +903,7 @@ func TestAPIHistoryWithoutTheService(t *testing.T) {
 			resp, body := ts.json(t, request{
 				method: tc.method,
 				path:   tc.path,
-				body:   jsonBody(t, restoreRequest{Rev: current["rev"].(string), Version: oid("a1")}),
+				body:   jsonBody(t, versionWriteRequest{Rev: current["rev"].(string), Version: oid("a1")}),
 			})
 
 			// assert

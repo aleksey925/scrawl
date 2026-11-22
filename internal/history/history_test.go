@@ -895,7 +895,7 @@ func TestServiceLog(t *testing.T) {
 		// assert
 		require.NoError(t, err)
 		require.Len(t, entries, 1)
-		assert.Equal(t, strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD")), entries[0].Rev)
+		assert.Equal(t, localHead(t, s.Root()), entries[0].Rev)
 		assert.True(t, strings.HasPrefix(entries[0].Rev, entries[0].Short))
 		assert.Less(t, len(entries[0].Short), len(entries[0].Rev),
 			"--no-abbrev applies to %h too, so a short hash taken from git is the full one")
@@ -986,7 +986,7 @@ func TestServiceVersion(t *testing.T) {
 		// arrange
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
-		rev := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+		rev := localHead(t, s.Root())
 
 		// act
 		blob, err := s.Version(t.Context(), rev, "a.md")
@@ -1003,7 +1003,7 @@ func TestServiceVersion(t *testing.T) {
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
-		latest := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+		latest := localHead(t, s.Root())
 
 		// act
 		_, err := s.Version(t.Context(), latest, "a.md")
@@ -1016,7 +1016,7 @@ func TestServiceVersion(t *testing.T) {
 		// arrange
 		s := newService(t)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": "before\n"}))
-		before := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+		before := localHead(t, s.Root())
 		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
 			return nil, os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md"))
 		}))
@@ -1038,7 +1038,7 @@ func TestServiceVersion(t *testing.T) {
 		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"a.md"}}, func() ([]string, error) {
 			return nil, os.Remove(filepath.Join(s.Root(), "a.md"))
 		}))
-		rev := strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
+		rev := localHead(t, s.Root())
 
 		// act
 		blob, err := s.Version(t.Context(), rev, "a.md")
@@ -1069,10 +1069,6 @@ func TestServiceVersion(t *testing.T) {
 }
 
 func TestServiceChange(t *testing.T) {
-	head := func(t *testing.T, s *Service) string {
-		t.Helper()
-		return strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
-	}
 	content := func(t *testing.T, s *Service, blob string) string {
 		t.Helper()
 		if blob == "" {
@@ -1090,7 +1086,7 @@ func TestServiceChange(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "second\n"}))
 
 		// act
-		got, err := s.Change(t.Context(), head(t, s), "a.md")
+		got, err := s.Change(t.Context(), localHead(t, s.Root()), "a.md")
 
 		// assert
 		require.NoError(t, err)
@@ -1105,7 +1101,7 @@ func TestServiceChange(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
 
 		// act
-		got, err := s.Change(t.Context(), head(t, s), "a.md")
+		got, err := s.Change(t.Context(), localHead(t, s.Root()), "a.md")
 
 		// assert
 		require.NoError(t, err)
@@ -1126,7 +1122,7 @@ func TestServiceChange(t *testing.T) {
 		}))
 
 		// act
-		got, err := s.Change(t.Context(), head(t, s), "new.md")
+		got, err := s.Change(t.Context(), localHead(t, s.Root()), "new.md")
 
 		// assert
 		require.NoError(t, err)
@@ -1144,7 +1140,7 @@ func TestServiceChange(t *testing.T) {
 		}))
 
 		// act
-		got, err := s.Change(t.Context(), head(t, s), "a.md")
+		got, err := s.Change(t.Context(), localHead(t, s.Root()), "a.md")
 
 		// assert
 		require.NoError(t, err)
@@ -1159,7 +1155,7 @@ func TestServiceChange(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
 
 		// act
-		_, err := s.Change(t.Context(), head(t, s), "a.md")
+		_, err := s.Change(t.Context(), localHead(t, s.Root()), "a.md")
 
 		// assert
 		require.ErrorIs(t, err, ErrNoVersion)
@@ -1171,7 +1167,7 @@ func TestServiceChange(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "first\n"}))
 
 		// act
-		_, err := s.Change(t.Context(), head(t, s), "missing.md")
+		_, err := s.Change(t.Context(), localHead(t, s.Root()), "missing.md")
 
 		// assert
 		require.ErrorIs(t, err, ErrNoVersion)
@@ -1360,10 +1356,6 @@ func TestIdent(t *testing.T) {
 }
 
 func TestServiceUndo(t *testing.T) {
-	head := func(t *testing.T, s *Service) string {
-		t.Helper()
-		return strings.TrimSpace(gitIn(t, s.Root(), "rev-parse", "HEAD"))
-	}
 	lines := "one\ntwo\nthree\nfour\nfive\nsix\nseven\n"
 
 	t.Run("the last change gives back the text before it", func(t *testing.T) {
@@ -1373,7 +1365,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": "at work\n"}))
 
 		// act
-		got, err := s.Undo(t.Context(), head(t, s), "a.md", []byte("at work\n"))
+		got, err := s.Undo(t.Context(), localHead(t, s.Root()), "a.md", []byte("at work\n"))
 
 		// assert
 		require.NoError(t, err)
@@ -1386,7 +1378,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
 			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
-		undone := head(t, s)
+		undone := localHead(t, s.Root())
 		later := strings.Replace(strings.Replace(lines, "two", "TWO", 1), "six", "SIX", 1)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": later}))
 
@@ -1407,7 +1399,7 @@ func TestServiceUndo(t *testing.T) {
 		onDisk := strings.Replace(strings.Replace(lines, "two", "TWO", 1), "seven", "SEVEN", 1)
 
 		// act
-		got, err := s.Undo(t.Context(), head(t, s), "a.md", []byte(onDisk))
+		got, err := s.Undo(t.Context(), localHead(t, s.Root()), "a.md", []byte(onDisk))
 
 		// assert
 		require.NoError(t, err)
@@ -1420,7 +1412,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
 			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
-		undone := head(t, s)
+		undone := localHead(t, s.Root())
 		later := strings.Replace(lines, "two", "Two!", 1)
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": later}))
 
@@ -1437,7 +1429,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}}, map[string]string{"old.md": lines}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"old.md"}},
 			map[string]string{"old.md": strings.Replace(lines, "two", "TWO", 1)}))
-		undone := head(t, s)
+		undone := localHead(t, s.Root())
 		require.NoError(t, s.Record(t.Context(), Op{Actor: "alex", Paths: []string{"old.md", "new.md"}}, func() ([]string, error) {
 			return nil, os.Rename(filepath.Join(s.Root(), "old.md"), filepath.Join(s.Root(), "new.md"))
 		}))
@@ -1463,7 +1455,7 @@ func TestServiceUndo(t *testing.T) {
 		}))
 
 		// act
-		got, err := s.Undo(t.Context(), head(t, s), "new.md", []byte(edited))
+		got, err := s.Undo(t.Context(), localHead(t, s.Root()), "new.md", []byte(edited))
 
 		// assert
 		require.NoError(t, err)
@@ -1476,7 +1468,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
 			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
-		undone := head(t, s)
+		undone := localHead(t, s.Root())
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
 
 		// act
@@ -1493,12 +1485,12 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}}, map[string]string{"a.md": lines}))
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"a.md"}},
 			map[string]string{"a.md": strings.Replace(lines, "two", "TWO", 1)}))
-		change, err := s.Change(t.Context(), head(t, s), "a.md")
+		change, err := s.Change(t.Context(), localHead(t, s.Root()), "a.md")
 		require.NoError(t, err)
 		require.NoError(t, os.Remove(filepath.Join(s.Root(), ".git", "objects", change.Before[:2], change.Before[2:])))
 
 		// act
-		_, err = s.Undo(t.Context(), head(t, s), "a.md", []byte(strings.Replace(lines, "two", "TWO", 1)))
+		_, err = s.Undo(t.Context(), localHead(t, s.Root()), "a.md", []byte(strings.Replace(lines, "two", "TWO", 1)))
 
 		// assert
 		require.Error(t, err)
@@ -1533,7 +1525,7 @@ func TestServiceUndo(t *testing.T) {
 				tc.second(t, s)
 
 				// act
-				_, err := s.Undo(t.Context(), head(t, s), tc.path, []byte(lines))
+				_, err := s.Undo(t.Context(), localHead(t, s.Root()), tc.path, []byte(lines))
 
 				// assert
 				require.ErrorIs(t, err, ErrNothingToUndo)
@@ -1548,7 +1540,7 @@ func TestServiceUndo(t *testing.T) {
 		require.NoError(t, record(t, s, Op{Actor: "alex", Paths: []string{"b.md"}}, map[string]string{"b.md": "other\n"}))
 
 		// act
-		_, err := s.Undo(t.Context(), head(t, s), "a.md", []byte("first\n"))
+		_, err := s.Undo(t.Context(), localHead(t, s.Root()), "a.md", []byte("first\n"))
 
 		// assert
 		require.ErrorIs(t, err, ErrNoVersion)

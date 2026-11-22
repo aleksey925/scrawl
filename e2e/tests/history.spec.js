@@ -139,8 +139,8 @@ test.describe.serial('history', () => {
 
         // assert
         const toast = page.locator('[data-testid=toast][data-kind="error"]');
-        await expect(toast).toContainText('Undo failed');
-        await expect(toast).toContainText('later changes touched the same lines, restore a version instead');
+        await expect(toast).toContainText(text.toast.undoFailed);
+        await expect(toast).toContainText(text.toast.undoConflict);
         expect(readFixture(docPath, HISTORY)).toBe(last);
         await expect(versions).toHaveCount(3);
     });
@@ -233,7 +233,7 @@ test.describe.serial('history', () => {
 
         // assert
         const conflict = page.locator('[data-testid=modal][data-variant="conflict"]');
-        await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.restoreConflict);
+        await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.historyConflict);
         await expect(page.getByTestId('history-conflict-current')).toHaveText(elsewhere);
         expect(readFixture(docPath, HISTORY)).toBe(elsewhere);
     });
@@ -386,7 +386,7 @@ test.describe.serial('history', () => {
 
         const conflict = page.locator('[data-testid=modal][data-variant="conflict"]');
         await expect(page.getByTestId('history-conflict-current')).toBeVisible();
-        await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.restoreConflict);
+        await expect(conflict.locator('.mantine-Modal-title')).toContainText(text.modal.historyConflict);
         await expect(page.getByTestId('history-conflict-current')).toHaveText('written by someone else\n');
         expect(readFixture(docPath, HISTORY)).toBe('written by someone else\n');
         await shot(page, 'history-restore-conflict');

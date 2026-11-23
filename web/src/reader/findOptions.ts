@@ -21,7 +21,7 @@ export function optionDisabled(options: FindOptions, name: FindOption): boolean 
 }
 
 export function withOption<T extends FindOptions>(options: T, name: FindOption): T {
-  return optionDisabled(options, name) ? options : withValue(options, name, !options[name]);
+  return withValue(options, name, !options[name]);
 }
 
 export function withValue<T extends FindOptions>(options: T, name: FindOption, value: boolean): T {

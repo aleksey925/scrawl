@@ -11,7 +11,7 @@ import type { SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
 import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
-import { noOptions, optionKeys, withOption, type FindOption } from '../reader/findOptions';
+import { noOptions, optionDisabled, optionKeys, withOption, type FindOption } from '../reader/findOptions';
 import { FindToggles } from '../reader/FindToggles';
 import { storedOptions, storeOptions } from '../reader/storedOptions';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
@@ -109,7 +109,11 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
     storeOptions(settingsKey, next);
     setSettings(next);
   };
-  const toggle = (name: FindOption): void => change(withOption(settings, name));
+  const toggle = (name: FindOption): void => {
+    if (!optionDisabled(settings, name)) {
+      change(withOption(settings, name));
+    }
+  };
 
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.altKey) {

@@ -144,6 +144,24 @@ test.describe('search', () => {
         await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'false');
     });
 
+    test('a disabled toggle pressed in the search leaves the stored toggles alone', async ({page}) => {
+        // arrange
+        const key = 'scrawl.search.settings';
+        const other = {matchCase: true, word: false, regex: false, fuzzy: false, titles: true};
+        await openSearch(page);
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
+        await page.evaluate(([name, value]) => localStorage.setItem(name, JSON.stringify(value)), [key, other]);
+
+        // act
+        await page.keyboard.press('Alt+KeyC');
+        await page.keyboard.press('Alt+KeyW');
+
+        // assert
+        await expect(page.getByTestId('search-case')).toHaveAttribute('data-on', 'false');
+        expect(await page.evaluate((name) => JSON.parse(localStorage.getItem(name)), key)).toEqual(other);
+    });
+
     test('Fuzzy finds a word without its accent, with a typo or with an accent on another letter, and the plain search keeps the accent', async ({page}) => {
         // arrange
         writeFixture(MANY, '# Many\n\nΤο σπίτι είναι μεγάλο. Всё и все. За́мок.\n');

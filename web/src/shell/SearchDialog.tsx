@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router';
 import { api, searchTextOf } from '../api/client';
 import type { SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
+import { Hint } from '../components/Hint';
 import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
 import { noOptions, optionDisabled, optionKeys, withOption, type FindOption } from '../reader/findOptions';
@@ -263,16 +264,17 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
               {icon}
               {input}
               {!offline && toggleButtons}
-              <button
-                type="button"
-                data-testid="search-close"
-                className={classes.close}
-                aria-label="Cancel search"
-                title="Cancel search"
-                onClick={onClose}
-              >
-                <IconX size={layout.iconSize} />
-              </button>
+              <Hint label="Cancel search">
+                <button
+                  type="button"
+                  data-testid="search-close"
+                  className={classes.close}
+                  aria-label="Cancel search"
+                  onClick={onClose}
+                >
+                  <IconX size={layout.iconSize} />
+                </button>
+              </Hint>
             </div>
           </div>
         </div>

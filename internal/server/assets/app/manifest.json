@@ -36,6 +36,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Hint.js",
       "_AsyncContent.js",
       "_EmptyState.js",
       "_useVisibleArea.js",
@@ -57,6 +58,21 @@
       "_Text.js"
     ]
   },
+  "_Hint.css": {
+    "file": "assets/Hint.css",
+    "src": "_Hint.css"
+  },
+  "_Hint.js": {
+    "file": "assets/Hint.js",
+    "name": "Hint",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ],
+    "css": [
+      "assets/Hint.css"
+    ]
+  },
   "_NoteExtensions.css": {
     "file": "assets/NoteExtensions.css",
     "src": "_NoteExtensions.css"
@@ -69,6 +85,7 @@
       "_naming.js",
       "_Segmented.js",
       "_anchor.js",
+      "_Hint.js",
       "_Text.js",
       "_AsyncContent.js",
       "_EmptyState.js",
@@ -152,6 +169,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Hint.js",
       "_screenMotion.js",
       "_icons.js"
     ]
@@ -701,6 +719,7 @@
     "name": "storedOptions",
     "imports": [
       "_naming.js",
+      "_Hint.js",
       "_storage.js",
       "_client.js"
     ],
@@ -734,6 +753,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_Segmented.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_useVisibleArea.js",
@@ -2638,6 +2658,7 @@
       "_Segmented.js",
       "_use-debounced-value.js",
       "_anchor.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2798,6 +2819,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_Segmented.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2889,6 +2911,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Hint.js",
       "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
@@ -2969,6 +2992,7 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_use-debounced-value.js",
+      "_Hint.js",
       "_useVisibleArea.js",
       "_client.js",
       "_icons.js",

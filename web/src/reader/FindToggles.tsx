@@ -1,5 +1,6 @@
 import type { JSX, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 
+import { Hint } from '../components/Hint';
 import { optionDisabled, type FindOption, type FindOptions } from './findOptions';
 import classes from './FindToggles.module.css';
 
@@ -22,21 +23,21 @@ export function FindToggles({ options, testIdPrefix, className, onToggle, onMous
   return (
     <>
       {buttons.map((entry) => (
-        <button
-          key={entry.name}
-          type="button"
-          data-testid={`${testIdPrefix}-${entry.testId}`}
-          data-on={options[entry.name] ? 'true' : 'false'}
-          className={`${classes.toggle} ${className}`}
-          aria-label={entry.label}
-          aria-pressed={options[entry.name]}
-          title={entry.label}
-          disabled={optionDisabled(options, entry.name)}
-          onMouseDown={onMouseDown}
-          onClick={() => onToggle(entry.name)}
-        >
-          {entry.face}
-        </button>
+        <Hint key={entry.name} label={entry.label}>
+          <button
+            type="button"
+            data-testid={`${testIdPrefix}-${entry.testId}`}
+            data-on={options[entry.name] ? 'true' : 'false'}
+            className={`${classes.toggle} ${className}`}
+            aria-label={entry.label}
+            aria-pressed={options[entry.name]}
+            disabled={optionDisabled(options, entry.name)}
+            onMouseDown={onMouseDown}
+            onClick={() => onToggle(entry.name)}
+          >
+            {entry.face}
+          </button>
+        </Hint>
       ))}
     </>
   );

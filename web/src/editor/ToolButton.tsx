@@ -1,6 +1,8 @@
 import { ActionIcon } from '@mantine/core';
 import type { ComponentPropsWithRef, JSX } from 'react';
 
+import { Hint } from '../components/Hint';
+
 import classes from './Editor.module.css';
 
 export interface ToolButtonProps extends Omit<ComponentPropsWithRef<'button'>, 'children' | 'color' | 'style'> {
@@ -11,17 +13,18 @@ export interface ToolButtonProps extends Omit<ComponentPropsWithRef<'button'>, '
 
 export function ToolButton({ testId, label, children, ...rest }: ToolButtonProps): JSX.Element {
   return (
-    <ActionIcon
-      {...rest}
-      data-testid={testId}
-      className={classes.tool}
-      variant="subtle"
-      color="gray"
-      aria-label={label}
-      title={label}
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      {children}
-    </ActionIcon>
+    <Hint label={label}>
+      <ActionIcon
+        {...rest}
+        data-testid={testId}
+        className={classes.tool}
+        variant="subtle"
+        color="gray"
+        aria-label={label}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        {children}
+      </ActionIcon>
+    </Hint>
   );
 }

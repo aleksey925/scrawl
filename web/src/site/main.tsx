@@ -8,6 +8,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Route, Routes } from 'react-router';
 
+import { HintGroup } from '../components/Hint';
 import { Toasts } from '../components/Toasts';
 import { mountNode } from '../mount';
 import { Component as DocumentPage } from '../pages/DocumentPage';
@@ -60,23 +61,25 @@ createRoot(mountNode()).render(
       defaultColorScheme="auto"
     >
       <Toasts />
-      <PlatformProvider value={platform}>
-        <SiteRouter route={page.route} root={root} store={store}>
-          <NavProvider status={status}>
-            <ReaderExtensionsProvider value={extensions}>
-              <ReaderLayout chrome={chrome} overlays={<PageRestore />}>
-                <SiteBoundary>
-                  <Routes>
-                    <Route index element={<HomePage />} />
-                    <Route path="doc/*" element={<DocumentPage />} />
-                    <Route path="*" element={<NotFoundPage />} />
-                  </Routes>
-                </SiteBoundary>
-              </ReaderLayout>
-            </ReaderExtensionsProvider>
-          </NavProvider>
-        </SiteRouter>
-      </PlatformProvider>
+      <HintGroup>
+        <PlatformProvider value={platform}>
+          <SiteRouter route={page.route} root={root} store={store}>
+            <NavProvider status={status}>
+              <ReaderExtensionsProvider value={extensions}>
+                <ReaderLayout chrome={chrome} overlays={<PageRestore />}>
+                  <SiteBoundary>
+                    <Routes>
+                      <Route index element={<HomePage />} />
+                      <Route path="doc/*" element={<DocumentPage />} />
+                      <Route path="*" element={<NotFoundPage />} />
+                    </Routes>
+                  </SiteBoundary>
+                </ReaderLayout>
+              </ReaderExtensionsProvider>
+            </NavProvider>
+          </SiteRouter>
+        </PlatformProvider>
+      </HintGroup>
     </MantineProvider>
   </StrictMode>,
 );

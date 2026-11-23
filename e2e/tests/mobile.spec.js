@@ -2280,11 +2280,11 @@ test.describe('mobile', () => {
             writeFixture(SCRATCH, '# Планшет\n\nстрока\n');
             await page.goto(routes.edit(SCRATCH));
             const pane = page.getByTestId('editor-source');
-            await page.getByTestId('editor-layout-mode').getByTitle('Split').tap();
+            await page.getByTestId('editor-layout-mode').getByRole('radio', {name: 'Split'}).locator('..').tap();
             await expect(pane).not.toHaveAttribute('data-scroll');
 
             // act
-            await page.getByTestId('editor-layout-mode').getByTitle('Source').tap();
+            await page.getByTestId('editor-layout-mode').getByRole('radio', {name: 'Source'}).locator('..').tap();
 
             // assert
             await expect(pane).toHaveAttribute('data-scroll', 'outer');
@@ -5064,6 +5064,19 @@ test.describe('mobile', () => {
 
         // assert
         expect({stepped, toggled}).toEqual({stepped: 'doc-find-input', toggled: 'doc-find-input'});
+    });
+
+    test('a tap on a toggle of the find card shows no hint', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+
+        // act
+        await page.getByTestId('doc-find-case').tap();
+
+        // assert
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await stays(() => page.getByRole('tooltip').count(), 0, 1000);
     });
 
     test('closing Find with the keyboard up gives back the line being read, not one moved by the keyboard', async ({page}) => {

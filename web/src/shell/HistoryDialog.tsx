@@ -20,6 +20,7 @@ import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { absoluteTime, versionTime } from '../components/formats';
+import { Hint } from '../components/Hint';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
 import { Sheet } from '../components/Sheet';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
@@ -557,17 +558,18 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
               <span data-testid="history-count" className={classes.count}>
                 {history.data?.entries.length}
               </span>
-              <ActionIcon
-                data-testid="history-expand"
-                variant="subtle"
-                color="gray"
-                aria-label={expanded ? 'Shrink the history' : 'Expand the history'}
-                title={expanded ? 'Shrink' : 'Expand'}
-                aria-pressed={expanded}
-                onClick={() => setSize(expanded ? 'normal' : 'expanded')}
-              >
-                {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
-              </ActionIcon>
+              <Hint label={expanded ? 'Shrink' : 'Expand'}>
+                <ActionIcon
+                  data-testid="history-expand"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={expanded ? 'Shrink the history' : 'Expand the history'}
+                  aria-pressed={expanded}
+                  onClick={() => setSize(expanded ? 'normal' : 'expanded')}
+                >
+                  {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
+                </ActionIcon>
+              </Hint>
               <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
             </div>
             <div className={classes.list} tabIndex={-1} data-autofocus>

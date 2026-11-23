@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 
 import { api, installUnauthorizedHandler } from '../api/client';
+import { Hint } from '../components/Hint';
 import controls from '../controls.module.css';
 import { enterMessage } from '../htmlapp/protocol';
 import { IconChevronLeft, IconOpenOutside } from '../icons';
@@ -135,24 +136,27 @@ function RunScreen({ path, back }: { path: string; back: string }): JSX.Element 
   return (
     <div className={classes.screen} data-testid="run">
       <header className={classes.bar} data-testid="run-bar">
-        <Link data-testid="run-back" to={back} className={`${controls.wayBack} ${classes.back}`} aria-label="Back" title="Back">
-          <IconChevronLeft size={layout.iconSize} />
-        </Link>
+        <Hint label="Back">
+          <Link data-testid="run-back" to={back} className={`${controls.wayBack} ${classes.back}`} aria-label="Back">
+            <IconChevronLeft size={layout.iconSize} />
+          </Link>
+        </Hint>
         <span className={classes.name} data-testid="run-name" title={name}>
           {name}
         </span>
-        <ActionIcon
-          data-testid="run-open-outside"
-          variant="subtle"
-          color="gray"
-          size="lg"
-          aria-label="Open in a new tab"
-          title="Open in a new tab"
-          disabled={!outsideAvailable}
-          onClick={openOutside}
-        >
-          <IconOpenOutside size={layout.iconSize} />
-        </ActionIcon>
+        <Hint label="Open in a new tab">
+          <ActionIcon
+            data-testid="run-open-outside"
+            variant="subtle"
+            color="gray"
+            size="lg"
+            aria-label="Open in a new tab"
+            disabled={!outsideAvailable}
+            onClick={openOutside}
+          >
+            <IconOpenOutside size={layout.iconSize} />
+          </ActionIcon>
+        </Hint>
       </header>
       {state.kind === 'frame' && (
         <iframe

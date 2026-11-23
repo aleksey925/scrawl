@@ -2,6 +2,7 @@ import { ActionIcon, Button } from '@mantine/core';
 import type { JSX, MouseEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 
+import { Hint } from '../components/Hint';
 import type { Icon } from '../icons';
 import { layout } from '../theme';
 
@@ -19,18 +20,19 @@ export function TopbarAction({ testId, label, icon: Icon, to, state, onClick }: 
 
   if (Icon !== undefined) {
     return (
-      <ActionIcon
-        data-testid={testId}
-        variant="subtle"
-        color="gray"
-        size="lg"
-        aria-label={label}
-        title={label}
-        onClick={onClick}
-        renderRoot={renderRoot}
-      >
-        <Icon size={layout.iconSize} />
-      </ActionIcon>
+      <Hint label={label}>
+        <ActionIcon
+          data-testid={testId}
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label={label}
+          onClick={onClick}
+          renderRoot={renderRoot}
+        >
+          <Icon size={layout.iconSize} />
+        </ActionIcon>
+      </Hint>
     );
   }
   return (

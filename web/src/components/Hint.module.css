@@ -1,0 +1,9 @@
+.hint {
+  padding: 4px 8px;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--scrawl-tooltip);
+  box-shadow: var(--scrawl-shadow-medium);
+  color: var(--scrawl-tooltip-text);
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.4;
+}

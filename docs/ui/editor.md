@@ -24,10 +24,10 @@ The editor screen.
   Save. Between a phone and a wide screen it holds the same without the state
   of the save and without Split, as two panes have no room there. Below the
   `lg` width the layout shows only its icons, because the four names squeezed
-  the note's name in the topbar to a few letters. Each layout shows its name on
-  hover at every width, also where the name is on screen, as a title cannot
-  follow the width without a script. This is `compact` of `Segmented`, and only
-  this switch has it: the other icon switches always show their names.
+  the note's name in the topbar to a few letters. Each layout shows its name in
+  a hint on hover at every width, also where the name is on screen. This is
+  `compact` of `Segmented`, and only this switch has it: the other icon
+  switches always show their names.
 - On a phone, below the phone width, the bar on top is the way back at the
   left, the file's name in the middle with the state of the save under it, and
   Save at the right ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Back is

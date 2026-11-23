@@ -3168,19 +3168,25 @@ test.describe('editing', () => {
         await page.goto(routes.edit(docPath));
         const layoutMode = page.getByTestId('editor-layout-mode');
         await expect(layoutMode).toBeVisible();
-        const options = () => layoutMode.locator('[data-segment-text]').evaluateAll((spans) => spans.map((span) => ({
-            title: span.parentElement.title,
-            shown: span.getBoundingClientRect().width > 1,
-        })));
-
-        // act & assert
-        expect(await options()).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: false})));
+        const shown = () => layoutMode.locator('[data-segment-text]').evaluateAll((spans) => spans.map((span) => span.getBoundingClientRect().width > 1));
+        const hint = page.getByRole('tooltip');
 
         // act
-        await page.setViewportSize({width: 1440, height: 900});
+        await layoutMode.getByRole('radio', {name: 'Preview'}).locator('..').hover();
 
         // assert
-        await expect.poll(options).toEqual(['Source', 'Split', 'Preview', 'Changes'].map((title) => ({title, shown: true})));
+        expect(await shown()).toEqual([false, false, false, false]);
+        await expect(hint).toHaveText(['Preview']);
+
+        // act
+        await page.mouse.move(0, 0);
+        await expect(hint).toHaveCount(0);
+        await page.setViewportSize({width: 1440, height: 900});
+        await layoutMode.getByRole('radio', {name: 'Preview'}).locator('..').hover();
+
+        // assert
+        await expect.poll(shown).toEqual([true, true, true, true]);
+        await expect(hint).toHaveText(['Preview']);
         removeFixture(docPath);
     });
 
@@ -3205,6 +3211,27 @@ test.describe('editing', () => {
         await expect(page.getByTestId('editor-tabs')).toHaveCount(0);
         await expect(page.getByTestId('editor-keyboard-bar')).toHaveCount(0);
         await expect(page.getByTestId('topbar-edit-name')).toHaveCount(0);
+        removeFixture(docPath);
+    });
+
+    test('a toolbar button names itself in a hint a moment after the pointer stops on it, and the next one at once', async ({page}) => {
+        // arrange
+        const docPath = scratch('toolbar-hint');
+        writeFixture(docPath, '# Заметка\n');
+        await page.goto(routes.edit(docPath));
+        const hint = page.getByRole('tooltip');
+
+        // act
+        await page.getByTestId('editor-toolbar-bold').hover();
+
+        // assert
+        await stays(() => hint.count(), 0, 250);
+        await expect(hint).toHaveText('Bold', {timeout: 1000});
+        await page.getByTestId('editor-toolbar-italic').hover();
+        await expect(page.getByRole('tooltip', {name: 'Italic'})).toBeVisible({timeout: 150});
+        await expect(hint).toHaveText(['Italic']);
+        await page.mouse.move(0, 0);
+        await expect(hint).toHaveCount(0);
         removeFixture(docPath);
     });
 

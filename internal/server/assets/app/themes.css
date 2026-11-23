@@ -448,6 +448,7 @@
   --scrawl-accent: #007aff;
   --scrawl-accent-strong: #0062cc;
   --scrawl-accent-tint: #007aff1f;
+  --scrawl-action-tint: #e5f0ff;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #1d1d1f;
   --scrawl-inline-code-bg: #e9e9ee;
@@ -706,6 +707,7 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
+  --scrawl-action-tint: #2383e22e;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;
@@ -963,6 +965,7 @@
   --scrawl-accent: #007aff;
   --scrawl-accent-strong: #0062cc;
   --scrawl-accent-tint: #007aff1f;
+  --scrawl-action-tint: #e5f0ff;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #1d1d1f;
   --scrawl-inline-code-bg: #e9e9ee;
@@ -1219,6 +1222,7 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
+  --scrawl-action-tint: #2383e22e;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;

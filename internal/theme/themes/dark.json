@@ -59,6 +59,7 @@
     "accent": "#2383e2",
     "accentStrong": "#3b91e6",
     "accentTint": "#2383e240",
+    "actionTint": "#2383e22e",
     "onAccent": "#ffffff",
     "inlineCode": "#ff7369",
     "inlineCodeBg": "#ffffff14",

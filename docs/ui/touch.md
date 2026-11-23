@@ -4,9 +4,11 @@ Sizes and feedback on a touch screen, phone or tablet.
 
 - A touch screen has one scale of sizes, set once in the theme: a menu row and
   an icon button 44px, a labelled button and a field 40px, and a choice of a
-  few, a segmented control or a chip beside one, 36px. The layouts at the
-  bottom of a phone's editor are the one choice drawn at 40px: they fill the
-  strip under the thumb alone, with no chip beside them, as the mockup has it
+  few, a segmented control or a chip beside one, 36px. The actions of a history
+  card are 36px too: they sit in a row of a list, not at the foot of a screen
+  ([pages](pages.md)). The layouts at the bottom of a phone's editor are the
+  one choice drawn at 40px: they fill the strip under the thumb alone, with no
+  chip beside them, as the mockup has it
   ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Two more leave the scale:
   Discard and Restore of a draft's row, plain words with no frame, take the
   44px of an icon button ([editor](editor.md)), and the gray field of a rename

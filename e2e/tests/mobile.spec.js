@@ -4731,7 +4731,7 @@ test.describe('mobile', () => {
         const box = await page.getByTestId('version-restore').boundingBox();
         expect(box.y, 'Restore sits under the change').toBeGreaterThanOrEqual(version.y + version.height - 1);
         expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
-        expect(await tooSmall(page, '[data-testid=version-restore]', BUTTON_HEIGHT)).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=version-restore]', CHOICE_HEIGHT)).toEqual([]);
         await expect(page.getByTestId('rendered-diff')).toBeVisible();
         await expectNoHorizontalScroll(page);
         await page.getByTestId('history-diff-view').getByText('Source').tap();
@@ -4760,8 +4760,9 @@ test.describe('mobile', () => {
         }
         await page.goto(HISTORY.url.history(note));
         await expect(page.getByTestId('version')).toHaveCount(2);
-        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
-        await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('version-undo')).toHaveText('Undo This Change');
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Takes out only this change. Later changes stay.');
 
         // act
         await page.getByTestId('version').nth(1).tap();
@@ -4775,7 +4776,44 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('version')).toHaveCount(3);
     });
 
-    test('Undo in the history sheet sits above Restore and takes out the change of the picked version', async ({page}) => {
+    test('a version both actions can take holds Undo and Restore side by side, tinted, over one hint', async ({page}) => {
+        // arrange
+        const stamp = Date.now();
+        const note = `${HISTORY_FOLDER}/both-${stamp}.md`;
+        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+        for (const body of [`# Первая ${stamp}\n`, `# Вторая ${stamp}\n`, `# Вторая ${stamp}\n\nТретья\n`]) {
+            await setSource(page, body);
+            await save(page);
+        }
+        await page.goto(HISTORY.url.history(note));
+        await expect(page.getByTestId('version')).toHaveCount(3);
+
+        // act
+        await page.getByTestId('version').nth(1).tap();
+
+        // assert
+        const undo = page.getByTestId('version-undo');
+        const restore = page.getByTestId('version-restore');
+        await expect(undo).toHaveText('Undo Change');
+        await expect(restore).toHaveText('Restore Version');
+        await expect(page.getByTestId('history-actions-hint')).toHaveText(
+            'Undo takes out only this change, later changes stay. Restore brings back the whole note as it was then.',
+        );
+        const left = await undo.boundingBox();
+        const right = await restore.boundingBox();
+        expect(right.y, 'the two share a row').toBeCloseTo(left.y, 0);
+        expect(right.width, 'the two are as wide').toBeCloseTo(left.width, 0);
+        expect(right.x - (left.x + left.width), 'the gap between them').toBeCloseTo(8, 0);
+        expect(Math.round(left.height)).toBe(CHOICE_HEIGHT);
+        for (const button of [undo, restore]) {
+            await expect(button).toHaveCSS('background-color', rgb(lightTheme.palette.actionTint));
+            await expect(button).toHaveCSS('color', rgb(lightTheme.palette.accent));
+        }
+        await expect(page.locator('[data-testid=version-kind][data-kind="added"]'))
+            .toHaveCSS('background-color', rgb(lightTheme.blocks.gray.bg));
+    });
+
+    test('Undo of the current version stands alone across the card and takes out its change', async ({page}) => {
         // arrange
         const stamp = Date.now();
         const note = `${HISTORY_FOLDER}/undone-${stamp}.md`;
@@ -4787,10 +4825,11 @@ test.describe('mobile', () => {
         }
         await page.goto(HISTORY.url.history(note));
         await expect(page.getByTestId('version')).toHaveCount(2);
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
         const undo = await page.getByTestId('version-undo').boundingBox();
-        const restore = await page.getByTestId('version-restore').boundingBox();
-        expect(undo.y + undo.height, 'Undo sits above Restore').toBeLessThanOrEqual(restore.y);
-        expect(await tooSmall(page, '[data-testid=version-undo]', BUTTON_HEIGHT)).toEqual([]);
+        const hint = await page.getByTestId('history-actions-hint').boundingBox();
+        expect(undo.width, 'Undo fills the row').toBeCloseTo(hint.width, 0);
+        expect(await tooSmall(page, '[data-testid=version-undo]', CHOICE_HEIGHT)).toEqual([]);
 
         // act
         await page.getByTestId('version-undo').tap();

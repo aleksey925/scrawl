@@ -21,7 +21,7 @@ import { AsyncContent } from '../components/AsyncContent';
 import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { absoluteTime, versionTime } from '../components/formats';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
-import { Sheet, SheetButton } from '../components/Sheet';
+import { Sheet } from '../components/Sheet';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
@@ -81,11 +81,13 @@ async function diskRev(path: string, signal: AbortSignal): Promise<string> {
 
 const deletionReason = 'This version was a deletion';
 
+const sameReason = 'Same as the current note';
+
 function restoreReason(entry: HistoryEntry): string | undefined {
   if (entry.restorable) {
     return undefined;
   }
-  return entry.blob === '' ? deletionReason : 'Same as the current note';
+  return entry.blob === '' ? deletionReason : sameReason;
 }
 
 function undoReason(entry: HistoryEntry, rev: string | undefined): string | undefined {
@@ -104,6 +106,60 @@ function undoReason(entry: HistoryEntry, rev: string | undefined): string | unde
 const undoHint = 'Takes out only this change. Later changes stay.';
 
 const restoreHint = 'Brings the whole note back to this version.';
+
+interface CardActionsProps {
+  undoBlockedBy: string | undefined;
+  restoreBlockedBy: string | undefined;
+  busy: boolean;
+  onUndo: () => void;
+  onRestore: () => void;
+}
+
+function CardActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore }: CardActionsProps): JSX.Element {
+  const undo = undoBlockedBy === undefined;
+  const restore = restoreBlockedBy === undefined;
+  const reasons = [...new Set([undoBlockedBy, restoreBlockedBy])]
+    .filter((reason) => reason !== undefined && reason !== sameReason)
+    .map((reason) => `${reason}.`);
+  const both = undo && restore;
+  const hint = both ? (
+    <>
+      <b>Undo</b> takes out only this change, later changes stay. <b>Restore</b> brings back the whole note as it was
+      then.
+    </>
+  ) : (
+    [...(undo ? [undoHint] : []), ...(restore ? [restoreHint] : []), ...reasons].join(' ')
+  );
+  return (
+    <div className={classes.cardActions}>
+      {(undo || restore) && (
+        <div className={classes.cardButtons}>
+          {undo && (
+            <button type="button" data-testid="version-undo" className={classes.cardButton} disabled={busy} onClick={onUndo}>
+              {both ? 'Undo Change' : 'Undo This Change'}
+            </button>
+          )}
+          {restore && (
+            <button
+              type="button"
+              data-testid="version-restore"
+              className={classes.cardButton}
+              disabled={busy}
+              onClick={onRestore}
+            >
+              {both ? 'Restore Version' : 'Restore This Version'}
+            </button>
+          )}
+        </div>
+      )}
+      {hint !== '' && (
+        <p data-testid="history-actions-hint" className={classes.cardHint}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
 
 type VersionAction = 'restore' | 'undo';
 
@@ -212,9 +268,10 @@ interface VersionFactsProps {
   entry: HistoryEntry;
   path: string;
   currentMark: string;
+  plainTag: boolean;
 }
 
-function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Element {
+function VersionFacts({ entry, path, currentMark, plainTag }: VersionFactsProps): JSX.Element {
   const who = whoOf(entry.actor);
   const tag = tagOf(entry);
   const color = blockColorOf(who);
@@ -241,7 +298,7 @@ function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Elem
           data-testid="version-kind"
           data-kind={entry.kind}
           className={classes.kind}
-          style={blockStyle(tag.color)}
+          style={blockStyle(plainTag ? 'gray' : tag.color)}
         >
           {tag.label}
         </span>
@@ -274,7 +331,7 @@ function versionAttributes(entry: HistoryEntry, selected: boolean): Record<strin
 function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
   return (
     <button type="button" {...versionAttributes(entry, selected)} className={classes.row} onClick={onPick}>
-      <VersionFacts entry={entry} path={path} currentMark=" current" />
+      <VersionFacts entry={entry} path={path} currentMark=" current" plainTag={false} />
     </button>
   );
 }
@@ -289,7 +346,7 @@ function VersionCard({ entry, path, selected, onPick, children }: VersionRowProp
         className={classes.cardHead}
         onClick={onPick}
       >
-        <VersionFacts entry={entry} path={path} currentMark=" · current" />
+        <VersionFacts entry={entry} path={path} currentMark=" · current" plainTag />
       </button>
       {selected && <div className={classes.cardBody}>{children}</div>}
     </div>
@@ -459,25 +516,13 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                         <VersionDiff state={detail} rev={version.rev} mode={mode} layout={diffLayout} />
                       </section>
                       {canWrite && (
-                        <>
-                          <SheetButton
-                            testId="version-undo"
-                            secondary
-                            disabled={undoBlocked}
-                            onClick={() => askWrite('undo', version)}
-                          >
-                            Undo this change
-                          </SheetButton>
-                          <span data-testid="history-undo-reason" className={classes.reason}>
-                            {undoBlockedBy ?? undoHint}
-                          </span>
-                          <SheetButton testId="version-restore" disabled={restoreBlocked} onClick={() => askWrite('restore', version)}>
-                            Restore this version
-                          </SheetButton>
-                          <span data-testid="history-restore-reason" className={classes.reason}>
-                            {restoreBlockedBy ?? restoreHint}
-                          </span>
-                        </>
+                        <CardActions
+                          undoBlockedBy={undoBlockedBy}
+                          restoreBlockedBy={restoreBlockedBy}
+                          busy={busy}
+                          onUndo={() => askWrite('undo', version)}
+                          onRestore={() => askWrite('restore', version)}
+                        />
                       )}
                     </VersionCard>
                   ))

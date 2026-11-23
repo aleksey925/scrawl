@@ -258,19 +258,27 @@ opens over them.
   screen's height, "History" and the count of versions over the file's name,
   and each version a card with its time, marked current for the text the file
   has now, the initial and the name of who made it, a user, a token's name or
-  "outside the app", the colored tag, and "as" and the old path when the file
-  moved. The picked card, the first one at the start, opens to show the
-  switches of Rendered and Source and of Split and Unified, the change, then
-  "Undo this change" in the secondary color over "Restore this version" in the
-  accent. On a desktop the same two stand below the versions, Undo in the
-  default look over Restore filled. Undo takes out only the change the version
-  made and keeps the later ones, and Restore brings the whole note back to the
-  version. A line under each says what it does, or why it is disabled, and both
-  are hidden without the right to write. Undo is disabled while the note is
-  deleted, as there is no text to take the change out of. An undo whose lines,
-  or lines next to them, were changed again later is refused in a toast. Each
-  asks first, the address stays `/history/<path>`, and the ✕ goes back to the
-  note.
+  "outside the app", the tag of the change in gray, never in color, so that no
+  tag looks like a button, and "as" and the old path when the file moved. The
+  picked card, the first one at the start, opens to show the switches of
+  Rendered and Source and of Split and Unified, the change, then its actions.
+  An action of a card is a small tinted button, 36px high, the accent on its
+  tint, as a card is a row of a list and not a screen of its own: neither is
+  the main one, as both change the note and both ask first. When both can run,
+  "Undo Change" and "Restore Version" share one row; when one can, it fills the
+  row as "Undo This Change" or "Restore This Version". An action that cannot
+  run is not drawn at all, as a disabled button would be the loudest thing on
+  the card while doing nothing, and while a write runs the buttons stay,
+  dimmed. One line under the buttons says what they do, and why an action is
+  missing unless the reason is that the version is the text the note has now.
+  On a desktop the same two stand below the versions, Undo in the default look
+  over Restore filled, each with a line under it that says what it does, or why
+  it is disabled. Undo takes out only the change the version made and keeps the
+  later ones, and Restore brings the whole note back to the version. Both are
+  hidden without the right to write. Undo cannot run while the note is deleted,
+  as there is no text to take the change out of. An undo whose lines, or lines
+  next to them, were changed again later is refused in a toast. Each asks
+  first, the address stays `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

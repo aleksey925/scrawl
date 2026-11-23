@@ -2,6 +2,7 @@ package search
 
 import (
 	"cmp"
+	"fmt"
 	"maps"
 	"math"
 	"slices"
@@ -468,6 +469,10 @@ type queryTerm struct {
 	typo   bool
 }
 
+func (t queryTerm) key() string {
+	return fmt.Sprint(t.text, t.marks)
+}
+
 func (t queryTerm) carriedAt(text string, at int) bool {
 	return t.marks == nil || carries(t.marks, marksAt(text, at), t.typo)
 }
@@ -488,9 +493,9 @@ func parseQuery(query string) parsedQuery {
 		for _, t := range tokenize(part) {
 			term := queryTerm{text: t.term, marks: marksAt(part, t.off)}
 			group = append(group, term)
-			last, quoted = term.text, i%2 == 1
-			if _, seen := res.index[term.text]; !seen && len(res.terms) < maxQueryTerms {
-				res.index[term.text] = len(res.terms)
+			last, quoted = term.key(), i%2 == 1
+			if _, seen := res.index[last]; !seen && len(res.terms) < maxQueryTerms {
+				res.index[last] = len(res.terms)
 				res.terms = append(res.terms, term)
 			}
 		}
@@ -512,7 +517,7 @@ func endsWithWord(query string) bool {
 
 func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 	for _, phrase := range q.phrases {
-		k, ok := q.index[phrase[0].text]
+		k, ok := q.index[phrase[0].key()]
 		if !ok {
 			continue
 		}

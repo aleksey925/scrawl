@@ -620,6 +620,10 @@ func TestFindFuzzyKeepsTypedAccents(t *testing.T) {
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy, TitlesOnly: true}, want: []string{}},
 		{name: "a phrase in a title with the accent matches", docs: map[string]string{"a.md": "# Bon café\n\nTexte.\n"},
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
+		{name: "a word typed twice keeps the accents of both", docs: map[string]string{"a.md": "# Notes\n\nвсе тут.\n", "b.md": "# Notes\n\nвсе и всё.\n"},
+			query: Query{Text: "все всё", Mode: ModeFuzzy}, want: []string{"b.md"}},
+		{name: "a title typo is looked for past a word only in the body", docs: map[string]string{"a.md": "# За\u0301мок\n\nЗамо\u0301к в тексте.\n"},
+			query: Query{Text: "замо\u0301к", Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
 	}
 
 	for _, tc := range tests {

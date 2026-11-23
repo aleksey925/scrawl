@@ -120,17 +120,17 @@ func (ix *Index) fuzzy(q Query, limit int) Found {
 	slots := make([]slot, len(parsed.terms))
 	for k := range parsed.terms {
 		s, ok := ix.slotFor(parsed.terms[k])
+		if q.TitlesOnly {
+			s, ok = inTitles(s)
+		}
 		if !ok {
 			s, ok = ix.typoSlot(&parsed.terms[k])
+			if q.TitlesOnly {
+				s, ok = inTitles(s)
+			}
 		}
 		if !ok {
 			return Found{}
-		}
-		if q.TitlesOnly {
-			s = inTitles(s)
-			if len(s.list) == 0 {
-				return Found{}
-			}
 		}
 		slots[k] = s
 	}
@@ -164,7 +164,7 @@ func (ix *Index) typoSlot(term *queryTerm) (slot, bool) {
 	return res, len(res.list) > 0
 }
 
-func inTitles(s slot) slot {
+func inTitles(s slot) (slot, bool) {
 	res := slot{}
 	for i, p := range s.list {
 		if p.counts[fieldTitle] == 0 {
@@ -175,7 +175,7 @@ func inTitles(s slot) slot {
 			res.exact = append(res.exact, s.exact[i])
 		}
 	}
-	return res
+	return res, len(res.list) > 0
 }
 
 func typosAllowed(term string) int {

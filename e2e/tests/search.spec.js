@@ -488,6 +488,8 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toHaveText(['μεγάλο']);
         await input.fill('мука́');
         await expect(page.getByTestId('find-hit')).toHaveText(['мука́']);
+        await input.fill('му\u0301ка мука\u0301');
+        await expect(page.getByTestId('find-hit')).toHaveText(['му\u0301ка', 'мука\u0301']);
         await input.fill('мои');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyC');
@@ -807,6 +809,28 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
         await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
+    });
+
+    test('a toggle pressed on the bar a search opened is kept beside a stored Fuzzy', async ({page}) => {
+        // arrange
+        await openFind(page);
+        await page.getByTestId('doc-find-fuzzy').click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await page.goto(`${routes.doc(FIND)}?q=foo&word=1`);
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '2');
+
+        // act
+        await page.getByTestId('doc-find-case').click();
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await page.getByTestId('doc-find-close').click();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await openFind(page);
+
+        // assert
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
     });
 
     test('another note opened from a found one is not searched', async ({page}) => {

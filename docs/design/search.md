@@ -16,7 +16,8 @@ The server's search and the note's find bar.
   theirs, and the device and the browser keep their own. A search result opens
   the find bar with the options of that search, for that time only: the find
   bar has to find what the server found, and what it keeps is left as it was. A
-  toggle pressed on that bar changes only that option in what it keeps.
+  toggle pressed on that bar changes only that option in what it keeps, and
+  Fuzzy and Regex still turn each other off there.
 - An accent is a nonspacing combining mark that Unicode gives to no script of
   its own (category Mn, script Inherited): the Latin, Greek and Cyrillic
   accents and the Arabic vowel marks, and not the zero width joiners, which are
@@ -37,7 +38,9 @@ The server's search and the note's find bar.
   the accents at each place a word stands before the words a prefix or a typo
   expands to are merged, and scores only those places, so a plain `cafe` in the
   text or a heading gives `café` no boost. It checks a title word by word, as a
-  title has no places, and checks every word of a phrase.
+  title has no places, and checks every word of a phrase. Only the first 30
+  accents on a letter count, the limit of Unicode's stream-safe text, so a long
+  run of marks cannot slow a search down.
 - The plain search compares the characters as written, so `молоко` finds
   `молоко́` and leaves the stress mark, a character of its own, out of the
   match. A mark belongs to the letter before it: Whole word looks past it, and
@@ -51,22 +54,27 @@ The server's search and the note's find bar.
   no word has it on its letter, `замо́к` finds `за́мок`, and that word weighs as
   any word found with a typo. A word found with a typo needs only the accents
   typed somewhere in it, as its letters no longer line up, so a moved accent
-  costs nothing on top of a changed letter: `замо́к` also finds `за́мак`. The
-  short `уже́` still does not find `у́же`. A phrase in quotes is the server's,
-  and it keeps every accent on its letter; the find bar takes the quotes for
-  spaces. A word with no match that carries its accents is the one that looks
-  for typos, on the server among every word of the index, in the find bar among
-  the words of the note.
+  costs nothing on top of a changed letter: `замо́к` also finds `за́мак`, and two
+  accents moved are one typo. The short `уже́` still does not find `у́же`. A
+  phrase in quotes is the server's, and it keeps every accent on its letter;
+  one word in quotes is no phrase, only not a prefix, and the find bar takes
+  the quotes for spaces. A word with no match that carries its accents is the
+  one that looks for typos, on the server among every word of the index, in the
+  find bar among the words of the note. With Titles only, a match in the body
+  alone is no match, so a title can still be found with a typo.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `
   ([ADR 9](../adr/0009-search-on-reader-text.md)). Fuzzy is the ranked word
-  search, every word required and the last a prefix. Exact and Regex scan that
-  text with RE2 under a deadline, a cap on the pattern and a cap on matched
-  lines, skip empty matches, and say when they stopped early. The server builds
-  the url that opens a result with the note's find bar filled in, and for Fuzzy
-  it is the whole words the postings matched, typos included. A request that
-  names no mode is Exact, the way the app opens, and `snippet` is escaped HTML.
+  search, every word required and the last a prefix. A prefix takes the first
+  50 words of the index it starts, itself first, so a short prefix with an
+  accent can miss a word further on that the find bar marks. Exact and Regex
+  scan that text with RE2 under a deadline, a cap on the pattern and a cap on
+  matched lines, skip empty matches, and say when they stopped early. The
+  server builds the url that opens a result with the note's find bar filled in,
+  and for Fuzzy it is the whole words the postings matched, typos included. A
+  request that names no mode is Exact, the way the app opens, and `snippet` is
+  escaped HTML.
 - `Cmd+F` on a note opens the reader's own find bar, in the app and in a site.
   It matches each block's visible text as one string, the way the index
   flattens a note, so a phrase across bold is one match, and marks the text

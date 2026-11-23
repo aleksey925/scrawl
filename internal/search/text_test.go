@@ -1,6 +1,7 @@
 package search
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -136,6 +137,7 @@ func TestMarksOfWord(t *testing.T) {
 		{"own letter carries no accent", "йогурт", nil},
 		{"joiner is no accent", "ca\u200dfe", nil},
 		{"leading accent has no letter", "\u0301cafe", nil},
+		{"accents on a letter stop at a cap", "a" + strings.Repeat("\u0301", maxLetterMarks+5), [][]rune{slices.Repeat([]rune{'\u0301'}, maxLetterMarks)}},
 	}
 
 	for _, tt := range tests {

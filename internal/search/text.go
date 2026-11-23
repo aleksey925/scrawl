@@ -13,6 +13,7 @@ import (
 const (
 	maxTermRunes      = 40
 	maxDigitTermRunes = 10
+	maxLetterMarks    = 30
 )
 
 const (
@@ -94,7 +95,7 @@ func marksOfWord(word string) [][]rune {
 		switch {
 		case !ignorable(r):
 			res = append(res, marksOf(r))
-		case isAccent(r) && len(res) > 0:
+		case isAccent(r) && len(res) > 0 && len(res[len(res)-1]) < maxLetterMarks:
 			res[len(res)-1] = append(res[len(res)-1], r)
 		}
 	}

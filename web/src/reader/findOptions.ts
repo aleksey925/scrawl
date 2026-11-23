@@ -21,10 +21,11 @@ export function optionDisabled(options: FindOptions, name: FindOption): boolean 
 }
 
 export function withOption<T extends FindOptions>(options: T, name: FindOption): T {
-  if (optionDisabled(options, name)) {
-    return options;
-  }
-  const next = { ...options, [name]: !options[name] };
+  return optionDisabled(options, name) ? options : withValue(options, name, !options[name]);
+}
+
+export function withValue<T extends FindOptions>(options: T, name: FindOption, value: boolean): T {
+  const next = { ...options, [name]: value };
   if (next.fuzzy && next.regex) {
     return name === 'fuzzy' ? { ...next, regex: false } : { ...next, fuzzy: false };
   }

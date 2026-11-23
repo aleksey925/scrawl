@@ -6,7 +6,7 @@ import { usePlatform } from '../platform';
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { centerMatch } from './findScreen';
 import { FindTimeout, patternOf, type FindPattern, type FindQuery } from './findMatches';
-import { noOptions, togglesOf, withOption, type FindOption } from './findOptions';
+import { noOptions, togglesOf, withOption, withValue, type FindOption } from './findOptions';
 import { storedOptions, storeOptions } from './storedOptions';
 
 export const findParam = 'q';
@@ -208,14 +208,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   const linked = fromUrl !== undefined;
   const toggle = useCallback((name: FindOption): void => {
     const { text, ...options } = withOption(query, name);
-    if (linked) {
-      const kept = storedOptions(optionsKey, noOptions);
-      if (kept[name] !== options[name]) {
-        storeOptions(optionsKey, withOption(kept, name));
-      }
-    } else {
-      storeOptions(optionsKey, options);
-    }
+    storeOptions(optionsKey, linked ? withValue(storedOptions(optionsKey, noOptions), name, options[name]) : options);
     setQuery({ text, ...options });
   }, [query, linked, setQuery]);
 

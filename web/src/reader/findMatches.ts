@@ -27,6 +27,7 @@ const ownLetters = 'йЙїЇўЎ';
 const finalSigma = 'ς';
 const sigma = 'σ';
 const accent = /^(?=\p{Mn})\p{Script=Inherited}$/u;
+const maxLetterMarks = 30;
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -99,7 +100,10 @@ function marksOfWord(word: string): string[][] {
     if (!ignorableChar.test(char)) {
       res.push(marksOf(char));
     } else if (accent.test(char)) {
-      res.at(-1)?.push(char);
+      const letter = res.at(-1);
+      if (letter !== undefined && letter.length < maxLetterMarks) {
+        letter.push(char);
+      }
     }
   }
   return res.some((letter) => letter.length > 0) ? res : [];
@@ -132,15 +136,21 @@ function termOf(word: string): string {
   return [...word.replace(ignorable, '')].map(fold).join('');
 }
 
+function keyOf(term: Omit<FindTerm, 'prefix'>): string {
+  return JSON.stringify([term.text, term.marks]);
+}
+
 function termsOf(text: string): FindTerm[] {
   const typed = [...text.matchAll(wordChars)]
     .map((found) => ({ text: termOf(found[0]), marks: marksOfWord(found[0]) }))
     .filter((term) => term.text !== '');
-  const last = /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? typed.at(-1)?.text : undefined;
+  const lastTerm = typed.at(-1);
+  const last = lastTerm !== undefined && /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? keyOf(lastTerm) : undefined;
   const terms = new Map<string, FindTerm>();
   for (const term of typed) {
-    if (!terms.has(term.text)) {
-      terms.set(term.text, { ...term, prefix: term.text === last });
+    const key = keyOf(term);
+    if (!terms.has(key)) {
+      terms.set(key, { ...term, prefix: key === last });
     }
   }
   return [...terms.values()];

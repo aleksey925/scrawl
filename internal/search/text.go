@@ -68,7 +68,7 @@ func isMark(r rune) bool {
 }
 
 func isAccent(r rune) bool {
-	return unicode.Is(unicode.Inherited, r)
+	return isMark(r) && unicode.Is(unicode.Inherited, r)
 }
 
 func fold(r rune) rune {
@@ -90,19 +90,15 @@ func marksOf(r rune) []rune {
 
 func marksOfWord(word string) [][]rune {
 	var res [][]rune
-	typed := false
 	for _, r := range word {
 		switch {
 		case !ignorable(r):
 			res = append(res, marksOf(r))
 		case isAccent(r) && len(res) > 0:
 			res[len(res)-1] = append(res[len(res)-1], r)
-		default:
-			continue
 		}
-		typed = typed || len(res[len(res)-1]) > 0
 	}
-	if !typed {
+	if !slices.ContainsFunc(res, func(letter []rune) bool { return len(letter) > 0 }) {
 		return nil
 	}
 	return res
@@ -110,30 +106,26 @@ func marksOfWord(word string) [][]rune {
 
 func carries(want, have [][]rune, typo bool) bool {
 	if typo {
-		return len(missingMarks(slices.Concat(want...), slices.Concat(have...))) == 0
+		return hasMarks(slices.Concat(want...), slices.Concat(have...))
 	}
 	for i, letter := range want {
-		if len(letter) == 0 {
-			continue
-		}
-		if i >= len(have) || len(missingMarks(letter, have[i])) > 0 {
+		if len(letter) > 0 && (i >= len(have) || !hasMarks(letter, have[i])) {
 			return false
 		}
 	}
 	return true
 }
 
-func missingMarks(want, have []rune) []rune {
+func hasMarks(want, have []rune) bool {
 	have = slices.Clone(have)
-	var res []rune
 	for _, m := range want {
-		if k := slices.Index(have, m); k >= 0 {
-			have = slices.Delete(have, k, k+1)
-		} else {
-			res = append(res, m)
+		k := slices.Index(have, m)
+		if k < 0 {
+			return false
 		}
+		have = slices.Delete(have, k, k+1)
 	}
-	return res
+	return true
 }
 
 func ignorable(r rune) bool {

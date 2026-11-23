@@ -15,28 +15,29 @@ The server's search and the note's find bar.
   only, so they hold for the next search and for every note, as editors keep
   theirs, and the device and the browser keep their own. A search result opens
   the find bar with the options of that search, for that time only: the find
-  bar has to find what the server found, and what it keeps is left as it was.
-- An accent is a combining mark that Unicode gives to no script of its own
-  (script Inherited): the Latin, Greek and Cyrillic accents and the Arabic
-  vowel marks. A letter whose canonical decomposition adds only accents is its
-  base, so `ά` is `α` and `ё` is `е`. The vowel signs of Hindi or Thai, the
-  nukta and the Hebrew points belong to their script and are not accents, as
-  `कल` and `कुल` are two words. And `й`, `ї` and `ў` stay letters of their own,
-  as Russian has `мой` and `мои`. The server and the find bar build the bases
-  from the same rule, over the same letters: U+00C0 to U+2FFF, from `À`, the
-  first letter with a mark, to the end of the alphabets, so the Japanese kana
-  and the CJK characters are left as they are.
+  bar has to find what the server found, and what it keeps is left as it was. A
+  toggle pressed on that bar changes only that option in what it keeps.
+- An accent is a nonspacing combining mark that Unicode gives to no script of
+  its own (category Mn, script Inherited): the Latin, Greek and Cyrillic
+  accents and the Arabic vowel marks, and not the zero width joiners, which are
+  Inherited too. A letter whose canonical decomposition adds only accents is
+  its base, so `ά` is `α` and `ё` is `е`. The vowel signs of Hindi or Thai, the
+  nukta and the Hebrew points belong to their script and are not accents, so a
+  query never requires one; Fuzzy still drops them from every word, as it drops
+  every nonspacing mark, so there `कल` and `कुल` find each other. And `й`, `ї`
+  and `ў` stay letters of their own, as Russian has `мой` and `мои`. The server
+  and the find bar build the bases from the same rule, over the same letters:
+  U+00C0 to U+2FFF, from `À`, the first letter with a mark, to the end of the
+  alphabets, so the Japanese kana and the CJK characters are left as they are.
 - Fuzzy takes every word to its bases, in the index and in the find bar, so
   `μεγαλο` finds `μεγάλο`. An accent the query types is kept: a word typed with
-  one finds only the words that carry it on the same letter, inside it or as a
+  one matches the words that carry it on the same letter, inside it or as a
   mark after it, and more accents are allowed. So `все` finds `все` and `всё`,
-  `всё` finds only `всё`, `ü` finds `ǘ` and `ά` finds `ἄ`. A word found with a
-  typo needs only the accents typed somewhere in it, as its letters no longer
-  line up. The server checks the accents at each place a word stands before the
-  words a prefix or a typo expands to are merged, so a plain `cafe` gives
-  `café` no boost, checks a title word by word, as a title has no places, and
-  checks every word of a phrase. A word with no match that carries its accents
-  is the one that looks for typos.
+  `всё` finds only `всё`, `ü` finds `ǘ` and `ά` finds `ἄ`. The server checks
+  the accents at each place a word stands before the words a prefix or a typo
+  expands to are merged, and scores only those places, so a plain `cafe` in the
+  text or a heading gives `café` no boost. It checks a title word by word, as a
+  title has no places, and checks every word of a phrase.
 - The plain search compares the characters as written, so `молоко` finds
   `молоко́` and leaves the stress mark, a character of its own, out of the
   match. A mark belongs to the letter before it: Whole word looks past it, and
@@ -48,10 +49,14 @@ The server's search and the note's find bar.
   matches too many other words. An accent missing is never a typo, and an
   accent typed on another letter is one, as Fuzzy is there for mistakes: where
   no word has it on its letter, `замо́к` finds `за́мок`, and that word weighs as
-  any word found with a typo. The short `уже́` still does not find `у́же`, and a
-  phrase in quotes keeps every accent on its letter. A word with no exact match
-  is the one that looks for typos, on the server among every word of the index,
-  in the find bar among the words of the note.
+  any word found with a typo. A word found with a typo needs only the accents
+  typed somewhere in it, as its letters no longer line up, so a moved accent
+  costs nothing on top of a changed letter: `замо́к` also finds `за́мак`. The
+  short `уже́` still does not find `у́же`. A phrase in quotes is the server's,
+  and it keeps every accent on its letter; the find bar takes the quotes for
+  spaces. A word with no match that carries its accents is the one that looks
+  for typos, on the server among every word of the index, in the find bar among
+  the words of the note.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `

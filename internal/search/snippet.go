@@ -123,7 +123,21 @@ func (d *document) window(m mark) (start, end int) {
 }
 
 func (d *document) inCode(off int32) bool {
-	_, ok := slices.BinarySearchFunc(d.code, off, func(s span, off int32) int {
+	return inSpans(d.code, off)
+}
+
+func (d *document) fieldAt(off int32) field {
+	switch {
+	case d.inCode(off):
+		return fieldCode
+	case inSpans(d.headings, off):
+		return fieldHeading
+	}
+	return fieldBody
+}
+
+func inSpans(spans []span, off int32) bool {
+	_, ok := slices.BinarySearchFunc(spans, off, func(s span, off int32) int {
 		if s.end <= off {
 			return -1
 		}

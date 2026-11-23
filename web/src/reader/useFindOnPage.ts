@@ -205,12 +205,18 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     setQueryState(next);
   }, []);
 
+  const linked = fromUrl !== undefined;
   const toggle = useCallback((name: FindOption): void => {
     const { text, ...options } = withOption(query, name);
-    storeOptions(optionsKey, options);
+    const kept = linked ? storedOptions(optionsKey, noOptions) : undefined;
+    if (kept === undefined) {
+      storeOptions(optionsKey, options);
+    } else if (kept[name] !== options[name]) {
+      storeOptions(optionsKey, withOption(kept, name));
+    }
     setArmed(true);
     setQueryState({ text, ...options });
-  }, [query]);
+  }, [query, linked]);
 
   const close = useCallback((): void => {
     setOpened(false);

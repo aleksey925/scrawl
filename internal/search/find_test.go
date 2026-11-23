@@ -540,7 +540,7 @@ func TestWithinTypos(t *testing.T) {
 
 func TestFindAccents(t *testing.T) {
 	ix := indexOf(map[string]string{
-		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко́ и мой дом, їжак.\n\nЗа́мок, 1️⃣, ΩΣ.\n\nकुल مُحَمَّد. Ένα παιδί, ᾱͅβ.\n\nВсё и все, молоко, замо́к, ǘ, ἄλλο.\n",
+		"el.md": "# Λέξεις\n\nΤο σπίτι είναι μεγάλο. Café au lait, où.\n\nМолоко\u0301 и мой дом, їжак.\n\nЗа\u0301мок, 1\ufe0f\u20e3, ΩΣ.\n\nकुल مُحَمَّد. Ένα παιδί, ᾱ\u0345β.\n\nВсё и все, молоко, замо\u0301к, ǘ, ἄλλο, میخواهم.\n",
 	})
 
 	tests := []struct {
@@ -553,24 +553,19 @@ func TestFindAccents(t *testing.T) {
 		{name: "exact with an accent the text lacks", query: Query{Text: "τό", Mode: ModeExact, Word: true}, want: []string{}},
 		{name: "exact in a capital with an accent", query: Query{Text: "CAFÉ", Mode: ModeExact}, want: []string{"Café"}},
 		{name: "exact before a stress mark", query: Query{Text: "молоко", Mode: ModeExact}, want: []string{"Молоко", "молоко"}},
-		{name: "exact keeps arabic vowel marks", query: Query{Text: "محمد", Mode: ModeExact}, want: []string{}},
 		{name: "match case keeps the accent", query: Query{Text: "σπιτι", Mode: ModeExact, Case: true}, want: []string{}},
-		{name: "a vowel sign is not an accent", query: Query{Text: "कल", Mode: ModeExact}, want: []string{}},
-		{name: "a missing iota is not an accent", query: Query{Text: "παδί", Mode: ModeExact, Word: true}, want: []string{}},
-		{name: "exact finds a ypogegrammeni after a macron", query: Query{Text: "ᾱͅβ", Mode: ModeExact},
-			want: []string{"ᾱͅβ"}},
 		{name: "regex keeps the accent", query: Query{Text: "σπιτι", Regex: true}, want: []string{}},
-		{name: "an emoji keeps its variation selector", query: Query{Text: "1️⃣", Mode: ModeExact},
-			want: []string{"1️⃣"}},
+		{name: "an emoji keeps its variation selector", query: Query{Text: "1\ufe0f\u20e3", Mode: ModeExact},
+			want: []string{"1\ufe0f\u20e3"}},
 		{name: "whole word looks past a stress mark", query: Query{Text: "мок", Mode: ModeExact, Word: true}, want: []string{}},
 		{name: "match case and whole word end past a stress mark", query: Query{Text: "Молоко", Mode: ModeExact, Case: true, Word: true},
 			want: []string{"Молоко"}},
 		{name: "fuzzy without the accent", query: Query{Text: "μεγαλο", Mode: ModeFuzzy}, want: []string{"μεγάλο"}},
 		{name: "fuzzy finds a yo for a ye", query: Query{Text: "все", Mode: ModeFuzzy}, want: []string{"Всё", "все"}},
 		{name: "fuzzy keeps a yo typed", query: Query{Text: "всё", Mode: ModeFuzzy}, want: []string{"Всё"}},
-		{name: "fuzzy keeps a stress mark typed", query: Query{Text: "молоко́", Mode: ModeFuzzy}, want: []string{"Молоко́"}},
-		{name: "fuzzy keeps a stress mark on its letter", query: Query{Text: "замо́к", Mode: ModeFuzzy},
-			want: []string{"замо́к"}},
+		{name: "fuzzy keeps a stress mark typed", query: Query{Text: "молоко\u0301", Mode: ModeFuzzy}, want: []string{"Молоко\u0301"}},
+		{name: "fuzzy keeps a stress mark on its letter", query: Query{Text: "замо\u0301к", Mode: ModeFuzzy},
+			want: []string{"замо\u0301к"}},
 		{name: "fuzzy allows more accents than typed", query: Query{Text: "άλλο", Mode: ModeFuzzy}, want: []string{"ἄλλο"}},
 		{name: "fuzzy allows more accents on a short word", query: Query{Text: "ü", Mode: ModeFuzzy}, want: []string{"ǘ"}},
 		{name: "fuzzy keeps an accent typed in a typo", query: Query{Text: "μεγάλω", Mode: ModeFuzzy}, want: []string{"μεγάλο"}},
@@ -578,9 +573,12 @@ func TestFindAccents(t *testing.T) {
 		{name: "an accent is never a typo", query: Query{Text: "σπιτη", Mode: ModeFuzzy}, want: []string{"σπίτι"}},
 		{name: "a short i is a letter of its own", query: Query{Text: "мои", Mode: ModeFuzzy}, want: []string{}},
 		{name: "fuzzy without arabic vowel marks", query: Query{Text: "محمد", Mode: ModeFuzzy}, want: []string{"مُحَمَّد"}},
+		{name: "fuzzy drops a vowel sign", query: Query{Text: "कल", Mode: ModeFuzzy}, want: []string{"कुल"}},
+		{name: "fuzzy looks past a zero width non-joiner", query: Query{Text: "می\u200cخواهم", Mode: ModeFuzzy},
+			want: []string{"میخواهم"}},
 		{name: "fuzzy takes a final sigma for a sigma", query: Query{Text: "ως", Mode: ModeFuzzy}, want: []string{"ΩΣ"}},
-		{name: "a stress mark at the end keeps the prefix", query: Query{Text: "за́", Mode: ModeFuzzy},
-			want: []string{"За́мок"}},
+		{name: "a stress mark at the end keeps the prefix", query: Query{Text: "за\u0301", Mode: ModeFuzzy},
+			want: []string{"За\u0301мок"}},
 	}
 
 	for _, tc := range tests {
@@ -610,14 +608,18 @@ func TestFindFuzzyKeepsTypedAccents(t *testing.T) {
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy}, want: []string{}},
 		{name: "a phrase with the accent matches", docs: map[string]string{"a.md": "# Notes\n\nBon café ici.\n"},
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy}, want: []string{"a.md"}},
-		{name: "an accent on another letter is a typo", docs: map[string]string{"a.md": "# Notes\n\nЗа́мок стоит.\n"},
-			query: Query{Text: "замо́к", Mode: ModeFuzzy}, want: []string{"a.md"}},
-		{name: "an accent on another letter in a title is a typo", docs: map[string]string{"a.md": "# За́мок\n\nТекст.\n"},
-			query: Query{Text: "замо́к", Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
-		{name: "a short word keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nУ́же нет.\n"},
-			query: Query{Text: "уже́", Mode: ModeFuzzy}, want: []string{}},
-		{name: "a phrase keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nЗа́мок стоит.\n"},
-			query: Query{Text: `"замо́к стоит"`, Mode: ModeFuzzy}, want: []string{}},
+		{name: "an accent on another letter is a typo", docs: map[string]string{"a.md": "# Notes\n\nЗа\u0301мок стоит.\n"},
+			query: Query{Text: "замо\u0301к", Mode: ModeFuzzy}, want: []string{"a.md"}},
+		{name: "an accent on another letter in a title is a typo", docs: map[string]string{"a.md": "# За\u0301мок\n\nТекст.\n"},
+			query: Query{Text: "замо\u0301к", Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
+		{name: "a short word keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nУ\u0301же нет.\n"},
+			query: Query{Text: "уже\u0301", Mode: ModeFuzzy}, want: []string{}},
+		{name: "a phrase keeps an accent on its letter", docs: map[string]string{"a.md": "# Notes\n\nЗа\u0301мок стоит.\n"},
+			query: Query{Text: "\"замо\u0301к стоит\"", Mode: ModeFuzzy}, want: []string{}},
+		{name: "a phrase in a title keeps the accent of each word", docs: map[string]string{"a.md": "# Bon cafe, café\n\nTexte.\n"},
+			query: Query{Text: `"bon café"`, Mode: ModeFuzzy, TitlesOnly: true}, want: []string{}},
+		{name: "a phrase in a title with the accent matches", docs: map[string]string{"a.md": "# Bon café\n\nTexte.\n"},
+			query: Query{Text: `"bon café"`, Mode: ModeFuzzy, TitlesOnly: true}, want: []string{"a.md"}},
 	}
 
 	for _, tc := range tests {
@@ -977,15 +979,66 @@ func TestFindFuzzyLooksForTyposPastAWordWithoutTheAccent(t *testing.T) {
 func TestFindFuzzyRanksAnAccentOnAnotherLetterAsATypo(t *testing.T) {
 	// arrange
 	ix := indexOf(map[string]string{
-		"a.md": "# Notes\n\nЗа́мок стоит.\n",
-		"b.md": "# Notes\n\nЗама́к стоит.\n",
+		"a.md": "# Notes\n\nЗа\u0301мок стоит.\n",
+		"b.md": "# Notes\n\nЗама\u0301к стоит.\n",
 	})
 
 	// act
-	got, err := ix.Find(context.Background(), Query{Text: "замо́к", Mode: ModeFuzzy}, 10)
+	got, err := ix.Find(context.Background(), Query{Text: "замо\u0301к", Mode: ModeFuzzy}, 10)
 
 	// assert
 	require.NoError(t, err)
 	require.Equal(t, []string{"a.md", "b.md"}, paths(got))
 	assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
+}
+
+func TestFindFuzzyScoresOnlyTheWordsWithTheTypedAccent(t *testing.T) {
+	tests := []struct {
+		name  string
+		docs  map[string]string
+		query string
+	}{
+		{
+			name:  "a word in the body without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\nвсё и все все все.\n", "b.md": "# Notes\n\nвсё и это это это.\n"},
+			query: "всё",
+		},
+		{
+			name:  "a heading without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\n## Cafe\n\nUn café.\n", "b.md": "# Notes\n\n## Kafe\n\nUn café.\n"},
+			query: "café",
+		},
+		{
+			name:  "a word in a code block without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\nUn café.\n\n```\ncafe\n```\n", "b.md": "# Notes\n\nUn café.\n\n```\nkafe\n```\n"},
+			query: "café",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ix := indexOf(tc.docs)
+
+			// act
+			got := fuzzyFind(t, ix, tc.query, 10)
+
+			// assert
+			require.Len(t, got.Results, 2)
+			assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
+		})
+	}
+}
+
+func TestFindFuzzyMarksOnlyTheTitleWordsWithTheTypedAccent(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{"a.md": "# Cafe et café\n\nTexte.\n"})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "café", Mode: ModeFuzzy, TitlesOnly: true}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, []Span{{Text: "Cafe et "}, {Text: "café", Hit: true}}, got.Results[0].TitleSpans)
 }

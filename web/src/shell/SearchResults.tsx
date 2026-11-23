@@ -14,7 +14,7 @@ export function hintOf(settings: SearchSettings): string {
     return 'Regular expression over the text as shown, line by line';
   }
   if (settings.fuzzy) {
-    return 'Words in any order, typos and accents are fine';
+    return 'Words in any order, typos and missing accents are fine';
   }
   return settings.matchCase ? 'The text exactly as typed' : 'The text as typed, in any case';
 }

@@ -390,9 +390,11 @@ test.describe('find in the note', () => {
             '',
             'Молоко́ и мой дом, документация.',
             '',
+            'Всё и все, молоко, cafe, ǘ, ἄλλο, му́ка и мука́.',
+            '',
             'За́мок, 1️⃣, ΩΣ, wording and otherwise.',
             '',
-            'कुल مُحَمَّد, παιδί, ᾱ\u0345β.',
+            'कुल مُحَمَّد, παιδί, ᾱ\u0345β, میخواهم.',
             '',
             '<details>',
             '<summary>More</summary>',
@@ -460,7 +462,7 @@ test.describe('find in the note', () => {
         await input.fill('σπίτι');
         await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
         await input.fill('молоко');
-        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко']);
+        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко', 'молоко']);
         await input.fill('σπτιι');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyF');
@@ -474,6 +476,20 @@ test.describe('find in the note', () => {
         await expect(counter).toHaveText('No results');
         await input.fill('молоко́');
         await expect(page.getByTestId('find-hit')).toHaveText(['Молоко́']);
+        await input.fill('café');
+        await expect(counter).toHaveText('No results');
+        await input.fill('все');
+        await expect(page.getByTestId('find-hit')).toHaveText(['Всё', 'все']);
+        await input.fill('всё');
+        await expect(page.getByTestId('find-hit')).toHaveText(['Всё']);
+        await input.fill('άλλο');
+        await expect(page.getByTestId('find-hit')).toHaveText(['ἄλλο']);
+        await input.fill('ü');
+        await expect(page.getByTestId('find-hit')).toHaveText(['ǘ']);
+        await input.fill('μεγάλω');
+        await expect(page.getByTestId('find-hit')).toHaveText(['μεγάλο']);
+        await input.fill('мука́');
+        await expect(page.getByTestId('find-hit')).toHaveText(['мука́']);
         await input.fill('мои');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyC');
@@ -496,16 +512,8 @@ test.describe('find in the note', () => {
         // act & assert
         await input.fill('1️⃣');
         await expect(page.getByTestId('find-hit')).toHaveText(['1️⃣']);
-        await input.fill('कल');
-        await expect(counter).toHaveText('No results');
-        await input.fill('محمد');
-        await expect(counter).toHaveText('No results');
-        await input.fill('παδί');
-        await expect(counter).toHaveText('No results');
         await input.fill('ΠΑΙΔΊ');
         await expect(page.getByTestId('find-hit')).toHaveText(['παιδί']);
-        await input.fill('ᾱ\u0345β');
-        await expect(page.getByTestId('find-hit')).toHaveText(['ᾱ\u0345β']);
         await input.fill('мок');
         await expect(page.getByTestId('find-hit')).toHaveText(['мок']);
         await page.keyboard.press('Alt+KeyW');
@@ -516,6 +524,10 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toHaveText(['ΩΣ']);
         await input.fill('محمد');
         await expect(page.getByTestId('find-hit')).toHaveText(['مُحَمَّد']);
+        await input.fill('कल');
+        await expect(page.getByTestId('find-hit')).toHaveText(['कुल']);
+        await input.fill('می\u200cخواهم');
+        await expect(page.getByTestId('find-hit')).toHaveText(['میخواهم']);
         await input.fill('за́');
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
         await input.fill('замо́к');
@@ -777,6 +789,28 @@ test.describe('find in the note', () => {
         await openFind(page);
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
+    });
+
+    test('a toggle pressed on the bar a search opened keeps only that toggle', async ({page}) => {
+        // arrange
+        await openFind(page);
+        await page.getByTestId('doc-find-case').click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await page.goto(`${routes.doc(FIND)}?q=foo&word=1`);
+        await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '2');
+
+        // act
+        await page.getByTestId('doc-find-regex').click();
+        await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
+        await page.getByTestId('doc-find-close').click();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await openFind(page);
+
+        // assert
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
+        await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
     });
 
     test('another note opened from a found one is not searched', async ({page}) => {

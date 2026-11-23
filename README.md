@@ -798,8 +798,9 @@ query:
 
 - `mode=fuzzy` - look for words, with or without their accents and allowing a
   typo or two, the results ranked by how well they match; an accent you type is
-  kept: `все` finds `все` and `всё`, `всё` finds only `всё`; `case` and `word`
-  do not apply to it;
+  kept: `все` finds `все` and `всё`, `всё` finds only `всё`, and in a word of
+  four letters or more an accent on another letter counts as a typo, so `замо́к`
+  finds `за́мок`; `case` and `word` do not apply to it;
 - `regex=1` - take the text as a regular expression, also with `mode=fuzzy`;
 - `case=1` - match the case;
 - `word=1` - match whole words only;

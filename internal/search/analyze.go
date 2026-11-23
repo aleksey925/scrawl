@@ -43,11 +43,12 @@ type fieldToken struct {
 }
 
 type analyzed struct {
-	title  string
-	plain  string
-	code   []span
-	lines  []lineMark
-	tokens []fieldToken
+	title    string
+	plain    string
+	code     []span
+	headings []span
+	lines    []lineMark
+	tokens   []fieldToken
 }
 
 type fence struct {
@@ -162,6 +163,9 @@ func (a *analyzer) emit(text string, f field, n int) {
 		a.codeStart = base
 	}
 	a.res.lines = append(a.res.lines, lineMark{off: base, line: off32(n)})
+	if f == fieldHeading {
+		a.res.headings = append(a.res.headings, span{start: base, end: base + off32(len(text))})
+	}
 	for _, t := range tokenize(text) {
 		a.res.tokens = append(a.res.tokens, fieldToken{term: t.term, field: f, off: base + off32(t.off)})
 	}

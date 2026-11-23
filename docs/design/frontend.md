@@ -98,10 +98,13 @@ How the react app in `web/` is built, shipped and wired.
   nothing in the build output hinting at why.
 - The offline copy's worker is a classic script of its own, built from
   `web/src/sw/` by `vite.sw.config.ts` into `internal/server/assets/sw/sw.js`
-  and checked by `tsconfig.sw.json` with the worker's types. It imports only
+  and checked by `tsconfig.sw.json` with the worker's types. It imports
   `web/src/offline/keys.ts` and the `web/src/contentPath.ts` it uses, which
-  touch no DOM. The worker keeps the app version before its own, so a page left
-  open on it still finds its next chunk
+  touch no DOM, and types from `web/src/api/types.ts`, which reach
+  `web/src/reader/findOptions.ts`. So that file touches no DOM either, and the
+  find options are read from local storage and written to it in
+  `web/src/reader/storedOptions.ts`. The worker keeps the app version before
+  its own, so a page left open on it still finds its next chunk
   ([offline copy](offline.md#the-worker)).
 - The two scripts of an HTML app's host, the enter page's and its worker, are
   built from `web/src/htmlapp/` by `vite.htmlapp.config.ts`, one IIFE file

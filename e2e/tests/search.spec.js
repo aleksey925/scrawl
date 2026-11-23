@@ -833,6 +833,28 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
     });
 
+    test('a disabled toggle pressed on the bar a search opened leaves the stored one', async ({page}) => {
+        // arrange
+        await openFind(page);
+        await page.getByTestId('doc-find-case').click();
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await page.goto(`${routes.doc(FIND)}?q=foo`);
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'false');
+        await page.getByTestId('doc-find-fuzzy').click();
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+
+        // act
+        await page.keyboard.press('Alt+KeyC');
+        await page.getByTestId('doc-find-close').click();
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await openFind(page);
+
+        // assert
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+    });
+
     test('another note opened from a found one is not searched', async ({page}) => {
         // arrange
         const from = 'e2e-find/from.md';

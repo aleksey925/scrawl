@@ -13,11 +13,12 @@ The server's search and the note's find bar.
   disabled, and Fuzzy and Regex turn each other off.
 - Each of the two keeps its options in local storage, the search with Titles
   only, so they hold for the next search and for every note, as editors keep
-  theirs, and the device and the browser keep their own. A search result opens
-  the find bar with the options of that search, for that time only: the find
-  bar has to find what the server found, and what it keeps is left as it was. A
-  toggle pressed on that bar changes only that option in what it keeps, and
-  Fuzzy and Regex still turn each other off there.
+  theirs, and the device and the browser keep their own. Two open tabs do not
+  see each other's changes, so the last toggle pressed keeps the options of its
+  own tab. A search result opens the find bar with the options of that search,
+  for that time only: the find bar has to find what the server found, and what
+  it keeps is left as it was. A toggle pressed on that bar changes only that
+  option in what it keeps, and Fuzzy and Regex still turn each other off there.
 - An accent is a nonspacing combining mark that Unicode gives to no script of
   its own (category Mn, script Inherited): the Latin, Greek and Cyrillic
   accents and the Arabic vowel marks, and not the zero width joiners, which are

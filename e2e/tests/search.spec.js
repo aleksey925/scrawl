@@ -81,10 +81,8 @@ test.describe('search', () => {
         await openSearch(page);
         await page.getByTestId('search-input').fill('(');
 
-        // act
+        // act & assert
         await page.keyboard.press('Alt+KeyR');
-
-        // assert
         await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('search-error')).toContainText('missing closing )');
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.regexHint);
@@ -645,6 +643,26 @@ test.describe('find in the note', () => {
         }
         await input.fill('^Second');
         await expect(counter).toHaveAttribute('data-total', '1');
+    });
+
+    test('Fuzzy runs over a Regex kept on and gives it back when turned off', async ({page}) => {
+        // arrange
+        const counter = page.getByTestId('doc-find-count');
+        const regex = page.getByTestId('doc-find-regex');
+        await openFind(page);
+        await page.keyboard.press('Alt+KeyR');
+        await page.getByTestId('doc-find-input').fill('Second(');
+        await expect(counter).toHaveText('Bad pattern');
+
+        // act & assert
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('find-hit')).toHaveText(['Second']);
+        await expect(regex).toBeDisabled();
+        await expect(regex).toHaveAttribute('data-on', 'true');
+        await page.keyboard.press('Alt+KeyF');
+        await expect(counter).toHaveText('Bad pattern');
+        await expect(regex).toBeEnabled();
+        await expect(regex).toHaveAttribute('data-on', 'true');
     });
 
     test('a match in a closed details opens it', async ({page}) => {

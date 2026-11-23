@@ -12,8 +12,9 @@ The server's search and the note's find bar.
   expects of it. Fuzzy is a mode of its own: with it on, the other three are
   disabled and keep their values, and they come back as they were when it is
   turned off, so one rule holds for all three. Match case, Whole word and Regex
-  combine with each other, as in JetBrains. In Fuzzy the search sends only
-  `mode=fuzzy`, as the API takes `regex=1` over it.
+  combine with each other, as in JetBrains. In Fuzzy the search leaves `case`,
+  `word` and `regex` out of its request, as the API takes `regex=1` over
+  `mode=fuzzy`.
 - Each of the two keeps its options in local storage, the search with Titles
   only, so they hold for the next search and for every note, as editors keep
   theirs, and the device and the browser keep their own. Each opening reads

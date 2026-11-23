@@ -21,11 +21,7 @@ export function optionDisabled(options: FindOptions, name: FindOption): boolean 
 }
 
 export function withOption<T extends FindOptions>(options: T, name: FindOption): T {
-  return withValue(options, name, !options[name]);
-}
-
-export function withValue<T extends FindOptions>(options: T, name: FindOption, value: boolean): T {
-  return { ...options, [name]: value };
+  return { ...options, [name]: !options[name] };
 }
 
 export function togglesOf(params: URLSearchParams): Omit<FindOptions, 'fuzzy'> {

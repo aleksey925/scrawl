@@ -6,7 +6,7 @@ import { usePlatform } from '../platform';
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { centerMatch } from './findScreen';
 import { FindTimeout, patternOf, type FindPattern, type FindQuery } from './findMatches';
-import { noOptions, optionDisabled, togglesOf, withOption, withValue, type FindOption } from './findOptions';
+import { noOptions, optionDisabled, togglesOf, withOption, type FindOption } from './findOptions';
 import { storedOptions, storeOptions } from './storedOptions';
 
 export const findParam = 'q';
@@ -214,7 +214,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       return;
     }
     const { text, ...options } = withOption(query, name);
-    storeOptions(optionsKey, linked ? withValue(storedOptions(optionsKey, noOptions), name, options[name]) : options);
+    storeOptions(optionsKey, linked ? { ...storedOptions(optionsKey, noOptions), [name]: options[name] } : options);
     setQuery({ text, ...options });
   }, [query, linked, setQuery]);
 

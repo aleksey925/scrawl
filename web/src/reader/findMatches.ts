@@ -12,7 +12,7 @@ export interface FindMatch {
 
 export interface FindTerm {
   text: string;
-  marks: string[][] | null;
+  marks: string[][];
   prefix: boolean;
 }
 
@@ -65,13 +65,13 @@ function fromRe2(pattern: string): { source: string; flags: string } {
   return { source, flags };
 }
 
-let accentBases: Map<string, string> | undefined;
+let accentTable: Map<string, string> | undefined;
 
-function accents(): Map<string, string> {
-  if (accentBases !== undefined) {
-    return accentBases;
+function accentBases(): Map<string, string> {
+  if (accentTable !== undefined) {
+    return accentTable;
   }
-  accentBases = new Map<string, string>();
+  accentTable = new Map<string, string>();
   for (let code = firstAccented; code <= lastAccented; code++) {
     const char = String.fromCodePoint(code);
     if (!/\p{L}/u.test(char) || ownLetters.includes(char)) {
@@ -79,21 +79,21 @@ function accents(): Map<string, string> {
     }
     const [first = '', ...marks] = [...char.normalize('NFD')];
     if (marks.length > 0 && marks.every((part) => accent.test(part))) {
-      accentBases.set(char, first.toLowerCase());
+      accentTable.set(char, first.toLowerCase());
     }
   }
-  return accentBases;
+  return accentTable;
 }
 
 function fold(char: string): string {
-  return accents().get(char) ?? (char === finalSigma ? sigma : char.toLowerCase());
+  return accentBases().get(char) ?? (char === finalSigma ? sigma : char.toLowerCase());
 }
 
 function marksOf(char: string): string[] {
-  return accents().has(char) ? [...char.normalize('NFD')].slice(1) : [];
+  return accentBases().has(char) ? [...char.normalize('NFD')].slice(1) : [];
 }
 
-function marksOfWord(word: string): string[][] | null {
+function marksOfWord(word: string): string[][] {
   const res: string[][] = [];
   for (const char of word) {
     if (!ignorableChar.test(char)) {
@@ -102,7 +102,7 @@ function marksOfWord(word: string): string[][] | null {
       res.at(-1)?.push(char);
     }
   }
-  return res.some((letter) => letter.length > 0) ? res : null;
+  return res.some((letter) => letter.length > 0) ? res : [];
 }
 
 function hasMarks(want: readonly string[], have: readonly string[]): boolean {
@@ -116,10 +116,7 @@ function hasMarks(want: readonly string[], have: readonly string[]): boolean {
   });
 }
 
-function carries(want: readonly string[][] | null, have: readonly string[][], typo: boolean): boolean {
-  if (want === null) {
-    return true;
-  }
+function carries(want: readonly string[][], have: readonly string[][], typo: boolean): boolean {
   if (typo) {
     return hasMarks(want.flat(), have.flat());
   }
@@ -127,8 +124,9 @@ function carries(want: readonly string[][] | null, have: readonly string[][], ty
 }
 
 const wordChars = /[\p{L}\p{N}\p{Mn}\u00ad\u200b-\u200d\ufeff]+/gu;
-const ignorable = /[\p{Mn}\u00ad\u200b-\u200d\ufeff]/gu;
-const ignorableChar = /^[\p{Mn}\u00ad\u200b-\u200d\ufeff]$/u;
+const ignorableClass = '[\\p{Mn}\\u00ad\\u200b-\\u200d\\ufeff]';
+const ignorable = new RegExp(ignorableClass, 'gu');
+const ignorableChar = new RegExp(`^${ignorableClass}$`, 'u');
 
 function termOf(word: string): string {
   return [...word.replace(ignorable, '')].map(fold).join('');
@@ -267,7 +265,7 @@ function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): Find
       start: found.index,
       end: found.index + found[0].length,
       term: termOf(found[0]),
-      marks: marksOfWord(found[0]) ?? [],
+      marks: marksOfWord(found[0]),
     })),
   );
   const wanted = new Set<number>();

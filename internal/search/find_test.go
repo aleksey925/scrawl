@@ -637,6 +637,85 @@ func TestFindFuzzyKeepsTypedAccents(t *testing.T) {
 	}
 }
 
+func TestFindFuzzyLooksForTyposPastAWordWithoutTheAccent(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{"a.md": "# Notes\n\nUn cafe, un caffé.\n"})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "café", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	assert.Equal(t, []string{"caffé"}, allHits(got))
+}
+
+func TestFindFuzzyRanksAnAccentOnAnotherLetterAsATypo(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{
+		"a.md": "# Notes\n\nЗа\u0301мок стоит.\n",
+		"b.md": "# Notes\n\nЗама\u0301к стоит.\n",
+	})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "замо\u0301к", Mode: ModeFuzzy}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Equal(t, []string{"a.md", "b.md"}, paths(got))
+	assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
+}
+
+func TestFindFuzzyScoresOnlyTheWordsWithTheTypedAccent(t *testing.T) {
+	tests := []struct {
+		name  string
+		docs  map[string]string
+		query string
+	}{
+		{
+			name:  "a word in the body without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\nвсё и все все все.\n", "b.md": "# Notes\n\nвсё и это это это.\n"},
+			query: "всё",
+		},
+		{
+			name:  "a heading without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\n## Cafe\n\nUn café.\n", "b.md": "# Notes\n\n## Kafe\n\nUn café.\n"},
+			query: "café",
+		},
+		{
+			name:  "a word in a code block without the accent adds nothing",
+			docs:  map[string]string{"a.md": "# Notes\n\nUn café.\n\n```\ncafe\n```\n", "b.md": "# Notes\n\nUn café.\n\n```\nkafe\n```\n"},
+			query: "café",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// arrange
+			ix := indexOf(tc.docs)
+
+			// act
+			got := fuzzyFind(t, ix, tc.query, 10)
+
+			// assert
+			require.Len(t, got.Results, 2)
+			assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
+		})
+	}
+}
+
+func TestFindFuzzyMarksOnlyTheTitleWordsWithTheTypedAccent(t *testing.T) {
+	// arrange
+	ix := indexOf(map[string]string{"a.md": "# Cafe et café\n\nTexte.\n"})
+
+	// act
+	got, err := ix.Find(context.Background(), Query{Text: "café", Mode: ModeFuzzy, TitlesOnly: true}, 10)
+
+	// assert
+	require.NoError(t, err)
+	require.Len(t, got.Results, 1)
+	assert.Equal(t, []Span{{Text: "Cafe et "}, {Text: "café", Hit: true}}, got.Results[0].TitleSpans)
+}
+
 func TestFindRanking(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -962,83 +1041,4 @@ func fuzzyFind(tb testing.TB, ix *Index, query string, limit int) Found {
 	found, err := ix.Find(context.Background(), Query{Text: query, Mode: ModeFuzzy}, limit)
 	require.NoError(tb, err)
 	return found
-}
-
-func TestFindFuzzyLooksForTyposPastAWordWithoutTheAccent(t *testing.T) {
-	// arrange
-	ix := indexOf(map[string]string{"a.md": "# Notes\n\nUn cafe, un caffé.\n"})
-
-	// act
-	got, err := ix.Find(context.Background(), Query{Text: "café", Mode: ModeFuzzy}, 10)
-
-	// assert
-	require.NoError(t, err)
-	assert.Equal(t, []string{"caffé"}, allHits(got))
-}
-
-func TestFindFuzzyRanksAnAccentOnAnotherLetterAsATypo(t *testing.T) {
-	// arrange
-	ix := indexOf(map[string]string{
-		"a.md": "# Notes\n\nЗа\u0301мок стоит.\n",
-		"b.md": "# Notes\n\nЗама\u0301к стоит.\n",
-	})
-
-	// act
-	got, err := ix.Find(context.Background(), Query{Text: "замо\u0301к", Mode: ModeFuzzy}, 10)
-
-	// assert
-	require.NoError(t, err)
-	require.Equal(t, []string{"a.md", "b.md"}, paths(got))
-	assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
-}
-
-func TestFindFuzzyScoresOnlyTheWordsWithTheTypedAccent(t *testing.T) {
-	tests := []struct {
-		name  string
-		docs  map[string]string
-		query string
-	}{
-		{
-			name:  "a word in the body without the accent adds nothing",
-			docs:  map[string]string{"a.md": "# Notes\n\nвсё и все все все.\n", "b.md": "# Notes\n\nвсё и это это это.\n"},
-			query: "всё",
-		},
-		{
-			name:  "a heading without the accent adds nothing",
-			docs:  map[string]string{"a.md": "# Notes\n\n## Cafe\n\nUn café.\n", "b.md": "# Notes\n\n## Kafe\n\nUn café.\n"},
-			query: "café",
-		},
-		{
-			name:  "a word in a code block without the accent adds nothing",
-			docs:  map[string]string{"a.md": "# Notes\n\nUn café.\n\n```\ncafe\n```\n", "b.md": "# Notes\n\nUn café.\n\n```\nkafe\n```\n"},
-			query: "café",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// arrange
-			ix := indexOf(tc.docs)
-
-			// act
-			got := fuzzyFind(t, ix, tc.query, 10)
-
-			// assert
-			require.Len(t, got.Results, 2)
-			assert.InDelta(t, got.Results[1].Score, got.Results[0].Score, 1e-9)
-		})
-	}
-}
-
-func TestFindFuzzyMarksOnlyTheTitleWordsWithTheTypedAccent(t *testing.T) {
-	// arrange
-	ix := indexOf(map[string]string{"a.md": "# Cafe et café\n\nTexte.\n"})
-
-	// act
-	got, err := ix.Find(context.Background(), Query{Text: "café", Mode: ModeFuzzy, TitlesOnly: true}, 10)
-
-	// assert
-	require.NoError(t, err)
-	require.Len(t, got.Results, 1)
-	assert.Equal(t, []Span{{Text: "Cafe et "}, {Text: "café", Hit: true}}, got.Results[0].TitleSpans)
 }

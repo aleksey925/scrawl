@@ -283,9 +283,9 @@ func findWordAt(text string, at int) string {
 }
 
 func titleSpans(title string, terms []queryTerm) []Span {
-	text := normalize(title)
+	text, words := titleWords(title)
 	marks := make([]mark, 0, 2)
-	for _, tok := range tokenize(text) {
+	for _, tok := range words {
 		for k, wanted := range terms {
 			if !termMatches(wanted, tok.term) || !wanted.carriedAt(text, tok.off) {
 				continue

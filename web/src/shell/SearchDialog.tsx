@@ -12,8 +12,8 @@ import { errorText } from '../api/useApi';
 import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
 import { noOptions, optionKeys, withOption, type FindOption } from '../reader/findOptions';
-import { storedOptions, storeOptions } from '../reader/storedOptions';
 import { FindToggles } from '../reader/FindToggles';
+import { storedOptions, storeOptions } from '../reader/storedOptions';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useRecentNotes, type RecentNote } from './recentNotes';
@@ -26,7 +26,7 @@ import { useFullScreenStyle } from './useVisibleArea';
 const debounceMs = 200;
 const resultLimit = 30;
 
-const settingsKey = 'scrawl.search.options';
+const settingsKey = 'scrawl.search.settings';
 const defaultSettings: SearchSettings = { ...noOptions, titles: false };
 
 interface Answer {

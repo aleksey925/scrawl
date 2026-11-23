@@ -132,11 +132,9 @@ test.describe('search', () => {
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('search-input')).toHaveCount(0);
 
-        // act
+        // act & assert
         await page.reload();
         await openSearch(page);
-
-        // assert
         await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('search-titles')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'false');
@@ -774,11 +772,9 @@ test.describe('find in the note', () => {
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('doc-find')).toHaveCount(0);
 
-        // act
+        // act & assert
         await page.goto(routes.doc(docs.search.palette.path));
         await openFind(page);
-
-        // assert
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
         await expect(page.getByTestId('doc-find-word')).toHaveAttribute('data-on', 'false');
         await page.goto(`${routes.doc(FIND)}?q=foo&word=1`);

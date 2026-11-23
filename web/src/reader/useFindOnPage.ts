@@ -208,15 +208,16 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   const linked = fromUrl !== undefined;
   const toggle = useCallback((name: FindOption): void => {
     const { text, ...options } = withOption(query, name);
-    const kept = linked ? storedOptions(optionsKey, noOptions) : undefined;
-    if (kept === undefined) {
+    if (linked) {
+      const kept = storedOptions(optionsKey, noOptions);
+      if (kept[name] !== options[name]) {
+        storeOptions(optionsKey, withOption(kept, name));
+      }
+    } else {
       storeOptions(optionsKey, options);
-    } else if (kept[name] !== options[name]) {
-      storeOptions(optionsKey, withOption(kept, name));
     }
-    setArmed(true);
-    setQueryState({ text, ...options });
-  }, [query, linked]);
+    setQuery({ text, ...options });
+  }, [query, linked, setQuery]);
 
   const close = useCallback((): void => {
     setOpened(false);

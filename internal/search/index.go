@@ -174,6 +174,51 @@ func (ix *Index) mergeTerms(sought queryTerm, terms []string) slot {
 	}
 }
 
+func (ix *Index) eligible(term queryTerm, word string, list []posting) []posting {
+	if term.marks == nil {
+		return list
+	}
+	res := make([]posting, 0, len(list))
+	for _, p := range list {
+		doc := ix.docs[p.doc]
+		kept := posting{doc: p.doc}
+		if p.counts[fieldTitle] > 0 {
+			kept.counts[fieldTitle] = titleCarried(doc.title, term, word)
+		}
+		for _, at := range p.offs {
+			if term.carriedAt(doc.plain, int(at)) {
+				kept.offs = append(kept.offs, at)
+				kept.counts[doc.fieldAt(at)]++
+			}
+		}
+		if len(kept.offs) > 0 || kept.counts[fieldTitle] > 0 {
+			res = append(res, kept)
+		}
+	}
+	return res
+}
+
+func titleCarried(title string, term queryTerm, word string) uint32 {
+	text, words := titleWords(title)
+	var res uint32
+	for _, tok := range words {
+		if tok.term == word && term.carriedAt(text, tok.off) {
+			res++
+		}
+	}
+	return res
+}
+
+func (d *document) fieldAt(off int32) field {
+	switch {
+	case d.inCode(off):
+		return fieldCode
+	case inSpans(d.headings, off):
+		return fieldHeading
+	}
+	return fieldBody
+}
+
 func minDoc(lists [][]posting, at []int) (uint32, bool) {
 	res, found := uint32(0), false
 	for k := range lists {
@@ -424,7 +469,7 @@ type queryTerm struct {
 }
 
 func (t queryTerm) carriedAt(text string, at int) bool {
-	return t.marks == nil || carries(t.marks, marksOfWord(text[at:wordEndAt(text, at)]), t.typo)
+	return t.marks == nil || carries(t.marks, marksAt(text, at), t.typo)
 }
 
 type parsedQuery struct {
@@ -441,7 +486,7 @@ func parseQuery(query string) parsedQuery {
 	for i, part := range strings.Split(text, `"`) {
 		group := make([]queryTerm, 0, 4)
 		for _, t := range tokenize(part) {
-			term := queryTerm{text: t.term, marks: marksOfWord(part[t.off:wordEndAt(part, t.off)])}
+			term := queryTerm{text: t.term, marks: marksAt(part, t.off)}
 			group = append(group, term)
 			last, quoted = term.text, i%2 == 1
 			if _, seen := res.index[term.text]; !seen && len(res.terms) < maxQueryTerms {
@@ -465,41 +510,6 @@ func endsWithWord(query string) bool {
 	return wordRune(r)
 }
 
-func (ix *Index) eligible(term queryTerm, word string, list []posting) []posting {
-	if term.marks == nil {
-		return list
-	}
-	res := make([]posting, 0, len(list))
-	for _, p := range list {
-		doc := ix.docs[p.doc]
-		kept := posting{doc: p.doc}
-		if p.counts[fieldTitle] > 0 {
-			kept.counts[fieldTitle] = titleCarried(doc.title, term, word)
-		}
-		for _, off := range p.offs {
-			if term.carriedAt(doc.plain, int(off)) {
-				kept.offs = append(kept.offs, off)
-				kept.counts[doc.fieldAt(off)]++
-			}
-		}
-		if len(kept.offs) > 0 || kept.counts[fieldTitle] > 0 {
-			res = append(res, kept)
-		}
-	}
-	return res
-}
-
-func titleCarried(title string, term queryTerm, word string) uint32 {
-	text := normalize(title)
-	var res uint32
-	for _, tok := range tokenize(text) {
-		if tok.term == word && term.carriedAt(text, tok.off) {
-			res++
-		}
-	}
-	return res
-}
-
 func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 	for _, phrase := range q.phrases {
 		k, ok := q.index[phrase[0].text]
@@ -517,8 +527,7 @@ func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
 }
 
 func titleMatchesPhrases(title string, q parsedQuery) bool {
-	text := normalize(title)
-	words := tokenize(text)
+	text, words := titleWords(title)
 	for _, phrase := range q.phrases {
 		found := slices.ContainsFunc(words, func(tok token) bool {
 			return tok.term == phrase[0].text && phraseAt(text, phrase, tok.off)
@@ -528,4 +537,9 @@ func titleMatchesPhrases(title string, q parsedQuery) bool {
 		}
 	}
 	return true
+}
+
+func titleWords(title string) (string, []token) {
+	text := normalize(title)
+	return text, tokenize(text)
 }

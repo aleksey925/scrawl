@@ -104,6 +104,10 @@ func marksOfWord(word string) [][]rune {
 	return res
 }
 
+func marksAt(text string, at int) [][]rune {
+	return marksOfWord(text[at:wordEndAt(text, at)])
+}
+
 func carries(want, have [][]rune, typo bool) bool {
 	if typo {
 		return hasMarks(slices.Concat(want...), slices.Concat(have...))
@@ -293,16 +297,16 @@ func skipGap(text string, at int) int {
 	return -1
 }
 
-func phraseAt(text string, words []queryTerm, at int) bool {
+func phraseAt(text string, terms []queryTerm, at int) bool {
 	pos := at
-	for i, word := range words {
+	for i, wanted := range terms {
 		if i > 0 {
 			if pos = skipGap(text, pos); pos < 0 {
 				return false
 			}
 		}
-		end := matchAt(text, word.text, pos)
-		if end < 0 || !word.carriedAt(text, pos) {
+		end := matchAt(text, wanted.text, pos)
+		if end < 0 || !wanted.carriedAt(text, pos) {
 			return false
 		}
 		pos = end

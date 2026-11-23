@@ -627,6 +627,8 @@ func TestFindFuzzyKeepsTypedAccents(t *testing.T) {
 			query: Query{Text: `"замок"`, Mode: ModeFuzzy}, want: []string{"a.md"}},
 		{name: "one word in quotes finds a title from the file name", docs: map[string]string{"recipes.md": "Some text about cooking.\n"},
 			query: Query{Text: `"recipes"`, Mode: ModeFuzzy}, want: []string{"recipes.md"}},
+		{name: "a word in quotes in the title and another in the body", docs: map[string]string{"recipes.md": "Some pasta text.\n"},
+			query: Query{Text: `"recipes" "pasta"`, Mode: ModeFuzzy}, want: []string{"recipes.md"}},
 		{name: "a phrase in a title keeps the accent of each word", docs: map[string]string{"a.md": "# Bon cafe, café\n\nTexte.\n"},
 			query: Query{Text: `"bon café"`, Mode: ModeFuzzy, TitlesOnly: true}, want: []string{}},
 		{name: "a phrase in a title with the accent matches", docs: map[string]string{"a.md": "# Bon café\n\nTexte.\n"},

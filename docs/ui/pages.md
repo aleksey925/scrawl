@@ -100,25 +100,26 @@ opens over them.
   of `index.md` has no folder page, and a site refuses it, because both would
   be written to one file. A note that does not exist yet is a page too, its
   file name as a faint title and the ways on from there, the first of them,
-  create it, on Enter. On a phone the bar on top holds `‹` with the folder
-  above, the title once the page's own has scrolled under the bar, at once on a
-  page that has none of its own, and the sync control at the right. The title
-  there stays the note's title, since it stands for the heading that scrolled
-  under the bar. The actions of a note or a file are in its capsule at the
-  bottom ([phone](phone.md)). A rename of the page puts its field in the
-  title's place across the whole bar, and the way back leaves the bar until it
-  is done; the sync control stays after the field. The sync control is the icon
-  alone on a phone: a word next to a title of half the bar did not fit. A tap
-  on it opens its popover, as on a desktop, and Profile shows the same facts in
-  its Sync group ([phone](phone.md)). The root has no way up, and the app's
-  logo and the space's name stand there instead, with no large title under the
-  bar, which said the space's name a second time. Recent and Profile, the first
-  screens of a tab, have no way up and no swipe either, as the first screen of
-  a tab of iOS has none. Every screen has the bar as a row of its own: a root
-  drawn another way made the page jump on the way to a folder. A folder has its
-  title on one line under the bar. A folder there is a list and not a table: a
-  row is the icon and the name on one line, with no size, date or count, no
-  chevron, and no `..` row.
+  create it, on Enter, and the last a fuzzy search for its name, since a link
+  to a missing note often has a typo in it. On a phone the bar on top holds `‹`
+  with the folder above, the title once the page's own has scrolled under the
+  bar, at once on a page that has none of its own, and the sync control at the
+  right. The title there stays the note's title, since it stands for the
+  heading that scrolled under the bar. The actions of a note or a file are in
+  its capsule at the bottom ([phone](phone.md)). A rename of the page puts its
+  field in the title's place across the whole bar, and the way back leaves the
+  bar until it is done; the sync control stays after the field. The sync
+  control is the icon alone on a phone: a word next to a title of half the bar
+  did not fit. A tap on it opens its popover, as on a desktop, and Profile
+  shows the same facts in its Sync group ([phone](phone.md)). The root has no
+  way up, and the app's logo and the space's name stand there instead, with no
+  large title under the bar, which said the space's name a second time. Recent
+  and Profile, the first screens of a tab, have no way up and no swipe either,
+  as the first screen of a tab of iOS has none. Every screen has the bar as a
+  row of its own: a root drawn another way made the page jump on the way to a
+  folder. A folder has its title on one line under the bar. A folder there is a
+  list and not a table: a row is the icon and the name on one line, with no
+  size, date or count, no chevron, and no `..` row.
 
 ## Note
 

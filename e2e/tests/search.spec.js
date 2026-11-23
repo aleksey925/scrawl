@@ -315,6 +315,27 @@ test.describe('search', () => {
         }
     });
 
+    test('a fuzzy result typed without accents and with a typo opens its note on the word it found', async ({page}) => {
+        // arrange
+        const decomposed = 'e2e-search/fuzzy-decomposed.md';
+        const word = 'smörgåskaka';
+        writeFixture(decomposed, `# Fuzzy decomposed\n\nA ${word.normalize('NFD')} for lunch.\n`);
+        try {
+            await indexed(page, word, decomposed);
+            await page.goto(`${routes.search('smorgaskaks')}&mode=fuzzy`);
+
+            // act
+            await page.locator(`[data-testid=search-result][data-path="${decomposed}"] ~ [data-testid=search-line]`).first().click();
+
+            // assert
+            await expect(page).toHaveURL(/[?&]regex=1&word=1/);
+            await expect(page.getByTestId('doc-find-count')).toHaveAttribute('data-total', '1');
+            await expect(page.getByTestId('find-hit')).toHaveText(word.normalize('NFD'));
+        } finally {
+            removeFixture(decomposed);
+        }
+    });
+
     test('a Korean word written as jamo is found in the note the search opens', async ({page}) => {
         // arrange
         const jamo = 'e2e-search/jamo.md';

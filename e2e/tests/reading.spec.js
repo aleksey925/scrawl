@@ -1309,7 +1309,7 @@ test.describe('reading', () => {
         await expect(page).toHaveURL(MAIN.url.edit(docs.missing));
     });
 
-    test('a note that does not exist is named by its file name in the path, and its search leaves the extension out', async ({page}) => {
+    test('a note that does not exist is named by its file name in the path, and its fuzzy search leaves the extension out', async ({page}) => {
         // arrange
         const name = nameOf(docs.missing);
 
@@ -1319,7 +1319,7 @@ test.describe('reading', () => {
         // assert
         await expect(page.getByTestId('topbar-crumbs').getByTestId('crumb').last()).toHaveText(name);
         const search = new URL(await page.getByTestId('doc-missing-search').getAttribute('href'), MAIN.baseURL);
-        expect(search.searchParams.get('q')).toBe(name.replace(/\.md$/i, ''));
+        expect(Object.fromEntries(search.searchParams)).toEqual({q: name.replace(/\.md$/i, ''), mode: 'fuzzy'});
     });
 
     test('the sidebar filter matches the whole name of a note, its extension too', async ({page}) => {

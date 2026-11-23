@@ -254,23 +254,23 @@ function cutsAccent(text: string, end: number): boolean {
 function regexMatches(texts: readonly string[], source: string, flags: string, plain: boolean): FindMatch[] {
   const re = new RegExp(source, flags);
   const res: FindMatch[] = [];
-  texts.forEach((text, block) => {
+  texts.forEach((blockText, block) => {
     re.lastIndex = 0;
     while (res.length < maxMatches) {
-      const found = re.exec(text);
+      const found = re.exec(blockText);
       if (found === null) {
         break;
       }
       if (found[0] === '') {
-        const code = text.codePointAt(found.index);
+        const code = blockText.codePointAt(found.index);
         re.lastIndex = found.index + (code !== undefined && code > 0xffff ? 2 : 1);
-        if (re.lastIndex > text.length) {
+        if (re.lastIndex > blockText.length) {
           break;
         }
         continue;
       }
       const end = found.index + found[0].length;
-      if (plain && cutsAccent(text, end)) {
+      if (plain && cutsAccent(blockText, end)) {
         continue;
       }
       res.push({ block, start: found.index, end });
@@ -280,8 +280,8 @@ function regexMatches(texts: readonly string[], source: string, flags: string, p
 }
 
 function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): FindMatch[] {
-  const words = texts.flatMap((text, block) =>
-    [...text.matchAll(wordChars)].map((found) => ({
+  const words = texts.flatMap((blockText, block) =>
+    [...blockText.matchAll(wordChars)].map((found) => ({
       block,
       start: found.index,
       end: found.index + found[0].length,

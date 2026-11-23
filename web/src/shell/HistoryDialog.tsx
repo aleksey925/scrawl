@@ -81,13 +81,8 @@ async function diskRev(path: string, signal: AbortSignal): Promise<string> {
 
 const deletionReason = 'This version was a deletion';
 
-const sameReason = 'Same as the current note';
-
 function restoreReason(entry: HistoryEntry): string | undefined {
-  if (entry.restorable) {
-    return undefined;
-  }
-  return entry.blob === '' ? deletionReason : sameReason;
+  return !entry.restorable && entry.blob === '' ? deletionReason : undefined;
 }
 
 function undoReason(entry: HistoryEntry, rev: string | undefined): string | undefined {
@@ -109,17 +104,17 @@ const restoreHint = 'Brings the whole note back to this version.';
 
 interface VersionActionsProps {
   undoBlockedBy: string | undefined;
+  restore: boolean;
   restoreBlockedBy: string | undefined;
   busy: boolean;
   onUndo: () => void;
   onRestore: () => void;
 }
 
-function VersionActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore }: VersionActionsProps): JSX.Element {
+function VersionActions({ undoBlockedBy, restore, restoreBlockedBy, busy, onUndo, onRestore }: VersionActionsProps): JSX.Element {
   const undo = undoBlockedBy === undefined;
-  const restore = restoreBlockedBy === undefined;
   const reasons = [...new Set([undoBlockedBy, restoreBlockedBy])]
-    .filter((reason) => reason !== undefined && reason !== sameReason)
+    .filter((reason) => reason !== undefined)
     .map((reason) => `${reason}.`);
   const both = undo && restore;
   const hint = both ? (
@@ -435,6 +430,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
     });
   }
 
+  const restore = selected?.restorable ?? true;
   const restoreBlockedBy = selected === undefined ? undefined : restoreReason(selected);
   const undoBlockedBy = selected === undefined ? undefined : undoReason(selected, rev);
   const busy = writing || rev === undefined || disk.loading || history.loading;
@@ -510,6 +506,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                       {canWrite && (
                         <VersionActions
                           undoBlockedBy={undoBlockedBy}
+                          restore={restore}
                           restoreBlockedBy={restoreBlockedBy}
                           busy={busy}
                           onUndo={() => askWrite('undo', version)}
@@ -598,6 +595,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
               <div className={classes.foot}>
                 <VersionActions
                   undoBlockedBy={undoBlockedBy}
+                  restore={restore}
                   restoreBlockedBy={restoreBlockedBy}
                   busy={busy}
                   onUndo={() => askWrite('undo', selected)}

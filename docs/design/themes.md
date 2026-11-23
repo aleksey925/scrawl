@@ -4,10 +4,10 @@ How a theme file becomes the colors of the app, a page and the code.
 
 - A theme is one file in `internal/theme/themes/`, and nothing else names a
   color of one: adding a theme is a file and `make ui`. The file holds Notion's
-  color roles, its nine block colors, six shadows, the weight of bold and that
-  of the sidebar's current row, and how a Mac smooths the letters: the light
-  theme keeps the system's own, as Notion's light page does, and the dark one
-  draws them thinner, since light letters on a dark page glow; mantine's
+  color roles, its nine block colors, seven shadows, the weight of bold and
+  that of the sidebar's current row, and how a Mac smooths the letters: the
+  light theme keeps the system's own, as Notion's light page does, and the dark
+  one draws them thinner, since light letters on a dark page glow; mantine's
   antialiased everywhere made the light page read thin beside Notion's. The
   server, the command line and the frontend build all read those files. The
   build turns every key into a `--scrawl-*` custom property in one stylesheet,

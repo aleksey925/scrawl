@@ -66,7 +66,8 @@ The server's search and the note's find bar.
   costs nothing on top of a changed letter: `замо́к` also finds `за́мак`, and two
   accents moved are one typo. The short `уже́` still does not find `у́же`. A word
   in quotes, alone or in a phrase, takes no typo, is no prefix and keeps every
-  accent typed on its letter, in the text or in the title. A phrase is the
+  accent typed on its letter, in the text or in the title, each phrase on its
+  own, so one can be in the title and another in the text. A phrase is the
   server's: the find bar has none, so there each word in quotes is strict on
   its own, and a closing quote ends the prefix. A word with no match that
   carries its accents is the one that looks for typos, on the server among

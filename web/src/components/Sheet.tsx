@@ -179,23 +179,15 @@ export function SheetTile({ icon: TileIcon, label, testId, big = false, onClick 
 export interface SheetButtonProps {
   testId?: string;
   disabled?: boolean;
-  secondary?: boolean;
   onClick: () => void;
   children: ReactNode;
 }
 
-export function SheetButton({
-  testId,
-  disabled = false,
-  secondary = false,
-  onClick,
-  children,
-}: SheetButtonProps): JSX.Element {
+export function SheetButton({ testId, disabled = false, onClick, children }: SheetButtonProps): JSX.Element {
   return (
     <button
       type="button"
       data-testid={testId}
-      data-secondary={secondary ? 'true' : undefined}
       disabled={disabled}
       className={classes.button}
       onClick={onClick}

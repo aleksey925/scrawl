@@ -1537,7 +1537,18 @@ func TestAPISearch(t *testing.T) {
 	assert.Equal(t, float64(1), hit["match_count"])
 	assert.NotNil(t, body["elapsed_ms"])
 	assert.Empty(t, typo["hits"], "a request that names no mode looks for the text as typed")
-	assert.Len(t, fuzzy["hits"], 1)
+	fuzzyHits := fuzzy["hits"].([]any)
+	require.Len(t, fuzzyHits, 1)
+	fuzzyHit := fuzzyHits[0].(map[string]any)
+	assert.Equal(t, "/doc/guide.md?q=widgets&regex=1&word=1", fuzzyHit["url"])
+	assert.Equal(t, []any{map[string]any{
+		"line": float64(5),
+		"url":  "/doc/guide.md?line=5&q=widgets&regex=1&word=1",
+		"spans": []any{
+			map[string]any{"text": "widgets", "hit": true},
+			map[string]any{"text": " and gadgets", "hit": false},
+		},
+	}}, fuzzyHit["lines"])
 }
 
 func TestAPISearchModes(t *testing.T) {

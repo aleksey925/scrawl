@@ -2290,6 +2290,30 @@ test.describe('mobile', () => {
             await expect(pane).toHaveAttribute('data-scroll', 'outer');
         });
 
+        test('the history actions are as high as a labelled button on a touch screen', async ({page}) => {
+            // arrange
+            const stamp = Date.now();
+            const note = `${HISTORY_FOLDER}/tablet-${stamp}.md`;
+            await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+            for (const body of [`# Первая ${stamp}\n`, `# Вторая ${stamp}\n`, `# Вторая ${stamp}\n\nТретья\n`]) {
+                await setSource(page, body);
+                await save(page);
+            }
+            await page.goto(HISTORY.url.history(note));
+            await expect(page.getByTestId('version')).toHaveCount(3);
+
+            // act
+            await page.getByTestId('version').nth(1).tap();
+
+            // assert
+            await expect(page.getByTestId('version-restore')).toBeVisible();
+            const heights = [];
+            for (const id of ['version-undo', 'version-restore']) {
+                heights.push(Math.round((await page.getByTestId(id).boundingBox()).height));
+            }
+            expect(heights).toEqual([BUTTON_HEIGHT, BUTTON_HEIGHT]);
+        });
+
         test('the Search row of the sidebar shows no key on a touch screen', async ({page}) => {
             // act
             await page.goto(routes.home());

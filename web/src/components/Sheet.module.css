@@ -243,11 +243,6 @@
   transition: var(--scrawl-press-out);
 }
 
-.button[data-secondary] {
-  background: var(--scrawl-sheet-close);
-  color: var(--scrawl-text);
-}
-
 .button:disabled {
   opacity: 0.4;
   cursor: default;

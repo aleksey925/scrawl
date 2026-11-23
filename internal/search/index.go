@@ -348,10 +348,7 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 			break
 		}
 		collect(slots, cand.doc.id, match, boost)
-		if titlesOnly && !titleMatchesPhrases(cand.doc.title, q) {
-			continue
-		}
-		if !titlesOnly && !matchesPhrases(cand.doc.plain, q, match) && !titleMatchesPhrases(cand.doc.title, q) {
+		if !matchesPhrases(cand.doc, q, match, titlesOnly) {
 			continue
 		}
 		top = append(top, topDoc{scored: cand, match: slices.Clone(match)})
@@ -515,33 +512,36 @@ func endsWithWord(query string) bool {
 	return wordRune(r)
 }
 
-func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
+func matchesPhrases(doc *document, q parsedQuery, match []*posting, titlesOnly bool) bool {
+	if len(q.phrases) == 0 {
+		return true
+	}
+	text, words := titleWords(doc.title)
 	for _, phrase := range q.phrases {
-		k, ok := q.index[phrase[0].key()]
-		if !ok {
+		if phraseInTitle(text, words, phrase) {
 			continue
 		}
-		found := slices.ContainsFunc(match[k].offs, func(off int32) bool {
-			return phraseAt(plain, phrase, int(off))
-		})
-		if !found {
+		if titlesOnly || !phraseInBody(doc.plain, q, match, phrase) {
 			return false
 		}
 	}
 	return true
 }
 
-func titleMatchesPhrases(title string, q parsedQuery) bool {
-	text, words := titleWords(title)
-	for _, phrase := range q.phrases {
-		found := slices.ContainsFunc(words, func(tok token) bool {
-			return tok.term == phrase[0].text && phraseAt(text, phrase, tok.off)
-		})
-		if !found {
-			return false
-		}
+func phraseInBody(plain string, q parsedQuery, match []*posting, phrase []queryTerm) bool {
+	k, ok := q.index[phrase[0].key()]
+	if !ok {
+		return true
 	}
-	return true
+	return slices.ContainsFunc(match[k].offs, func(off int32) bool {
+		return phraseAt(plain, phrase, int(off))
+	})
+}
+
+func phraseInTitle(text string, words []token, phrase []queryTerm) bool {
+	return slices.ContainsFunc(words, func(tok token) bool {
+		return tok.term == phrase[0].text && phraseAt(text, phrase, tok.off)
+	})
 }
 
 func titleWords(title string) (string, []token) {

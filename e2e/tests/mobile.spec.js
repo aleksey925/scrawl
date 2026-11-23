@@ -4810,6 +4810,9 @@ test.describe('mobile', () => {
         expect(right.x - (left.x + left.width), 'the gap between them').toBeCloseTo(8, 0);
         expect(Math.round(left.height)).toBe(CHOICE_HEIGHT);
         for (const button of [undo, restore]) {
+            expect(await button.evaluate((el) => el.scrollWidth <= el.clientWidth), 'the label fits').toBe(true);
+        }
+        for (const button of [undo, restore]) {
             await expect(button).toHaveCSS('background-color', rgb(lightTheme.palette.actionTint));
             await expect(button).toHaveCSS('color', rgb(lightTheme.palette.accent));
         }

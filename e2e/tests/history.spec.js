@@ -452,11 +452,18 @@ test.describe.serial('history', () => {
         for (const id of ['version-undo', 'version-restore']) {
             expect(await page.getByTestId(id).evaluate((el) => el.scrollWidth <= el.clientWidth), `${id} fits its label`).toBe(true);
         }
+        const left = await page.getByTestId('version-undo').boundingBox();
+        const right = await page.getByTestId('version-restore').boundingBox();
+        expect(right.y, 'the two share a row').toBeCloseTo(left.y, 0);
+        expect(Math.round(left.height)).toBe(32);
+        await expect(page.getByTestId('version-restore')).toHaveCSS('background-color', rgb(lightTheme.palette.buttonBg));
+        await expect(page.getByTestId('version-restore')).toHaveCSS('border-color', rgb(lightTheme.palette.border));
         await page.route(listRead, held);
         await page.getByTestId('version-restore').click();
         await page.getByTestId('modal-confirm').click();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
         await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('version-undo')).toBeDisabled();
         await expect(page.getByTestId('history-actions-hint')).toHaveText('Undo removes only this change. Restore returns the whole note to this version.');
         await expect(versions).toHaveCount(4);
     });

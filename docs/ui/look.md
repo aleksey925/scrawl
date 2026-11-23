@@ -41,8 +41,9 @@ Colors, controls and type: how a note and the chrome are drawn.
   row. A phone draws that row across its row of the list's group
   ([phone](phone.md)). The keyboard's focus on a grid of the editor lifts the
   same way too. The accent is spent the way Notion spends it, read off its own
-  pages: the one main button and a toggle that is on, and on a phone the
-  current tab of the bar
+  pages: the one main button and a toggle that is on, the small actions of the
+  history, accent text tinted on a phone and framed on a desktop, as neither is
+  the main one ([pages](pages.md)), and on a phone the current tab of the bar
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)); the search
   field has no ring, the back link and Cancel are plain text, and a main button
   that cannot be pressed yet fades in its color. The focus of the keyboard is

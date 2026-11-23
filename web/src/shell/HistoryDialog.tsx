@@ -293,7 +293,6 @@ function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Elem
           data-testid="version-kind"
           data-kind={entry.kind}
           className={classes.kind}
-          style={blockStyle('gray')}
         >
           {tagOf(entry)}
         </span>

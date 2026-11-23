@@ -270,15 +270,16 @@ opens over them.
   When both can run, "Undo Change" and "Restore Version" share one row; when
   one can, it fills the row as "Undo This Change" or "Restore This Version". An
   action that cannot run is not drawn at all, as a disabled button would be the
-  loudest thing there while doing nothing, and while a write runs the buttons
-  stay, dimmed. One line centered under the buttons says what they do, and why
-  an action is missing unless the reason is that the version is the text the
-  note has now. Undo takes out only the change the version made and keeps the
-  later ones, and Restore brings the whole note back to the version. Both are
-  hidden without the right to write. Undo cannot run while the note is deleted,
-  as there is no text to take the change out of. An undo whose lines, or lines
-  next to them, were changed again later is refused in a toast. Each asks
-  first, the address stays `/history/<path>`, and the ✕ goes back to the note.
+  loudest thing there while doing nothing, and while a write runs, or the note
+  or its history is still loading, the buttons stay, dimmed. One line centered
+  under the buttons says what they do, and why an action is missing unless the
+  reason is that the version is the text the note has now. Undo takes out only
+  the change the version made and keeps the later ones, and Restore brings the
+  whole note back to the version. Both are hidden without the right to write.
+  Undo cannot run while the note is deleted, as there is no text to take the
+  change out of. An undo whose lines, or lines next to them, were changed again
+  later is refused in a toast. Each asks first, the address stays
+  `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

@@ -245,40 +245,39 @@ opens over them.
   versions with the colored initial of their author and a tag on the right,
   Undo and Restore below them. The tag says how a version was made when it was
   not in the app (API, On disk) and otherwise what it did (Create, Edit,
-  Rename, Delete). Closing it goes to the note. A button beside the close one
-  expands it to the window less 16px a side, and the choice is kept. The change
-  of size is part of mantine's own transition, because mantine writes that one
-  inline and it outranks the stylesheet. The server says which versions can be
-  restored, in `restorable`: never a deletion and never the text the file has
-  now, hashed the way git names a blob. It says which can be undone in
-  `undoable`: never the first version, a deletion, a rename alone or a rename
-  out of a path that is no note. The client read it off the blob and the row's
-  place once, and the newest row stops being the current text the moment the
-  file changes on disk. On a phone the history is a sheet of nearly the
-  screen's height, "History" and the count of versions over the file's name,
-  and each version a card with its time, marked current for the text the file
-  has now, the initial and the name of who made it, a user, a token's name or
-  "outside the app", the tag of the change in gray, never in color, so that no
-  tag looks like a button, and "as" and the old path when the file moved. The
-  picked card, the first one at the start, opens to show the switches of
-  Rendered and Source and of Split and Unified, the change, then its actions.
-  An action of a card is a small tinted button, 36px high, the accent on its
-  tint, as a card is a row of a list and not a screen of its own: neither is
-  the main one, as both change the note and both ask first. When both can run,
-  "Undo Change" and "Restore Version" share one row; when one can, it fills the
-  row as "Undo This Change" or "Restore This Version". An action that cannot
-  run is not drawn at all, as a disabled button would be the loudest thing on
-  the card while doing nothing, and while a write runs the buttons stay,
-  dimmed. One line under the buttons says what they do, and why an action is
-  missing unless the reason is that the version is the text the note has now.
-  On a desktop the same two stand below the versions, Undo in the default look
-  over Restore filled, each with a line under it that says what it does, or why
-  it is disabled. Undo takes out only the change the version made and keeps the
-  later ones, and Restore brings the whole note back to the version. Both are
-  hidden without the right to write. Undo cannot run while the note is deleted,
-  as there is no text to take the change out of. An undo whose lines, or lines
-  next to them, were changed again later is refused in a toast. Each asks
-  first, the address stays `/history/<path>`, and the ✕ goes back to the note.
+  Rename, Delete), always in gray: a colored tag looked like a button. Closing
+  it goes to the note. A button beside the close one expands it to the window
+  less 16px a side, and the choice is kept. The change of size is part of
+  mantine's own transition, because mantine writes that one inline and it
+  outranks the stylesheet. The server says which versions can be restored, in
+  `restorable`: never a deletion and never the text the file has now, hashed
+  the way git names a blob. It says which can be undone in `undoable`: never
+  the first version, a deletion, a rename alone or a rename out of a path that
+  is no note. The client read it off the blob and the row's place once, and the
+  newest row stops being the current text the moment the file changes on disk.
+  On a phone the history is a sheet of nearly the screen's height, "History"
+  and the count of versions over the file's name, and each version a card with
+  its time, marked current for the text the file has now, the initial and the
+  name of who made it, a user, a token's name or "outside the app", the tag,
+  and "as" and the old path when the file moved. The picked card, the first one
+  at the start, opens to show the switches of Rendered and Source and of Split
+  and Unified, the change, then Undo and Restore. On a desktop the two stand
+  below the versions, for the picked one. Both are small tinted buttons, the
+  accent on its tint, 32px high on a desktop and 36px on a phone, as they sit
+  in a row of a list and not at the foot of a screen: neither is the main one,
+  as both change the note and both ask first. When both can run, "Undo Change"
+  and "Restore Version" share one row; when one can, it fills the row as "Undo
+  This Change" or "Restore This Version". An action that cannot run is not
+  drawn at all, as a disabled button would be the loudest thing there while
+  doing nothing, and while a write runs the buttons stay, dimmed. One line
+  under the buttons says what they do, and why an action is missing unless the
+  reason is that the version is the text the note has now. Undo takes out only
+  the change the version made and keeps the later ones, and Restore brings the
+  whole note back to the version. Both are hidden without the right to write.
+  Undo cannot run while the note is deleted, as there is no text to take the
+  change out of. An undo whose lines, or lines next to them, were changed again
+  later is refused in a toast. Each asks first, the address stays
+  `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

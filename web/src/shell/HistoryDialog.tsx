@@ -26,7 +26,7 @@ import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
-import { blockColorOf, blockStyle, type BlockName } from '../themes';
+import { blockColorOf, blockStyle } from '../themes';
 import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
@@ -45,22 +45,22 @@ function whoOf(actor: string): string {
   return actor.replace(/^token:/, '');
 }
 
-function tagOf(entry: HistoryEntry): { label: string; color: BlockName } {
+function tagOf(entry: HistoryEntry): string {
   if (entry.actor.startsWith('token:')) {
-    return { label: 'API', color: 'purple' };
+    return 'API';
   }
   if (entry.actor === 'external') {
-    return { label: 'On disk', color: 'orange' };
+    return 'On disk';
   }
   switch (entry.kind) {
     case 'added':
-      return { label: 'Create', color: 'green' };
+      return 'Create';
     case 'renamed':
-      return { label: 'Rename', color: 'blue' };
+      return 'Rename';
     case 'deleted':
-      return { label: 'Delete', color: 'red' };
+      return 'Delete';
     default:
-      return { label: 'Edit', color: 'gray' };
+      return 'Edit';
   }
 }
 
@@ -107,7 +107,7 @@ const undoHint = 'Takes out only this change. Later changes stay.';
 
 const restoreHint = 'Brings the whole note back to this version.';
 
-interface CardActionsProps {
+interface VersionActionsProps {
   undoBlockedBy: string | undefined;
   restoreBlockedBy: string | undefined;
   busy: boolean;
@@ -115,7 +115,7 @@ interface CardActionsProps {
   onRestore: () => void;
 }
 
-function CardActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore }: CardActionsProps): JSX.Element {
+function VersionActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore }: VersionActionsProps): JSX.Element {
   const undo = undoBlockedBy === undefined;
   const restore = restoreBlockedBy === undefined;
   const reasons = [...new Set([undoBlockedBy, restoreBlockedBy])]
@@ -131,11 +131,11 @@ function CardActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore 
     [...(undo ? [undoHint] : []), ...(restore ? [restoreHint] : []), ...reasons].join(' ')
   );
   return (
-    <div className={classes.cardActions}>
+    <div className={classes.actions}>
       {(undo || restore) && (
-        <div className={classes.cardButtons}>
+        <div className={classes.actionRow}>
           {undo && (
-            <button type="button" data-testid="version-undo" className={classes.cardButton} disabled={busy} onClick={onUndo}>
+            <button type="button" data-testid="version-undo" className={classes.action} disabled={busy} onClick={onUndo}>
               {both ? 'Undo Change' : 'Undo This Change'}
             </button>
           )}
@@ -143,7 +143,7 @@ function CardActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore 
             <button
               type="button"
               data-testid="version-restore"
-              className={classes.cardButton}
+              className={classes.action}
               disabled={busy}
               onClick={onRestore}
             >
@@ -152,11 +152,9 @@ function CardActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onRestore 
           )}
         </div>
       )}
-      {hint !== '' && (
-        <p data-testid="history-actions-hint" className={classes.cardHint}>
-          {hint}
-        </p>
-      )}
+      <p data-testid="history-actions-hint" className={classes.hint}>
+        {hint}
+      </p>
     </div>
   );
 }
@@ -268,12 +266,10 @@ interface VersionFactsProps {
   entry: HistoryEntry;
   path: string;
   currentMark: string;
-  plainTag: boolean;
 }
 
-function VersionFacts({ entry, path, currentMark, plainTag }: VersionFactsProps): JSX.Element {
+function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Element {
   const who = whoOf(entry.actor);
-  const tag = tagOf(entry);
   const color = blockColorOf(who);
   return (
     <>
@@ -298,9 +294,9 @@ function VersionFacts({ entry, path, currentMark, plainTag }: VersionFactsProps)
           data-testid="version-kind"
           data-kind={entry.kind}
           className={classes.kind}
-          style={blockStyle(plainTag ? 'gray' : tag.color)}
+          style={blockStyle('gray')}
         >
-          {tag.label}
+          {tagOf(entry)}
         </span>
       </span>
       {entry.path !== path && (
@@ -331,7 +327,7 @@ function versionAttributes(entry: HistoryEntry, selected: boolean): Record<strin
 function VersionRow({ entry, path, selected, onPick }: VersionRowProps): JSX.Element {
   return (
     <button type="button" {...versionAttributes(entry, selected)} className={classes.row} onClick={onPick}>
-      <VersionFacts entry={entry} path={path} currentMark=" current" plainTag={false} />
+      <VersionFacts entry={entry} path={path} currentMark=" current" />
     </button>
   );
 }
@@ -346,7 +342,7 @@ function VersionCard({ entry, path, selected, onPick, children }: VersionRowProp
         className={classes.cardHead}
         onClick={onPick}
       >
-        <VersionFacts entry={entry} path={path} currentMark=" · current" plainTag />
+        <VersionFacts entry={entry} path={path} currentMark=" · current" />
       </button>
       {selected && <div className={classes.cardBody}>{children}</div>}
     </div>
@@ -444,8 +440,6 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
   const restoreBlockedBy = selected === undefined ? undefined : restoreReason(selected);
   const undoBlockedBy = selected === undefined ? undefined : undoReason(selected, rev);
   const busy = writing || rev === undefined || disk.loading || history.loading;
-  const restoreBlocked = restoreBlockedBy !== undefined || busy;
-  const undoBlocked = undoBlockedBy !== undefined || busy;
   const changes = detail.data?.changes !== undefined;
   const modeToggle = changes && (
     <Segmented
@@ -516,7 +510,7 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                         <VersionDiff state={detail} rev={version.rev} mode={mode} layout={diffLayout} />
                       </section>
                       {canWrite && (
-                        <CardActions
+                        <VersionActions
                           undoBlockedBy={undoBlockedBy}
                           restoreBlockedBy={restoreBlockedBy}
                           busy={busy}
@@ -604,35 +598,13 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
             </div>
             {canWrite && selected !== undefined && (
               <div className={classes.foot}>
-                <div className={classes.action}>
-                  <Button
-                    data-testid="version-undo"
-                    fullWidth
-                    size="md"
-                    variant="default"
-                    disabled={undoBlocked}
-                    onClick={() => askWrite('undo', selected)}
-                  >
-                    Undo this change
-                  </Button>
-                  <span data-testid="history-undo-reason" className={classes.reason}>
-                    {undoBlockedBy ?? undoHint}
-                  </span>
-                </div>
-                <div className={classes.action}>
-                  <Button
-                    data-testid="version-restore"
-                    fullWidth
-                    size="md"
-                    disabled={restoreBlocked}
-                    onClick={() => askWrite('restore', selected)}
-                  >
-                    Restore this version
-                  </Button>
-                  <span data-testid="history-restore-reason" className={classes.reason}>
-                    {restoreBlockedBy ?? restoreHint}
-                  </span>
-                </div>
+                <VersionActions
+                  undoBlockedBy={undoBlockedBy}
+                  restoreBlockedBy={restoreBlockedBy}
+                  busy={busy}
+                  onUndo={() => askWrite('undo', selected)}
+                  onRestore={() => askWrite('restore', selected)}
+                />
               </div>
             )}
           </aside>

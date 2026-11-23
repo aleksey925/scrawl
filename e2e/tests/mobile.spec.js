@@ -4766,6 +4766,10 @@ test.describe('mobile', () => {
 
         // act
         await page.getByTestId('version').nth(1).tap();
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveText('Restore This Version');
+        await expect(page.getByTestId('history-actions-hint'))
+            .toHaveText('Brings the whole note back to this version. This version created the note.');
         await page.getByTestId('version-restore').tap();
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
         await page.getByTestId('modal-confirm').tap();

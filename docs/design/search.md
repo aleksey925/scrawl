@@ -44,14 +44,17 @@ The server's search and the note's find bar.
   title has no places, and checks every word of a phrase. Only the first 30
   accents on a letter count, the limit of Unicode's stream-safe text, so a long
   run of marks cannot slow a search down.
-- The plain search compares the characters as written, so `молоко` finds
-  `молоко́` and leaves the stress mark, a character of its own, out of the
-  match. A mark belongs to the letter before it: Whole word looks past it, and
-  a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
-  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`, and a
-  ypogegrammeni NFC leaves apart from its letter for `ι`, as Go and javascript
-  fold it: `ᾱͅ` finds `ᾱι`. A Fuzzy result opens the find bar in any case, so
-  there `ᾱͅ` marks `ᾱι` too, though Fuzzy did not find it.
+- The plain search compares the characters as written. A mark belongs to the
+  letter before it, so a match never ends on a letter whose accent it leaves
+  out: `молоко` does not find `молоко́`, as `замок` does not find `за́мок` and
+  `σπιτι` does not find `σπίτι`, though the stress mark of Russian is a
+  character of its own. Regex is taken as written and may end before one. Whole
+  word looks past a mark, and a mark after no letter, such as the one in the
+  emoji `1️⃣`, is kept as typed. Any case also takes `ς` for `σ`, as a word in
+  capitals ends in `Σ`, and a ypogegrammeni NFC leaves apart from its letter
+  for `ι`, as Go and javascript fold it: `ᾱͅ` finds `ᾱι`. A Fuzzy result opens
+  the find bar in any case, so there `ᾱͅ` marks `ᾱι` too, though Fuzzy did not
+  find it.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word
@@ -61,14 +64,14 @@ The server's search and the note's find bar.
   any word found with a typo. A word found with a typo needs only the accents
   typed somewhere in it, as its letters no longer line up, so a moved accent
   costs nothing on top of a changed letter: `замо́к` also finds `за́мак`, and two
-  accents moved are one typo. The short `уже́` still does not find `у́же`. A
-  phrase in quotes is the server's, and it keeps every accent on its letter;
-  one word in quotes is no phrase, only not a prefix, and the find bar has no
-  phrases: there a quote splits words, and a closing one ends the prefix. A
-  word with no match that carries its accents is the one that looks for typos,
-  on the server among every word of the index, in the find bar among the words
-  of the note. With Titles only, a match in the body alone is no match, so a
-  title can still be found with a typo.
+  accents moved are one typo. The short `уже́` still does not find `у́же`. A word
+  in quotes, alone or in a phrase, takes no typo, is no prefix and keeps every
+  accent typed on its letter. A phrase is the server's: the find bar has none,
+  so there each word in quotes is strict on its own, and a closing quote ends
+  the prefix. A word with no match that carries its accents is the one that
+  looks for typos, on the server among every word of the index, in the find bar
+  among the words of the note. With Titles only, a match in the body alone is
+  no match, so a title can still be found with a typo.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `

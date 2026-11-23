@@ -478,7 +478,11 @@ test.describe('find in the note', () => {
         await input.fill('σπίτι');
         await expect(page.getByTestId('find-hit')).toHaveText(['σπίτι']);
         await input.fill('молоко');
-        await expect(page.getByTestId('find-hit')).toHaveText(['Молоко', 'молоко']);
+        await expect(page.getByTestId('find-hit')).toHaveText(['молоко']);
+        await input.fill('замок');
+        await expect(counter).toHaveText('No results');
+        await input.fill('за́мок');
+        await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
         await input.fill('σπτιι');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyF');
@@ -514,6 +518,8 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'false');
         await input.fill('дакументацыя');
         await expect(page.getByTestId('find-hit')).toHaveText(['документация']);
+        await input.fill('"дакументацыя"');
+        await expect(counter).toHaveText('No results');
         await input.fill('мох');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyR');
@@ -550,6 +556,8 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
         await input.fill('замо́к');
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
+        await input.fill('"замо́к"');
+        await expect(counter).toHaveText('No results');
         await input.fill('word other word');
         await expect(page.getByTestId('find-hit')).toHaveText(['wording']);
     });

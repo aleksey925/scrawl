@@ -417,17 +417,17 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 			break
 		}
 		title := normalize(doc.title)
-		titleMarks := patternMarks(title, re, q.Word)
+		titleMarks := patternMarks(title, re, find)
 		result := Result{Path: doc.path, Title: doc.title, TitleSpans: spansOf(title, titleMarks), Find: find}
 		if q.TitlesOnly {
 			if len(titleMarks) > 0 {
 				result.MatchCount = hitCount(result.TitleSpans)
-				result.Snippet = doc.firstSnippet(ctx, re, q.Word)
+				result.Snippet = doc.firstSnippet(ctx, re, find)
 				res.Results = append(res.Results, result)
 			}
 			continue
 		}
-		stopped := doc.scanLines(ctx, re, q.Word, &result, &matched, &read)
+		stopped := doc.scanLines(ctx, re, find, &result, &matched, &read)
 		if result.MatchCount > 0 || len(titleMarks) > 0 {
 			res.Results = append(res.Results, result)
 		}
@@ -456,7 +456,7 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 	return res
 }
 
-func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, res *Result, matched, read *int) bool {
+func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, q FindQuery, res *Result, matched, read *int) bool {
 	var first []mark
 	firstStart := 0
 	for i := range d.lines {
@@ -465,7 +465,7 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 			return true
 		}
 		start, end := d.lineBounds(i)
-		marks := patternMarks(d.plain[start:end], re, word)
+		marks := patternMarks(d.plain[start:end], re, q)
 		if len(marks) == 0 {
 			continue
 		}
@@ -490,26 +490,29 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 	return *matched >= maxMatchedLines
 }
 
-func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, word bool) template.HTML {
+func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, q FindQuery) template.HTML {
 	for i := range d.lines {
 		if (i+1)%checkEvery == 0 && ctx.Err() != nil {
 			break
 		}
 		start, end := d.lineBounds(i)
-		if marks := patternMarks(d.plain[start:end], re, word); len(marks) > 0 {
+		if marks := patternMarks(d.plain[start:end], re, q); len(marks) > 0 {
 			return d.snippetAt(shift(marks, -start))
 		}
 	}
 	return d.lead()
 }
 
-func patternMarks(text string, re *regexp.Regexp, word bool) []mark {
+func patternMarks(text string, re *regexp.Regexp, q FindQuery) []mark {
 	res := []mark{}
 	for _, loc := range re.FindAllStringIndex(text, -1) {
 		if loc[1] <= loc[0] {
 			continue
 		}
-		if word && !wordBounded(text, loc[0], loc[1]) {
+		if q.Word && !wordBounded(text, loc[0], loc[1]) {
+			continue
+		}
+		if !q.Regex && cutsAccent(text, loc[1]) {
 			continue
 		}
 		res = append(res, mark{start: off32(loc[0]), end: off32(loc[1])})
@@ -521,6 +524,12 @@ func wordBounded(text string, start, end int) bool {
 	before, _ := utf8.DecodeLastRuneInString(strings.TrimRightFunc(text[:start], isMark))
 	after, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(text[end:], isMark))
 	return !isWordChar(before) && !isWordChar(after)
+}
+
+func cutsAccent(text string, end int) bool {
+	last, _ := utf8.DecodeLastRuneInString(text[:end])
+	next, _ := utf8.DecodeRuneInString(text[end:])
+	return unicode.IsLetter(last) && isAccent(next)
 }
 
 func isWordChar(r rune) bool {

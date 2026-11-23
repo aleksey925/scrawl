@@ -14,6 +14,7 @@ export interface FindTerm {
   text: string;
   marks: string[][];
   prefix: boolean;
+  quoted: boolean;
 }
 
 export type FindPattern = { kind: 'regex'; source: string; flags: string } | { kind: 'words'; terms: FindTerm[] };
@@ -141,8 +142,9 @@ function keyOf(term: Omit<FindTerm, 'prefix'>): string {
 }
 
 function termsOf(text: string): FindTerm[] {
-  const typed = [...text.matchAll(wordChars)]
-    .map((found) => ({ text: termOf(found[0]), marks: marksOfWord(found[0]) }))
+  const typed = text
+    .split('"')
+    .flatMap((part, at) => [...part.matchAll(wordChars)].map((found) => ({ text: termOf(found[0]), marks: marksOfWord(found[0]), quoted: at % 2 === 1 })))
     .filter((term) => term.text !== '');
   const lastTerm = typed.at(-1);
   const last = lastTerm !== undefined && /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? keyOf(lastTerm) : undefined;
@@ -162,7 +164,7 @@ export function patternOf(query: FindQuery): FindPattern {
     return { kind: 'words', terms: termsOf(text) };
   }
   const typed = query.regex ? fromRe2(text) : { source: escapeRegExp(text), flags: '' };
-  let source = typed.source;
+  let source = query.regex ? typed.source : `${typed.source}(?!(?<=\\p{L})(?=\\p{Mn})\\p{Script=Inherited})`;
   if (query.word) {
     source = `(?<![\\p{L}\\p{N}_]\\p{Mn}*)(?:${source})(?!\\p{Mn}*[\\p{L}\\p{N}_])`;
   }
@@ -286,7 +288,7 @@ function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): Find
         : [],
     );
     const chosen =
-      exact.length > 0
+      exact.length > 0 || sought.quoted
         ? exact
         : words.flatMap((entry, at) => (withinTypos(sought.text, entry.term) && carries(sought.marks, entry.marks, true) ? [at] : []));
     for (const at of chosen) {

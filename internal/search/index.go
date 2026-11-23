@@ -499,7 +499,7 @@ func parseQuery(query string) parsedQuery {
 				res.terms = append(res.terms, term)
 			}
 		}
-		if i%2 == 1 && len(group) > 1 {
+		if i%2 == 1 && len(group) > 0 {
 			res.phrases = append(res.phrases, group)
 		}
 	}

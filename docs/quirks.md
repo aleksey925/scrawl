@@ -117,6 +117,9 @@ words; the fact itself is written here.
   background with `!important`: yellow in Safari, blue in Chromium. Only an
   inset shadow over it and a long delay on `background-color` keep the field's
   own color. [Look](ui/look.md)
+- The tooltip of a `title` opens only after a long pause, longer in Safari, and
+  a page cannot set the pause. Mantine's tooltip opens on a disabled button in
+  Chromium; Safari is not checked yet. [Look](ui/look.md)
 - A scroll event says an element moved, never who moved it, and the echo of a
   programmatic scroll arrives a frame later.
   [Editor position](design/editor-position.md)

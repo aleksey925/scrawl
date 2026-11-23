@@ -4801,7 +4801,7 @@ test.describe('mobile', () => {
         await expect(undo).toHaveText('Undo Change');
         await expect(restore).toHaveText('Restore Version');
         await expect(page.getByTestId('history-actions-hint')).toHaveText(
-            'Undo takes out only this change, later changes stay. Restore brings back the whole note as it was then.',
+            'Undo removes only this change. Restore returns the whole note to this version.',
         );
         const left = await undo.boundingBox();
         const right = await restore.boundingBox();

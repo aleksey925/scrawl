@@ -124,8 +124,7 @@ function VersionActions({ undoBlockedBy, restoreBlockedBy, busy, onUndo, onResto
   const both = undo && restore;
   const hint = both ? (
     <>
-      <b>Undo</b> takes out only this change, later changes stay. <b>Restore</b> brings back the whole note as it was
-      then.
+      <b>Undo</b> removes only this change. <b>Restore</b> returns the whole note to this version.
     </>
   ) : (
     [...(undo ? [undoHint] : []), ...(restore ? [restoreHint] : []), ...reasons].join(' ')

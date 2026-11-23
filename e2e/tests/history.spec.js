@@ -457,7 +457,7 @@ test.describe.serial('history', () => {
         await page.getByTestId('modal-confirm').click();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
         await expect(page.getByTestId('version-restore')).toBeDisabled();
-        await expect(page.getByTestId('history-actions-hint')).toHaveText('Undo takes out only this change, later changes stay. Restore brings back the whole note as it was then.');
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Undo removes only this change. Restore returns the whole note to this version.');
         await expect(versions).toHaveCount(4);
     });
 

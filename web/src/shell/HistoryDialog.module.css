@@ -311,7 +311,7 @@
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .actionRow {
@@ -323,14 +323,15 @@
   flex: 1 1 0;
   min-width: 0;
   height: var(--scrawl-button-height);
-  padding: 0 8px;
+  padding: 0 4px;
   overflow: hidden;
-  border: 0;
+  border: 1px solid var(--scrawl-border);
   border-radius: calc(var(--scrawl-button-height) / 2);
-  background: var(--scrawl-action-tint);
+  background: var(--scrawl-button-bg);
+  box-shadow: var(--scrawl-shadow-button);
   color: var(--scrawl-accent);
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -345,7 +346,7 @@
 
 @media (hover: hover) {
   .action:not(:disabled):hover {
-    opacity: 0.85;
+    background-image: linear-gradient(var(--scrawl-hover), var(--scrawl-hover));
   }
 }
 
@@ -359,6 +360,7 @@
   color: var(--scrawl-text-tertiary);
   font-size: 12px;
   line-height: 1.35;
+  text-align: center;
 }
 
 .hint b {
@@ -367,13 +369,17 @@
 }
 
 .cardBody .actions {
+  gap: 8px;
   margin: 2px 4px 0;
 }
 
 .cardBody .action {
   height: var(--scrawl-touch-choice);
   padding: 0 12px;
+  border: 0;
   border-radius: calc(var(--scrawl-touch-choice) / 2);
+  background: var(--scrawl-action-tint);
+  box-shadow: none;
   font-size: 15px;
 }
 

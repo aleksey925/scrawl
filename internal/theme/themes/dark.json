@@ -60,6 +60,7 @@
     "accentStrong": "#3b91e6",
     "accentTint": "#2383e240",
     "actionTint": "#2383e22e",
+    "buttonBg": "#2c2c2b",
     "onAccent": "#ffffff",
     "inlineCode": "#ff7369",
     "inlineCodeBg": "#ffffff14",
@@ -93,6 +94,7 @@
     "large": "0 24px 48px #00000080, 0 4px 12px #00000059, 0 0 0 1px #383836",
     "capsule": "0 4px 20px #00000080",
     "capsuleGrouped": "0 4px 20px #00000080",
-    "toastPhone": "0 4px 20px #00000080"
+    "toastPhone": "0 4px 20px #00000080",
+    "button": "none"
   }
 }

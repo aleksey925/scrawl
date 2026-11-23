@@ -108,12 +108,15 @@ function withQuery(url: string, query: Record<string, QueryValue>): string {
 }
 
 function searchParams(settings: SearchSettings): Record<string, string | undefined> {
+  const titles = settings.titles ? '1' : undefined;
+  if (settings.fuzzy) {
+    return { mode: 'fuzzy', titles };
+  }
   return {
-    mode: settings.fuzzy ? 'fuzzy' : undefined,
     case: settings.matchCase ? '1' : undefined,
     word: settings.word ? '1' : undefined,
     regex: settings.regex ? '1' : undefined,
-    titles: settings.titles ? '1' : undefined,
+    titles,
   };
 }
 
@@ -126,7 +129,7 @@ export function settingsOfSearch(params: URLSearchParams): SearchSettings {
 }
 
 export function searchTextOf(text: string, settings: SearchSettings): string {
-  return settings.fuzzy && !settings.regex ? text.trim() : text;
+  return settings.fuzzy ? text.trim() : text;
 }
 
 async function errorBody(response: Response): Promise<ApiErrorBody> {

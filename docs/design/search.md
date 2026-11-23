@@ -9,8 +9,11 @@ The server's search and the note's find bar.
   case too, and a regular expression is taken as written. Fuzzy is the loose
   search, and every loose rule is its own: it looks for words, with or without
   their accents and with a typo, so the plain search stays as exact as a person
-  expects of it. Match case and Whole word mean nothing in Fuzzy and are
-  disabled, and Fuzzy and Regex turn each other off.
+  expects of it. Fuzzy is a mode of its own: with it on, the other three are
+  disabled and keep their values, and they come back as they were when it is
+  turned off, so one rule holds for all three. Match case, Whole word and Regex
+  combine with each other, as in JetBrains. In Fuzzy the search sends only
+  `mode=fuzzy`, as the API takes `regex=1` over it.
 - Each of the two keeps its options in local storage, the search with Titles
   only, so they hold for the next search and for every note, as editors keep
   theirs, and the device and the browser keep their own. Each opening reads
@@ -19,8 +22,7 @@ The server's search and the note's find bar.
   the last toggle pressed keeps the options it shows. A search result opens the
   find bar with the options of that search, for that time only: the find bar
   has to find what the server found, and what it keeps is left as it was. A
-  toggle pressed on that bar changes only that option in what it keeps, and
-  Fuzzy and Regex still turn each other off there.
+  toggle pressed on that bar changes only that option in what it keeps.
 - An accent is a nonspacing combining mark that Unicode gives to no script of
   its own (category Mn, script Inherited): the Latin, Greek and Cyrillic
   accents and the Arabic vowel marks, and not the zero width joiners, which are

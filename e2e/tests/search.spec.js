@@ -76,11 +76,9 @@ test.describe('search', () => {
         await expect(page.locator('[data-testid=find-hit][data-active="true"]').first()).toBeInViewport();
     });
 
-    test('Alt+R turns Regex on, which turns Fuzzy off and says what is wrong with a pattern', async ({page}) => {
+    test('Alt+R turns Regex on and says what is wrong with a pattern, and Fuzzy disables it until it is turned off', async ({page}) => {
         // arrange
         await openSearch(page);
-        await page.keyboard.press('Alt+KeyF');
-        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
         await page.getByTestId('search-input').fill('(');
 
         // act
@@ -88,12 +86,18 @@ test.describe('search', () => {
 
         // assert
         await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'true');
-        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'false');
         await expect(page.getByTestId('search-error')).toContainText('missing closing )');
         await expect(page.getByTestId('search-hint')).toHaveText(text.search.regexHint);
         await page.keyboard.press('Alt+KeyF');
         await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
-        await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'false');
+        await expect(page.getByTestId('search-regex')).toBeDisabled();
+        await expect(page.getByTestId('search-hint')).toHaveText(text.search.fuzzyHint);
+        await expect(page.getByTestId('search-error')).toHaveCount(0);
+        await page.keyboard.press('Alt+KeyR');
+        await expect(page.getByTestId('search-fuzzy')).toHaveAttribute('data-on', 'true');
+        await page.keyboard.press('Alt+KeyF');
+        await expect(page.getByTestId('search-regex')).toHaveAttribute('data-on', 'true');
+        await expect(page.getByTestId('search-error')).toContainText('missing closing )');
     });
 
     test('Match case and Whole word narrow the lines, and Fuzzy turns them off', async ({page}) => {
@@ -545,9 +549,10 @@ test.describe('find in the note', () => {
         await expect(counter).toHaveText('No results');
         await input.fill('мох');
         await expect(counter).toHaveText('No results');
+        await expect(page.getByTestId('doc-find-regex')).toBeDisabled();
         await page.keyboard.press('Alt+KeyR');
-        await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'true');
-        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'false');
+        await expect(page.getByTestId('doc-find-regex')).toHaveAttribute('data-on', 'false');
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
     });
 
     test('marks, a final sigma and a repeated word match as on the server', async ({page}) => {

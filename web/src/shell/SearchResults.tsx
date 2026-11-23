@@ -10,11 +10,11 @@ import classes from './Search.module.css';
 import { SyncBadge } from './SyncBadge';
 
 export function hintOf(settings: SearchSettings): string {
-  if (settings.regex) {
-    return 'Regular expression over the text as shown, line by line';
-  }
   if (settings.fuzzy) {
     return 'Words in any order, typos and missing accents are fine';
+  }
+  if (settings.regex) {
+    return 'Regular expression over the text as shown, line by line';
   }
   return settings.matchCase ? 'The text exactly as typed' : 'The text as typed, in any case';
 }

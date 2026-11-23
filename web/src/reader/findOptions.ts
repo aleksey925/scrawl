@@ -17,7 +17,7 @@ export const optionKeys: Partial<Record<string, FindOption>> = {
 };
 
 export function optionDisabled(options: FindOptions, name: FindOption): boolean {
-  return options.fuzzy && (name === 'matchCase' || name === 'word');
+  return options.fuzzy && name !== 'fuzzy';
 }
 
 export function withOption<T extends FindOptions>(options: T, name: FindOption): T {
@@ -25,11 +25,7 @@ export function withOption<T extends FindOptions>(options: T, name: FindOption):
 }
 
 export function withValue<T extends FindOptions>(options: T, name: FindOption, value: boolean): T {
-  const next = { ...options, [name]: value };
-  if (next.fuzzy && next.regex) {
-    return name === 'fuzzy' ? { ...next, regex: false } : { ...next, fuzzy: false };
-  }
-  return next;
+  return { ...options, [name]: value };
 }
 
 export function togglesOf(params: URLSearchParams): Omit<FindOptions, 'fuzzy'> {

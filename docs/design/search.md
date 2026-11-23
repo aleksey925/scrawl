@@ -66,12 +66,13 @@ The server's search and the note's find bar.
   costs nothing on top of a changed letter: `замо́к` also finds `за́мак`, and two
   accents moved are one typo. The short `уже́` still does not find `у́же`. A word
   in quotes, alone or in a phrase, takes no typo, is no prefix and keeps every
-  accent typed on its letter. A phrase is the server's: the find bar has none,
-  so there each word in quotes is strict on its own, and a closing quote ends
-  the prefix. A word with no match that carries its accents is the one that
-  looks for typos, on the server among every word of the index, in the find bar
-  among the words of the note. With Titles only, a match in the body alone is
-  no match, so a title can still be found with a typo.
+  accent typed on its letter, in the text or in the title. A phrase is the
+  server's: the find bar has none, so there each word in quotes is strict on
+  its own, and a closing quote ends the prefix. A word with no match that
+  carries its accents is the one that looks for typos, on the server among
+  every word of the index, in the find bar among the words of the note. With
+  Titles only, a match in the body alone is no match, so a title can still be
+  found with a typo.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `

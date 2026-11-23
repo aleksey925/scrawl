@@ -351,7 +351,7 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 		if titlesOnly && !titleMatchesPhrases(cand.doc.title, q) {
 			continue
 		}
-		if !titlesOnly && !matchesPhrases(cand.doc.plain, q, match) {
+		if !titlesOnly && !matchesPhrases(cand.doc.plain, q, match) && !titleMatchesPhrases(cand.doc.title, q) {
 			continue
 		}
 		top = append(top, topDoc{scored: cand, match: slices.Clone(match)})

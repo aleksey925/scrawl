@@ -17,7 +17,7 @@ export interface FindTerm {
   quoted: boolean;
 }
 
-export type FindPattern = { kind: 'regex'; source: string; flags: string } | { kind: 'words'; terms: FindTerm[] };
+export type FindPattern = { kind: 'regex'; source: string; flags: string; plain: boolean } | { kind: 'words'; terms: FindTerm[] };
 
 const maxMatches = 1000;
 const oneTypoChars = 4;
@@ -164,13 +164,13 @@ export function patternOf(query: FindQuery): FindPattern {
     return { kind: 'words', terms: termsOf(text) };
   }
   const typed = query.regex ? fromRe2(text) : { source: escapeRegExp(text), flags: '' };
-  let source = query.regex ? typed.source : `${typed.source}(?!(?<=\\p{L})(?=\\p{Mn})\\p{Script=Inherited})`;
+  let source = typed.source;
   if (query.word) {
     source = `(?<![\\p{L}\\p{N}_]\\p{Mn}*)(?:${source})(?!\\p{Mn}*[\\p{L}\\p{N}_])`;
   }
   const flags = [...new Set(`gmu${query.matchCase ? '' : 'i'}${typed.flags}`)].join('');
   new RegExp(source, flags);
-  return { kind: 'regex', source, flags };
+  return { kind: 'regex', source, flags, plain: !query.regex };
 }
 
 function typosAllowed(term: string): number {
@@ -246,7 +246,12 @@ function nfcOf(text: string): NfcText {
   return { text: nfc, starts, ends };
 }
 
-function regexMatches(texts: readonly string[], source: string, flags: string): FindMatch[] {
+function cutsAccent(text: string, end: number): boolean {
+  const next = text.codePointAt(end);
+  return next !== undefined && accent.test(String.fromCodePoint(next)) && /\p{L}$/u.test(text.slice(Math.max(0, end - 2), end));
+}
+
+function regexMatches(texts: readonly string[], source: string, flags: string, plain: boolean): FindMatch[] {
   const re = new RegExp(source, flags);
   const res: FindMatch[] = [];
   texts.forEach((text, block) => {
@@ -264,7 +269,11 @@ function regexMatches(texts: readonly string[], source: string, flags: string): 
         }
         continue;
       }
-      res.push({ block, start: found.index, end: found.index + found[0].length });
+      const end = found.index + found[0].length;
+      if (plain && cutsAccent(text, end)) {
+        continue;
+      }
+      res.push({ block, start: found.index, end });
     }
   });
   return res;
@@ -304,7 +313,7 @@ function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): Find
 export function findMatches(texts: readonly string[], pattern: FindPattern): FindMatch[] {
   const nfcs = texts.map((original) => (original.normalize('NFC') === original ? null : nfcOf(original)));
   const joined = texts.map((original, block) => nfcs[block]?.text ?? original);
-  const found = pattern.kind === 'regex' ? regexMatches(joined, pattern.source, pattern.flags) : wordMatches(joined, pattern.terms);
+  const found = pattern.kind === 'regex' ? regexMatches(joined, pattern.source, pattern.flags, pattern.plain) : wordMatches(joined, pattern.terms);
   const res: FindMatch[] = [];
   for (const raw of found) {
     const nfc = nfcs[raw.block] ?? null;

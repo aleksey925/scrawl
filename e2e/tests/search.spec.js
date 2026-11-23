@@ -483,6 +483,8 @@ test.describe('find in the note', () => {
         await expect(counter).toHaveText('No results');
         await input.fill('за́мок');
         await expect(page.getByTestId('find-hit')).toHaveText(['За́мок']);
+        await input.fill('πα');
+        await expect(page.getByTestId('find-hit')).toHaveText(['πα']);
         await input.fill('σπτιι');
         await expect(counter).toHaveText('No results');
         await page.keyboard.press('Alt+KeyF');

@@ -192,13 +192,16 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   }, [rootRef, html, opened, armed, query, runFind, show]);
 
   const open = useCallback((text?: string) => {
+    if (!opened) {
+      setQueryState(emptyQuery());
+    }
     setOpened(true);
     setOpenings((count) => count + 1);
     setArmed(true);
     if (text !== undefined && text !== '') {
       setQueryState((prev) => ({ ...prev, text }));
     }
-  }, []);
+  }, [opened]);
 
   const setQuery = useCallback((next: FindQuery) => {
     setArmed(true);

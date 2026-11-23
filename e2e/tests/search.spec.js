@@ -873,6 +873,20 @@ test.describe('find in the note', () => {
         await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
     });
 
+    test('the bar takes the toggles another page kept each time it opens', async ({page}) => {
+        // arrange
+        await openFind(page);
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('doc-find')).toHaveCount(0);
+        await page.evaluate(() => localStorage.setItem('scrawl.find.options', JSON.stringify({fuzzy: true})));
+
+        // act
+        await openFind(page);
+
+        // assert
+        await expect(page.getByTestId('doc-find-fuzzy')).toHaveAttribute('data-on', 'true');
+    });
+
     test('another note opened from a found one is not searched', async ({page}) => {
         // arrange
         const from = 'e2e-find/from.md';

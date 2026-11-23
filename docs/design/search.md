@@ -48,7 +48,10 @@ The server's search and the note's find bar.
   `молоко́` and leaves the stress mark, a character of its own, out of the
   match. A mark belongs to the letter before it: Whole word looks past it, and
   a mark after no letter, such as the one in the emoji `1️⃣`, is kept as typed.
-  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`.
+  Any case also takes `ς` for `σ`, as a word in capitals ends in `Σ`, and a
+  ypogegrammeni NFC leaves apart from its letter for `ι`, as Go and javascript
+  fold it: `ᾱͅ` finds `ᾱι`. A Fuzzy result opens the find bar in any case, so
+  there `ᾱͅ` marks `ᾱι` too, though Fuzzy did not find it.
 - A typo is one letter added, dropped, changed, or two neighbours swapped. A
   word of up to three letters takes none, four to seven take one, eight and
   more take two, the scale most search engines use: a typo in a short word
@@ -60,11 +63,12 @@ The server's search and the note's find bar.
   costs nothing on top of a changed letter: `замо́к` also finds `за́мак`, and two
   accents moved are one typo. The short `уже́` still does not find `у́же`. A
   phrase in quotes is the server's, and it keeps every accent on its letter;
-  one word in quotes is no phrase, only not a prefix, and the find bar takes
-  the quotes for spaces. A word with no match that carries its accents is the
-  one that looks for typos, on the server among every word of the index, in the
-  find bar among the words of the note. With Titles only, a match in the body
-  alone is no match, so a title can still be found with a typo.
+  one word in quotes is no phrase, only not a prefix, and the find bar has no
+  phrases: there a quote splits words, and a closing one ends the prefix. A
+  word with no match that carries its accents is the one that looks for typos,
+  on the server among every word of the index, in the find bar among the words
+  of the note. With Titles only, a match in the body alone is no match, so a
+  title can still be found with a typo.
 - Search is the server's. A result line is a line of the index's cleaned text
   with its line in the source, so a pattern matches the text as a reader sees
   it and never markdown syntax: `^Heading`, not `^## `

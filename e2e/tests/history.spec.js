@@ -456,7 +456,7 @@ test.describe.serial('history', () => {
         const right = await page.getByTestId('version-restore').boundingBox();
         expect(right.y, 'the two share a row').toBeCloseTo(left.y, 0);
         expect(Math.round(left.height)).toBe(32);
-        await expect(page.getByTestId('version-restore')).toHaveCSS('background-color', rgb(lightTheme.palette.buttonBg));
+        await expect(page.getByTestId('version-restore')).toHaveCSS('background-color', rgb(lightTheme.palette.historyActionBg));
         await expect(page.getByTestId('version-restore')).toHaveCSS('border-color', rgb(lightTheme.palette.border));
         await page.route(listRead, held);
         await page.getByTestId('version-restore').click();

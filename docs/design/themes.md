@@ -25,14 +25,14 @@ How a theme file becomes the colors of the app, a page and the code.
   nine block colors, a text and a ground each, as `--scrawl-color-<name>` and
   `--scrawl-bg-<name>`; `shadows`, `small`, `medium`, `large`, `capsule` and
   `capsuleGrouped`, the shadows of a phone's capsule on a white and on a gray
-  page, `toastPhone`, that of a phone's toast, and `button`, that of a framed
-  button such as the actions of the history on a desktop, as
-  `--scrawl-shadow-<name>`; and `colors`, optional, which replaces mantine's
-  `accent`, `gray` or `dark` scale of `web/src/theme.ts`. To add a theme, copy
-  `light.json` or `dark.json`, change the values and run `make ui`. The go
-  tests and the build both refuse a theme with a token missing. In both entries
-  the theme stylesheet is imported after mantine's own: it replaces their
-  defaults at equal specificity, so the order of the imports decides.
+  page, `toastPhone`, that of a phone's toast, and `historyAction`, that of the
+  framed actions of the history on a desktop, as `--scrawl-shadow-<name>`; and
+  `colors`, optional, which replaces mantine's `accent`, `gray` or `dark` scale
+  of `web/src/theme.ts`. To add a theme, copy `light.json` or `dark.json`,
+  change the values and run `make ui`. The go tests and the build both refuse a
+  theme with a token missing. In both entries the theme stylesheet is imported
+  after mantine's own: it replaces their defaults at equal specificity, so the
+  order of the imports decides.
 - The theme is one attribute, `data-scrawl-theme`, absent on Auto, where the
   system preference picks between `light` and `dark`. Every stylesheet keys on
   it, `theme.Scopes` and `themeStylesheet` place the rules the same way, and no

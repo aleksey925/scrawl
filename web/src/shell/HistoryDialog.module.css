@@ -329,8 +329,8 @@
   overflow: hidden;
   border: 1px solid var(--scrawl-border);
   border-radius: calc(var(--scrawl-button-height) / 2);
-  background: var(--scrawl-button-bg);
-  box-shadow: var(--scrawl-shadow-button);
+  background: var(--scrawl-history-action-bg);
+  box-shadow: var(--scrawl-shadow-history-action);
   color: var(--scrawl-accent);
   font: inherit;
   font-size: 14px;
@@ -387,7 +387,7 @@
   padding: 0 12px;
   border: 0;
   border-radius: calc(var(--scrawl-touch-choice) / 2);
-  background: var(--scrawl-action-tint);
+  background: var(--scrawl-history-action-tint);
   box-shadow: none;
   font-size: 15px;
 }

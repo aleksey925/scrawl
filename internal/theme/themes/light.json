@@ -59,8 +59,8 @@
     "accent": "#007aff",
     "accentStrong": "#0062cc",
     "accentTint": "#007aff1f",
-    "actionTint": "#e5f0ff",
-    "buttonBg": "#ffffff",
+    "historyActionTint": "#e5f0ff",
+    "historyActionBg": "#ffffff",
     "onAccent": "#ffffff",
     "inlineCode": "#1d1d1f",
     "inlineCodeBg": "#e9e9ee",
@@ -95,7 +95,7 @@
     "capsule": "0 4px 20px #0000001a",
     "capsuleGrouped": "0 2px 12px #00000014",
     "toastPhone": "0 2px 12px #0000001a",
-    "button": "0 1px 1px #0000000a"
+    "historyAction": "0 1px 1px #0000000a"
   },
   "colors": {
     "accent": ["#e5f1ff", "#cce3ff", "#99c7ff", "#66abff", "#338fff", "#007aff", "#006ee6", "#0062cc", "#004c9e", "#003670"],

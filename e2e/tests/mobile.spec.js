@@ -4813,7 +4813,7 @@ test.describe('mobile', () => {
             expect(await button.evaluate((el) => el.scrollWidth <= el.clientWidth), 'the label fits').toBe(true);
         }
         for (const button of [undo, restore]) {
-            await expect(button).toHaveCSS('background-color', rgb(lightTheme.palette.actionTint));
+            await expect(button).toHaveCSS('background-color', rgb(lightTheme.palette.historyActionTint));
             await expect(button).toHaveCSS('color', rgb(lightTheme.palette.accent));
         }
         await expect(page.locator('[data-testid=version-kind][data-kind="added"]'))

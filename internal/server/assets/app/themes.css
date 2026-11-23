@@ -448,8 +448,8 @@
   --scrawl-accent: #007aff;
   --scrawl-accent-strong: #0062cc;
   --scrawl-accent-tint: #007aff1f;
-  --scrawl-action-tint: #e5f0ff;
-  --scrawl-button-bg: #ffffff;
+  --scrawl-history-action-tint: #e5f0ff;
+  --scrawl-history-action-bg: #ffffff;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #1d1d1f;
   --scrawl-inline-code-bg: #e9e9ee;
@@ -489,7 +489,7 @@
   --scrawl-shadow-capsule: 0 4px 20px #0000001a;
   --scrawl-shadow-capsule-grouped: 0 2px 12px #00000014;
   --scrawl-shadow-toast-phone: 0 2px 12px #0000001a;
-  --scrawl-shadow-button: 0 1px 1px #0000000a;
+  --scrawl-shadow-history-action: 0 1px 1px #0000000a;
   --scrawl-code-keyword: #9b2393;
   --scrawl-code-string: #c41a16;
   --scrawl-code-comment: #5d6c79;
@@ -709,8 +709,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
-  --scrawl-action-tint: #2383e22e;
-  --scrawl-button-bg: #2c2c2b;
+  --scrawl-history-action-tint: #2383e22e;
+  --scrawl-history-action-bg: #2c2c2b;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;
@@ -750,7 +750,7 @@
   --scrawl-shadow-capsule: 0 4px 20px #00000080;
   --scrawl-shadow-capsule-grouped: 0 4px 20px #00000080;
   --scrawl-shadow-toast-phone: 0 4px 20px #00000080;
-  --scrawl-shadow-button: none;
+  --scrawl-shadow-history-action: none;
   --scrawl-code-keyword: #7ab8e6;
   --scrawl-code-string: #a7c97f;
   --scrawl-code-comment: #8e8b86;
@@ -969,8 +969,8 @@
   --scrawl-accent: #007aff;
   --scrawl-accent-strong: #0062cc;
   --scrawl-accent-tint: #007aff1f;
-  --scrawl-action-tint: #e5f0ff;
-  --scrawl-button-bg: #ffffff;
+  --scrawl-history-action-tint: #e5f0ff;
+  --scrawl-history-action-bg: #ffffff;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #1d1d1f;
   --scrawl-inline-code-bg: #e9e9ee;
@@ -1010,7 +1010,7 @@
   --scrawl-shadow-capsule: 0 4px 20px #0000001a;
   --scrawl-shadow-capsule-grouped: 0 2px 12px #00000014;
   --scrawl-shadow-toast-phone: 0 2px 12px #0000001a;
-  --scrawl-shadow-button: 0 1px 1px #0000000a;
+  --scrawl-shadow-history-action: 0 1px 1px #0000000a;
   --scrawl-code-keyword: #9b2393;
   --scrawl-code-string: #c41a16;
   --scrawl-code-comment: #5d6c79;
@@ -1228,8 +1228,8 @@
   --scrawl-accent: #2383e2;
   --scrawl-accent-strong: #3b91e6;
   --scrawl-accent-tint: #2383e240;
-  --scrawl-action-tint: #2383e22e;
-  --scrawl-button-bg: #2c2c2b;
+  --scrawl-history-action-tint: #2383e22e;
+  --scrawl-history-action-bg: #2c2c2b;
   --scrawl-on-accent: #ffffff;
   --scrawl-inline-code: #ff7369;
   --scrawl-inline-code-bg: #ffffff14;
@@ -1269,7 +1269,7 @@
   --scrawl-shadow-capsule: 0 4px 20px #00000080;
   --scrawl-shadow-capsule-grouped: 0 4px 20px #00000080;
   --scrawl-shadow-toast-phone: 0 4px 20px #00000080;
-  --scrawl-shadow-button: none;
+  --scrawl-shadow-history-action: none;
   --scrawl-code-keyword: #7ab8e6;
   --scrawl-code-string: #a7c97f;
   --scrawl-code-comment: #8e8b86;

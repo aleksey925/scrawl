@@ -100,25 +100,26 @@ opens over them.
   of `index.md` has no folder page, and a site refuses it, because both would
   be written to one file. A note that does not exist yet is a page too, its
   file name as a faint title and the ways on from there, the first of them,
-  create it, on Enter. On a phone the bar on top holds `‹` with the folder
-  above, the title once the page's own has scrolled under the bar, at once on a
-  page that has none of its own, and the sync control at the right. The title
-  there stays the note's title, since it stands for the heading that scrolled
-  under the bar. The actions of a note or a file are in its capsule at the
-  bottom ([phone](phone.md)). A rename of the page puts its field in the
-  title's place across the whole bar, and the way back leaves the bar until it
-  is done; the sync control stays after the field. The sync control is the icon
-  alone on a phone: a word next to a title of half the bar did not fit. A tap
-  on it opens its popover, as on a desktop, and Profile shows the same facts in
-  its Sync group ([phone](phone.md)). The root has no way up, and the app's
-  logo and the space's name stand there instead, with no large title under the
-  bar, which said the space's name a second time. Recent and Profile, the first
-  screens of a tab, have no way up and no swipe either, as the first screen of
-  a tab of iOS has none. Every screen has the bar as a row of its own: a root
-  drawn another way made the page jump on the way to a folder. A folder has its
-  title on one line under the bar. A folder there is a list and not a table: a
-  row is the icon and the name on one line, with no size, date or count, no
-  chevron, and no `..` row.
+  create it, on Enter, and the last a fuzzy search for its name, since a link
+  to a missing note often has a typo in it. On a phone the bar on top holds `‹`
+  with the folder above, the title once the page's own has scrolled under the
+  bar, at once on a page that has none of its own, and the sync control at the
+  right. The title there stays the note's title, since it stands for the
+  heading that scrolled under the bar. The actions of a note or a file are in
+  its capsule at the bottom ([phone](phone.md)). A rename of the page puts its
+  field in the title's place across the whole bar, and the way back leaves the
+  bar until it is done; the sync control stays after the field. The sync
+  control is the icon alone on a phone: a word next to a title of half the bar
+  did not fit. A tap on it opens its popover, as on a desktop, and Profile
+  shows the same facts in its Sync group ([phone](phone.md)). The root has no
+  way up, and the app's logo and the space's name stand there instead, with no
+  large title under the bar, which said the space's name a second time. Recent
+  and Profile, the first screens of a tab, have no way up and no swipe either,
+  as the first screen of a tab of iOS has none. Every screen has the bar as a
+  row of its own: a root drawn another way made the page jump on the way to a
+  folder. A folder has its title on one line under the bar. A folder there is a
+  list and not a table: a row is the icon and the name on one line, with no
+  size, date or count, no chevron, and no `..` row.
 
 ## Note
 
@@ -245,32 +246,41 @@ opens over them.
   versions with the colored initial of their author and a tag on the right,
   Undo and Restore below them. The tag says how a version was made when it was
   not in the app (API, On disk) and otherwise what it did (Create, Edit,
-  Rename, Delete). Closing it goes to the note. A button beside the close one
-  expands it to the window less 16px a side, and the choice is kept. The change
-  of size is part of mantine's own transition, because mantine writes that one
-  inline and it outranks the stylesheet. The server says which versions can be
-  restored, in `restorable`: never a deletion and never the text the file has
-  now, hashed the way git names a blob. It says which can be undone in
-  `undoable`: never the first version, a deletion, a rename alone or a rename
-  out of a path that is no note. The client read it off the blob and the row's
-  place once, and the newest row stops being the current text the moment the
-  file changes on disk. On a phone the history is a sheet of nearly the
-  screen's height, "History" and the count of versions over the file's name,
-  and each version a card with its time, marked current for the text the file
-  has now, the initial and the name of who made it, a user, a token's name or
-  "outside the app", the colored tag, and "as" and the old path when the file
-  moved. The picked card, the first one at the start, opens to show the
-  switches of Rendered and Source and of Split and Unified, the change, then
-  "Undo this change" in the secondary color over "Restore this version" in the
-  accent. On a desktop the same two stand below the versions, Undo in the
-  default look over Restore filled. Undo takes out only the change the version
-  made and keeps the later ones, and Restore brings the whole note back to the
-  version. A line under each says what it does, or why it is disabled, and both
-  are hidden without the right to write. Undo is disabled while the note is
-  deleted, as there is no text to take the change out of. An undo whose lines,
-  or lines next to them, were changed again later is refused in a toast. Each
-  asks first, the address stays `/history/<path>`, and the ✕ goes back to the
-  note.
+  Rename, Delete), always in gray: a colored tag looked like a button. Closing
+  it goes to the note. A button beside the close one expands it to the window
+  less 16px a side, and the choice is kept. The change of size is part of
+  mantine's own transition, because mantine writes that one inline and it
+  outranks the stylesheet. The server says which versions can be restored, in
+  `restorable`: never a deletion and never the text the file has now, hashed
+  the way git names a blob. It says which can be undone in `undoable`: never
+  the first version, a deletion, a rename alone or a rename out of a path that
+  is no note. The client read it off the blob and the row's place once, and the
+  newest row stops being the current text the moment the file changes on disk.
+  On a phone the history is a sheet of nearly the screen's height, "History"
+  and the count of versions over the file's name, and each version a card with
+  its time, marked current for the text the file has now, the initial and the
+  name of who made it, a user, a token's name or "outside the app", the tag,
+  and "as" and the old path when the file moved. The picked card, the first one
+  at the start, opens to show the switches of Rendered and Source and of Split
+  and Unified, the change, then Undo and Restore. On a desktop the two stand
+  below the versions, for the picked one. Both are small buttons with the
+  accent for text, as they sit in a row of a list and not at the foot of a
+  screen: on a phone 36px and tinted with the accent, on a desktop 32px, framed
+  and on the ground of a button, as the tint all but vanished on the gray
+  panel. Neither is the main one, as both change the note and both ask first.
+  When both can run, "Undo Change" and "Restore Version" share one row; when
+  one can, it fills the row as "Undo This Change" or "Restore This Version". An
+  action that cannot run is not drawn at all, as a disabled button would be the
+  loudest thing there while doing nothing, and while a write runs, or the note
+  or its history is still loading, the buttons stay, dimmed. One line centered
+  under the buttons says what they do, and why an action is missing unless the
+  reason is that the version is the text the note has now. Undo takes out only
+  the change the version made and keeps the later ones, and Restore brings the
+  whole note back to the version. Both are hidden without the right to write.
+  Undo cannot run while the note is deleted, as there is no text to take the
+  change out of. An undo whose lines, or lines next to them, were changed again
+  later is refused in a toast. Each asks first, the address stays
+  `/history/<path>`, and the ✕ goes back to the note.
 
 ## An HTML app
 

@@ -4,9 +4,12 @@ Sizes and feedback on a touch screen, phone or tablet.
 
 - A touch screen has one scale of sizes, set once in the theme: a menu row and
   an icon button 44px, a labelled button and a field 40px, and a choice of a
-  few, a segmented control or a chip beside one, 36px. The layouts at the
-  bottom of a phone's editor are the one choice drawn at 40px: they fill the
-  strip under the thumb alone, with no chip beside them, as the mockup has it
+  few, a segmented control or a chip beside one, 36px. The actions of a history
+  card are 36px too: they sit in a row of a list, not at the foot of a screen
+  ([pages](pages.md)); on a tablet those of the desktop history take the 40px
+  of a labelled button. The layouts at the bottom of a phone's editor are the
+  one choice drawn at 40px: they fill the strip under the thumb alone, with no
+  chip beside them, as the mockup has it
   ([ADR 29](../adr/0029-the-phone-editor-bars.md)). Two more leave the scale:
   Discard and Restore of a draft's row, plain words with no frame, take the
   44px of an icon button ([editor](editor.md)), and the gray field of a rename
@@ -48,17 +51,17 @@ Sizes and feedback on a touch screen, phone or tablet.
 - A touch screen answers a tap the way an app does. A pressed row or menu item
   darkens, a list row across its row of the group, and a tab, a button of the
   capsule and the way back dim, as the bars of iOS do, and so does a tile of a
-  sheet; the press shows 60ms after the finger lands, so a finger that only
-  starts a scroll leaves no flash. Every pressed tone keeps that delay, the one
-  of Mantine's outlined and subtle buttons and subtle icon buttons and the ✕ of
-  a field included; the 1px shift Mantine gives a pressed button shows at once.
-  A button in a row, its menu or its Run, takes the press alone, and the row
-  under it stays as it is. The faint name of a new note in a phone's editor bar
-  is a tap as tall as the bar, across the bar's middle cell, though its line is
-  21px. A list row's press is one band under the whole row: drawn as its
-  background with a shadow for the gutter, the two ends lit and went out apart
-  from the middle. A row shrinks for a long press only once the finger has
-  rested 150ms, so a tap moves nothing. A long press on the chrome selects
-  nothing and opens no preview of a link, while a note, code and what a reader
-  types still select. iOS draws `:active` only under a `touchstart` listener,
-  so the document carries an empty one.
+  sheet and an action of the history; the press shows 60ms after the finger
+  lands, so a finger that only starts a scroll leaves no flash. Every pressed
+  tone keeps that delay, the one of Mantine's outlined and subtle buttons and
+  subtle icon buttons and the ✕ of a field included; the 1px shift Mantine
+  gives a pressed button shows at once. A button in a row, its menu or its Run,
+  takes the press alone, and the row under it stays as it is. The faint name of
+  a new note in a phone's editor bar is a tap as tall as the bar, across the
+  bar's middle cell, though its line is 21px. A list row's press is one band
+  under the whole row: drawn as its background with a shadow for the gutter,
+  the two ends lit and went out apart from the middle. A row shrinks for a long
+  press only once the finger has rested 150ms, so a tap moves nothing. A long
+  press on the chrome selects nothing and opens no preview of a link, while a
+  note, code and what a reader types still select. iOS draws `:active` only
+  under a `touchstart` listener, so the document carries an empty one.

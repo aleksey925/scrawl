@@ -36,6 +36,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Hint.js",
       "_AsyncContent.js",
       "_EmptyState.js",
       "_useVisibleArea.js",
@@ -57,6 +58,21 @@
       "_Text.js"
     ]
   },
+  "_Hint.css": {
+    "file": "assets/Hint.css",
+    "src": "_Hint.css"
+  },
+  "_Hint.js": {
+    "file": "assets/Hint.js",
+    "name": "Hint",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js"
+    ],
+    "css": [
+      "assets/Hint.css"
+    ]
+  },
   "_NoteExtensions.css": {
     "file": "assets/NoteExtensions.css",
     "src": "_NoteExtensions.css"
@@ -67,8 +83,9 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_anchor.js",
+      "_Hint.js",
       "_Text.js",
       "_AsyncContent.js",
       "_EmptyState.js",
@@ -146,6 +163,17 @@
       "assets/SearchResults.css"
     ]
   },
+  "_Segmented.js": {
+    "file": "assets/Segmented.js",
+    "name": "Segmented",
+    "imports": [
+      "_rolldown-runtime.js",
+      "_naming.js",
+      "_Hint.js",
+      "_screenMotion.js",
+      "_icons.js"
+    ]
+  },
   "_Stack.js": {
     "file": "assets/Stack.js",
     "name": "Stack",
@@ -171,7 +199,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_Stack.js",
       "_Text.js",
       "_useVisibleArea.js",
@@ -181,7 +209,8 @@
       "_icons.js",
       "_platform.js",
       "_diagramSvg.js",
-      "index.html"
+      "index.html",
+      "_storedOptions.js"
     ],
     "css": [
       "assets/anchor.css"
@@ -495,16 +524,6 @@
     "file": "assets/errors.js",
     "name": "errors"
   },
-  "_findControl.js": {
-    "file": "assets/findControl.js",
-    "name": "findControl",
-    "imports": [
-      "_rolldown-runtime.js",
-      "_naming.js",
-      "_screenMotion.js",
-      "_icons.js"
-    ]
-  },
   "_graphlib.js": {
     "file": "assets/graphlib.js",
     "name": "graphlib",
@@ -691,6 +710,23 @@
     "file": "assets/storage.js",
     "name": "storage"
   },
+  "_storedOptions.css": {
+    "file": "assets/storedOptions.css",
+    "src": "_storedOptions.css"
+  },
+  "_storedOptions.js": {
+    "file": "assets/storedOptions.js",
+    "name": "storedOptions",
+    "imports": [
+      "_naming.js",
+      "_Hint.js",
+      "_storage.js",
+      "_client.js"
+    ],
+    "css": [
+      "assets/storedOptions.css"
+    ]
+  },
   "_use-debounced-value.js": {
     "file": "assets/use-debounced-value.js",
     "name": "use-debounced-value",
@@ -716,7 +752,8 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_useVisibleArea.js",
@@ -2618,9 +2655,10 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
-      "_findControl.js",
+      "_Segmented.js",
       "_use-debounced-value.js",
       "_anchor.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2780,6 +2818,8 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Segmented.js",
+      "_Hint.js",
       "_Stack.js",
       "_Text.js",
       "_AsyncContent.js",
@@ -2836,6 +2876,7 @@
     "isDynamicEntry": true,
     "imports": [
       "_naming.js",
+      "_Segmented.js",
       "_client.js",
       "_icons.js",
       "index.html"
@@ -2870,6 +2911,7 @@
     "imports": [
       "_rolldown-runtime.js",
       "_naming.js",
+      "_Hint.js",
       "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
@@ -2950,10 +2992,12 @@
       "_rolldown-runtime.js",
       "_naming.js",
       "_use-debounced-value.js",
+      "_Hint.js",
       "_useVisibleArea.js",
       "_client.js",
       "_icons.js",
       "index.html",
+      "_storedOptions.js",
       "_recentNotes.js",
       "_Picker.module.js",
       "_SearchResults.js"

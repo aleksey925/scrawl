@@ -67,16 +67,18 @@ A space written out as static pages that run the app's reader.
   the renderers from `document.currentScript`, which is set only while the
   script runs, so it is read when the script loads.
 - A site has one look, and its only settings are the reader's theme and page
-  width; nothing `site` copies is changed. The front page is the root's list,
-  Home opens the root `index.md`, and the site takes its title from that note.
-  The scripts are written once into `scrawl/` and not `_scrawl/`, which the
-  Jekyll of GitHub Pages drops. The theme and the page width are kept in a
-  cookie and in the storage both: from disk Firefox shares only the cookie
-  between pages and Chromium only the storage; the open folders are kept in the
-  storage alone, so in Firefox from disk only the way to the note is open. A
-  page the browser brings back on Back takes the theme picked since and closes
-  its sheet. A copied file a browser runs a script from is named when it is
-  written, because on a host nothing gives it the headers `/raw/` gives it.
+  width, and the toggles of its find bar, kept as the app keeps them
+  ([search](search.md)); nothing `site` copies is changed. The front page is
+  the root's list, Home opens the root `index.md`, and the site takes its title
+  from that note. The scripts are written once into `scrawl/` and not
+  `_scrawl/`, which the Jekyll of GitHub Pages drops. The theme and the page
+  width are kept in a cookie and in the storage both: from disk Firefox shares
+  only the cookie between pages and Chromium only the storage; the open folders
+  and the find bar's toggles are kept in the storage alone, so in Firefox from
+  disk only the way to the note is open and the toggles start off on each page.
+  A page the browser brings back on Back takes the theme picked since and
+  closes its sheet. A copied file a browser runs a script from is named when it
+  is written, because on a host nothing gives it the headers `/raw/` gives it.
 - The store decides what a site lists: `site` walks the notes through it, so a
   site publishes what the app would serve and nothing a dot or `--exclude`
   hides. The site's tree leaves out a folder with no note in it, which the

@@ -24,7 +24,9 @@ It ships as one static binary or a Docker image.
 
 ## Features
 
-- **Search** across all notes: fuzzy, exact or by regular expression
+- **Search** across all notes, exact or fuzzy, in any case, or by regular
+  expression; fuzzy search also finds a word typed without its accents or with
+  a typo
 - **Editor** with live preview and a view of your unsaved changes
 - **Consistent formatting**: every save runs the note through prettier, so all
   notes keep one style and stay easy to read and diff as plain files in git
@@ -790,6 +792,21 @@ curl -sH "Authorization: Bearer $TOKEN" http://127.0.0.1:7272/s/notes/api/file/p
 
 Every endpoint that works with notes lives under its space,
 `/s/<space>/api/...`.
+
+A search looks for the text as typed, in any case, with its accents. Add to the
+query:
+
+- `mode=fuzzy` - look for words, with or without their accents and allowing a
+  typo or two, the results ranked by how well they match; an accent you type is
+  kept: `все` finds `все` and `всё`, `всё` finds only `всё`, and in a word of
+  four letters or more an accent on another letter counts as a typo, so `замо́к`
+  finds `за́мок`; `case` and `word` do not apply to it;
+- `regex=1` - take the text as a regular expression; with `mode=fuzzy` the
+  regular expression wins, and `case` and `word` apply again;
+- `case=1` - match the case;
+- `word=1` - match whole words only;
+- `titles=1` - look in the titles only;
+- `limit=<n>` - the number of results, 20 by default and 50 at most.
 
 To save a note, send back the `rev` it was read at. If somebody else wrote the
 file in between, the `rev` no longer matches and the save is refused instead of

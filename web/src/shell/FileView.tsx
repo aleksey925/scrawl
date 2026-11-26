@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router';
 
 import type { FilePageResponse } from '../api/types';
 import { EmptyState } from '../components/EmptyState';
+import { Hint } from '../components/Hint';
 import { absoluteTime, fileSize, shortTime } from '../components/formats';
 import { Page, PageTitle } from '../components/Page';
 import { FieldMenuItem, menuRectOf, PopupMenu } from '../components/PopupMenu';
@@ -167,19 +168,20 @@ function FileActionsBar({ file, raw }: { file: FilePageResponse; raw: string }):
     <>
       {canWrite && file.edit_url !== undefined && <TopbarAction testId="file-edit" label="Edit" to={file.edit_url} />}
       {file.run_url !== undefined && <TopbarAction testId="file-run" label="Run" icon={IconPlay} to={file.run_url} state={runState(location)} onClick={runHere} />}
-      <ActionIcon
-        data-testid="file-download"
-        component="a"
-        href={raw}
-        download={file.name}
-        variant="subtle"
-        color="gray"
-        size="lg"
-        aria-label="Download"
-        title="Download"
-      >
-        <IconDownload size={layout.iconSize} />
-      </ActionIcon>
+      <Hint label="Download">
+        <ActionIcon
+          data-testid="file-download"
+          component="a"
+          href={raw}
+          download={file.name}
+          variant="subtle"
+          color="gray"
+          size="lg"
+          aria-label="Download"
+        >
+          <IconDownload size={layout.iconSize} />
+        </ActionIcon>
+      </Hint>
       <PopupMenu position="bottom-end" width={layout.menuWidth} withinPortal>
         <Menu.Target>
           <ActionIcon data-testid="file-menu" variant="subtle" color="gray" size="lg" aria-label="More actions">

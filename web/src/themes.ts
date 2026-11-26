@@ -48,6 +48,8 @@ export interface Palette {
   accent: string;
   accentStrong: string;
   accentTint: string;
+  historyActionTint: string;
+  historyActionBg: string;
   onAccent: string;
   inlineCode: string;
   inlineCodeBg: string;
@@ -99,6 +101,7 @@ export interface Shadows {
   capsule: string;
   capsuleGrouped: string;
   toastPhone: string;
+  historyAction: string;
 }
 
 export type Scheme = 'light' | 'dark';

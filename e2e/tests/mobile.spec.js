@@ -2280,14 +2280,38 @@ test.describe('mobile', () => {
             writeFixture(SCRATCH, '# Планшет\n\nстрока\n');
             await page.goto(routes.edit(SCRATCH));
             const pane = page.getByTestId('editor-source');
-            await page.getByTestId('editor-layout-mode').getByTitle('Split').tap();
+            await page.getByTestId('editor-layout-mode').getByRole('radio', {name: 'Split'}).locator('..').tap();
             await expect(pane).not.toHaveAttribute('data-scroll');
 
             // act
-            await page.getByTestId('editor-layout-mode').getByTitle('Source').tap();
+            await page.getByTestId('editor-layout-mode').getByRole('radio', {name: 'Source'}).locator('..').tap();
 
             // assert
             await expect(pane).toHaveAttribute('data-scroll', 'outer');
+        });
+
+        test('the history actions are as high as a labelled button on a touch screen', async ({page}) => {
+            // arrange
+            const stamp = Date.now();
+            const note = `${HISTORY_FOLDER}/tablet-${stamp}.md`;
+            await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+            for (const body of [`# Первая ${stamp}\n`, `# Вторая ${stamp}\n`, `# Вторая ${stamp}\n\nТретья\n`]) {
+                await setSource(page, body);
+                await save(page);
+            }
+            await page.goto(HISTORY.url.history(note));
+            await expect(page.getByTestId('version')).toHaveCount(3);
+
+            // act
+            await page.getByTestId('version').nth(1).tap();
+
+            // assert
+            await expect(page.getByTestId('version-restore')).toBeVisible();
+            const heights = [];
+            for (const id of ['version-undo', 'version-restore']) {
+                heights.push(Math.round((await page.getByTestId(id).boundingBox()).height));
+            }
+            expect(heights).toEqual([BUTTON_HEIGHT, BUTTON_HEIGHT]);
         });
 
         test('the Search row of the sidebar shows no key on a touch screen', async ({page}) => {
@@ -3461,20 +3485,19 @@ test.describe('mobile', () => {
         const card = await boxOf(page, 'search-card');
         expect([card.left, card.right, card.bottom]).toEqual([8, width - 8, height - 8]);
         const field = await boxOf(page, 'search-input');
-        const mode = await boxOf(page, 'search-mode');
+        const titles = await boxOf(page, 'search-titles');
         const hint = await boxOf(page, 'search-hint');
-        expect(mode.bottom).toBeLessThanOrEqual(hint.top);
+        expect(titles.bottom).toBeLessThanOrEqual(hint.top);
         expect(hint.bottom).toBeLessThanOrEqual(field.top);
         await expect(page.getByTestId('search-footer')).toHaveCount(0);
-        const titles = await boxOf(page, 'search-titles');
-        expect([mode.bottom - mode.top, titles.bottom - titles.top]).toEqual([CHOICE_HEIGHT, CHOICE_HEIGHT]);
+        expect(titles.bottom - titles.top).toBe(CHOICE_HEIGHT);
         await expect(page.getByTestId('search-titles')).toHaveCSS('border-radius', `${CHOICE_HEIGHT / 2}px`);
         const sizes = [];
-        for (const name of ['search-case', 'search-word', 'search-regex', 'search-close']) {
+        for (const name of ['search-case', 'search-word', 'search-regex', 'search-fuzzy', 'search-close']) {
             const box = await boxOf(page, name);
             sizes.push(box.right - box.left >= CHOICE_HEIGHT && box.bottom - box.top >= MIN_TAP);
         }
-        expect(sizes).toEqual([true, true, true, true]);
+        expect(sizes).toEqual([true, true, true, true, true]);
         const covered = await page.evaluate(() => {
             const bar = document.querySelector('[data-testid=tab-bar]')?.getBoundingClientRect();
             return bar === undefined
@@ -4732,7 +4755,7 @@ test.describe('mobile', () => {
         const box = await page.getByTestId('version-restore').boundingBox();
         expect(box.y, 'Restore sits under the change').toBeGreaterThanOrEqual(version.y + version.height - 1);
         expect(box.x + box.width, 'Restore reaches past the right edge').toBeLessThanOrEqual(viewport);
-        expect(await tooSmall(page, '[data-testid=version-restore]', BUTTON_HEIGHT)).toEqual([]);
+        expect(await tooSmall(page, '[data-testid=version-restore]', CHOICE_HEIGHT)).toEqual([]);
         await expect(page.getByTestId('rendered-diff')).toBeVisible();
         await expectNoHorizontalScroll(page);
         await page.getByTestId('history-diff-view').getByText('Source').tap();
@@ -4761,11 +4784,16 @@ test.describe('mobile', () => {
         }
         await page.goto(HISTORY.url.history(note));
         await expect(page.getByTestId('version')).toHaveCount(2);
-        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
-        await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('version-undo')).toHaveText('Undo This Change');
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Takes out only this change. Later changes stay.');
 
         // act
         await page.getByTestId('version').nth(1).tap();
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveText('Restore This Version');
+        await expect(page.getByTestId('history-actions-hint'))
+            .toHaveText('Brings the whole note back to this version. This version created the note.');
         await page.getByTestId('version-restore').tap();
         await expect(page.locator('.mantine-Modal-title')).toHaveText(text.modal.restore);
         await page.getByTestId('modal-confirm').tap();
@@ -4776,7 +4804,47 @@ test.describe('mobile', () => {
         await expect(page.getByTestId('version')).toHaveCount(3);
     });
 
-    test('Undo in the history sheet sits above Restore and takes out the change of the picked version', async ({page}) => {
+    test('a version both actions can take holds Undo and Restore side by side, tinted, over one hint', async ({page}) => {
+        // arrange
+        const stamp = Date.now();
+        const note = `${HISTORY_FOLDER}/both-${stamp}.md`;
+        await signIn(page, {baseURL: HISTORY.baseURL, from: routes.edit(note)});
+        for (const body of [`# Первая ${stamp}\n`, `# Вторая ${stamp}\n`, `# Вторая ${stamp}\n\nТретья\n`]) {
+            await setSource(page, body);
+            await save(page);
+        }
+        await page.goto(HISTORY.url.history(note));
+        await expect(page.getByTestId('version')).toHaveCount(3);
+
+        // act
+        await page.getByTestId('version').nth(1).tap();
+
+        // assert
+        const undo = page.getByTestId('version-undo');
+        const restore = page.getByTestId('version-restore');
+        await expect(undo).toHaveText('Undo Change');
+        await expect(restore).toHaveText('Restore Version');
+        await expect(page.getByTestId('history-actions-hint')).toHaveText(
+            'Undo removes only this change. Restore returns the whole note to this version.',
+        );
+        const left = await undo.boundingBox();
+        const right = await restore.boundingBox();
+        expect(right.y, 'the two share a row').toBeCloseTo(left.y, 0);
+        expect(right.width, 'the two are as wide').toBeCloseTo(left.width, 0);
+        expect(right.x - (left.x + left.width), 'the gap between them').toBeCloseTo(8, 0);
+        expect(Math.round(left.height)).toBe(CHOICE_HEIGHT);
+        for (const button of [undo, restore]) {
+            expect(await button.evaluate((el) => el.scrollWidth <= el.clientWidth), 'the label fits').toBe(true);
+        }
+        for (const button of [undo, restore]) {
+            await expect(button).toHaveCSS('background-color', rgb(lightTheme.palette.historyActionTint));
+            await expect(button).toHaveCSS('color', rgb(lightTheme.palette.accent));
+        }
+        await expect(page.locator('[data-testid=version-kind][data-kind="added"]'))
+            .toHaveCSS('background-color', rgb(lightTheme.blocks.gray.bg));
+    });
+
+    test('Undo of the current version stands alone across the card and takes out its change', async ({page}) => {
         // arrange
         const stamp = Date.now();
         const note = `${HISTORY_FOLDER}/undone-${stamp}.md`;
@@ -4788,10 +4856,11 @@ test.describe('mobile', () => {
         }
         await page.goto(HISTORY.url.history(note));
         await expect(page.getByTestId('version')).toHaveCount(2);
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
         const undo = await page.getByTestId('version-undo').boundingBox();
-        const restore = await page.getByTestId('version-restore').boundingBox();
-        expect(undo.y + undo.height, 'Undo sits above Restore').toBeLessThanOrEqual(restore.y);
-        expect(await tooSmall(page, '[data-testid=version-undo]', BUTTON_HEIGHT)).toEqual([]);
+        const hint = await page.getByTestId('history-actions-hint').boundingBox();
+        expect(undo.width, 'Undo fills the row').toBeCloseTo(hint.width, 0);
+        expect(await tooSmall(page, '[data-testid=version-undo]', CHOICE_HEIGHT)).toEqual([]);
 
         // act
         await page.getByTestId('version-undo').tap();
@@ -4995,6 +5064,19 @@ test.describe('mobile', () => {
 
         // assert
         expect({stepped, toggled}).toEqual({stepped: 'doc-find-input', toggled: 'doc-find-input'});
+    });
+
+    test('a tap on a toggle of the find card shows no hint', async ({page}) => {
+        // arrange
+        await page.goto(routes.doc(docs.long.path));
+        await page.getByTestId('note-bar-find').tap();
+
+        // act
+        await page.getByTestId('doc-find-case').tap();
+
+        // assert
+        await expect(page.getByTestId('doc-find-case')).toHaveAttribute('data-on', 'true');
+        await stays(() => page.getByRole('tooltip').count(), 0, 1000);
     });
 
     test('closing Find with the keyboard up gives back the line being read, not one moved by the keyboard', async ({page}) => {
@@ -5982,7 +6064,6 @@ test.describe('mobile offline access', () => {
         // assert
         await expect(page.getByTestId('search-offline')).toHaveText(text.search.offline);
         await expect(page.getByTestId('search-input')).toBeDisabled();
-        await expect(page.getByTestId('search-mode')).toHaveCount(0);
         await expect(page.getByTestId('search-case')).toHaveCount(0);
         await expect(page.getByTestId('search-recent-item').first()).toHaveAttribute('data-path', NOTE);
         await shot(page, 'mobile-offline-search');

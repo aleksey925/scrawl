@@ -27,18 +27,12 @@ type mark struct {
 	term       int
 }
 
-func (d *document) snippet(terms []queryTerm, match []*posting) (template.HTML, int) {
-	return d.snippetOf(d.matches(terms, match))
-}
-
-func (d *document) snippetOf(marks []mark) (template.HTML, int) {
+func (d *document) snippetOf(marks []mark) template.HTML {
 	if len(marks) == 0 {
-		return d.lead(), 1
+		return d.lead()
 	}
 	marks = marks[:min(len(marks), maxSnippetMarks)]
-
-	best := marks[d.bestWindow(marks)]
-	return d.snippetAround(marks, best), d.lineAt(best.start)
+	return d.snippetAround(marks, marks[d.bestWindow(marks)])
 }
 
 func (d *document) snippetAt(marks []mark) template.HTML {
@@ -129,7 +123,11 @@ func (d *document) window(m mark) (start, end int) {
 }
 
 func (d *document) inCode(off int32) bool {
-	_, ok := slices.BinarySearchFunc(d.code, off, func(s span, off int32) int {
+	return inSpans(d.code, off)
+}
+
+func inSpans(spans []span, off int32) bool {
+	_, ok := slices.BinarySearchFunc(spans, off, func(s span, off int32) int {
 		if s.end <= off {
 			return -1
 		}
@@ -139,19 +137,6 @@ func (d *document) inCode(off int32) bool {
 		return 0
 	})
 	return ok
-}
-
-func (d *document) lineAt(off int32) int {
-	i, ok := slices.BinarySearchFunc(d.lines, off, func(m lineMark, off int32) int {
-		return cmp.Compare(m.off, off)
-	})
-	if !ok {
-		i--
-	}
-	if i < 0 || i >= len(d.lines) {
-		return 1
-	}
-	return int(d.lines[i].line)
 }
 
 func cutBefore(plain string, start int) bool {

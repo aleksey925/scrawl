@@ -20,13 +20,14 @@ import { errorText, useApi, type AsyncState } from '../api/useApi';
 import { AsyncContent } from '../components/AsyncContent';
 import { DialogActions, dialogActionsProps } from '../components/DialogActions';
 import { absoluteTime, versionTime } from '../components/formats';
+import { Hint } from '../components/Hint';
 import { Segmented, type SegmentedOption } from '../components/Segmented';
-import { Sheet, SheetButton } from '../components/Sheet';
+import { Sheet } from '../components/Sheet';
 import { RenderedDiff, type DiffLayout } from '../diff/RenderedDiff';
 import { IconMaximize, IconMinimize } from '../icons';
 import { localStore, readText, writeText } from '../storage';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
-import { blockColorOf, blockStyle, type BlockName } from '../themes';
+import { blockColorOf, blockStyle } from '../themes';
 import { showToast } from '../toast';
 
 import { DiffView } from './DiffView';
@@ -45,22 +46,22 @@ function whoOf(actor: string): string {
   return actor.replace(/^token:/, '');
 }
 
-function tagOf(entry: HistoryEntry): { label: string; color: BlockName } {
+function tagOf(entry: HistoryEntry): string {
   if (entry.actor.startsWith('token:')) {
-    return { label: 'API', color: 'purple' };
+    return 'API';
   }
   if (entry.actor === 'external') {
-    return { label: 'On disk', color: 'orange' };
+    return 'On disk';
   }
   switch (entry.kind) {
     case 'added':
-      return { label: 'Create', color: 'green' };
+      return 'Create';
     case 'renamed':
-      return { label: 'Rename', color: 'blue' };
+      return 'Rename';
     case 'deleted':
-      return { label: 'Delete', color: 'red' };
+      return 'Delete';
     default:
-      return { label: 'Edit', color: 'gray' };
+      return 'Edit';
   }
 }
 
@@ -82,10 +83,7 @@ async function diskRev(path: string, signal: AbortSignal): Promise<string> {
 const deletionReason = 'This version was a deletion';
 
 function restoreReason(entry: HistoryEntry): string | undefined {
-  if (entry.restorable) {
-    return undefined;
-  }
-  return entry.blob === '' ? deletionReason : 'Same as the current note';
+  return !entry.restorable && entry.blob === '' ? deletionReason : undefined;
 }
 
 function undoReason(entry: HistoryEntry, rev: string | undefined): string | undefined {
@@ -104,6 +102,57 @@ function undoReason(entry: HistoryEntry, rev: string | undefined): string | unde
 const undoHint = 'Takes out only this change. Later changes stay.';
 
 const restoreHint = 'Brings the whole note back to this version.';
+
+interface VersionActionsProps {
+  undoBlockedBy: string | undefined;
+  restore: boolean;
+  restoreBlockedBy: string | undefined;
+  busy: boolean;
+  onUndo: () => void;
+  onRestore: () => void;
+}
+
+function VersionActions({ undoBlockedBy, restore, restoreBlockedBy, busy, onUndo, onRestore }: VersionActionsProps): JSX.Element {
+  const undo = undoBlockedBy === undefined;
+  const reasons = [...new Set([undoBlockedBy, restoreBlockedBy])]
+    .filter((reason) => reason !== undefined)
+    .map((reason) => `${reason}.`);
+  const both = undo && restore;
+  const hint = both ? (
+    <>
+      <b>Undo</b> removes only this change. <b>Restore</b> returns the whole note to this version.
+    </>
+  ) : (
+    [...(undo ? [undoHint] : []), ...(restore ? [restoreHint] : []), ...reasons].join(' ')
+  );
+  return (
+    <div className={classes.actions}>
+      {(undo || restore) && (
+        <div className={classes.actionRow}>
+          {undo && (
+            <button type="button" data-testid="version-undo" className={classes.action} disabled={busy} onClick={onUndo}>
+              {both ? 'Undo Change' : 'Undo This Change'}
+            </button>
+          )}
+          {restore && (
+            <button
+              type="button"
+              data-testid="version-restore"
+              className={classes.action}
+              disabled={busy}
+              onClick={onRestore}
+            >
+              {both ? 'Restore Version' : 'Restore This Version'}
+            </button>
+          )}
+        </div>
+      )}
+      <p data-testid="history-actions-hint" className={classes.hint}>
+        {hint}
+      </p>
+    </div>
+  );
+}
 
 type VersionAction = 'restore' | 'undo';
 
@@ -216,7 +265,6 @@ interface VersionFactsProps {
 
 function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Element {
   const who = whoOf(entry.actor);
-  const tag = tagOf(entry);
   const color = blockColorOf(who);
   return (
     <>
@@ -241,9 +289,8 @@ function VersionFacts({ entry, path, currentMark }: VersionFactsProps): JSX.Elem
           data-testid="version-kind"
           data-kind={entry.kind}
           className={classes.kind}
-          style={blockStyle(tag.color)}
         >
-          {tag.label}
+          {tagOf(entry)}
         </span>
       </span>
       {entry.path !== path && (
@@ -384,11 +431,10 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
     });
   }
 
+  const restore = selected?.restorable ?? true;
   const restoreBlockedBy = selected === undefined ? undefined : restoreReason(selected);
   const undoBlockedBy = selected === undefined ? undefined : undoReason(selected, rev);
   const busy = writing || rev === undefined || disk.loading || history.loading;
-  const restoreBlocked = restoreBlockedBy !== undefined || busy;
-  const undoBlocked = undoBlockedBy !== undefined || busy;
   const changes = detail.data?.changes !== undefined;
   const modeToggle = changes && (
     <Segmented
@@ -459,25 +505,14 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
                         <VersionDiff state={detail} rev={version.rev} mode={mode} layout={diffLayout} />
                       </section>
                       {canWrite && (
-                        <>
-                          <SheetButton
-                            testId="version-undo"
-                            secondary
-                            disabled={undoBlocked}
-                            onClick={() => askWrite('undo', version)}
-                          >
-                            Undo this change
-                          </SheetButton>
-                          <span data-testid="history-undo-reason" className={classes.reason}>
-                            {undoBlockedBy ?? undoHint}
-                          </span>
-                          <SheetButton testId="version-restore" disabled={restoreBlocked} onClick={() => askWrite('restore', version)}>
-                            Restore this version
-                          </SheetButton>
-                          <span data-testid="history-restore-reason" className={classes.reason}>
-                            {restoreBlockedBy ?? restoreHint}
-                          </span>
-                        </>
+                        <VersionActions
+                          undoBlockedBy={undoBlockedBy}
+                          restore={restore}
+                          restoreBlockedBy={restoreBlockedBy}
+                          busy={busy}
+                          onUndo={() => askWrite('undo', version)}
+                          onRestore={() => askWrite('restore', version)}
+                        />
                       )}
                     </VersionCard>
                   ))
@@ -523,17 +558,18 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
               <span data-testid="history-count" className={classes.count}>
                 {history.data?.entries.length}
               </span>
-              <ActionIcon
-                data-testid="history-expand"
-                variant="subtle"
-                color="gray"
-                aria-label={expanded ? 'Shrink the history' : 'Expand the history'}
-                title={expanded ? 'Shrink' : 'Expand'}
-                aria-pressed={expanded}
-                onClick={() => setSize(expanded ? 'normal' : 'expanded')}
-              >
-                {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
-              </ActionIcon>
+              <Hint label={expanded ? 'Shrink' : 'Expand'}>
+                <ActionIcon
+                  data-testid="history-expand"
+                  variant="subtle"
+                  color="gray"
+                  aria-label={expanded ? 'Shrink the history' : 'Expand the history'}
+                  aria-pressed={expanded}
+                  onClick={() => setSize(expanded ? 'normal' : 'expanded')}
+                >
+                  {expanded ? <IconMinimize size={layout.iconSizeSmall} /> : <IconMaximize size={layout.iconSizeSmall} />}
+                </ActionIcon>
+              </Hint>
               <CloseButton data-testid="history-close" aria-label="Close the history" onClick={onClose} />
             </div>
             <div className={classes.list} tabIndex={-1} data-autofocus>
@@ -559,35 +595,14 @@ export function HistoryDialog({ path, onClose, onNoteChanged }: HistoryDialogPro
             </div>
             {canWrite && selected !== undefined && (
               <div className={classes.foot}>
-                <div className={classes.action}>
-                  <Button
-                    data-testid="version-undo"
-                    fullWidth
-                    size="md"
-                    variant="default"
-                    disabled={undoBlocked}
-                    onClick={() => askWrite('undo', selected)}
-                  >
-                    Undo this change
-                  </Button>
-                  <span data-testid="history-undo-reason" className={classes.reason}>
-                    {undoBlockedBy ?? undoHint}
-                  </span>
-                </div>
-                <div className={classes.action}>
-                  <Button
-                    data-testid="version-restore"
-                    fullWidth
-                    size="md"
-                    disabled={restoreBlocked}
-                    onClick={() => askWrite('restore', selected)}
-                  >
-                    Restore this version
-                  </Button>
-                  <span data-testid="history-restore-reason" className={classes.reason}>
-                    {restoreBlockedBy ?? restoreHint}
-                  </span>
-                </div>
+                <VersionActions
+                  undoBlockedBy={undoBlockedBy}
+                  restore={restore}
+                  restoreBlockedBy={restoreBlockedBy}
+                  busy={busy}
+                  onUndo={() => askWrite('undo', selected)}
+                  onRestore={() => askWrite('restore', selected)}
+                />
               </div>
             )}
           </aside>

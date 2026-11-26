@@ -122,7 +122,7 @@ func TestAnalyzeLineMap(t *testing.T) {
 	for _, term := range []string{"заголовок", "первый", "второй"} {
 		i := strings.Index(strings.ToLower(doc.plain), term)
 		require.GreaterOrEqual(t, i, 0)
-		got = append(got, doc.lineAt(int32(i)))
+		got = append(got, int(doc.lines[doc.lineOf(int32(i))].line))
 	}
 	assert.Equal(t, []int{1, 4, 6}, got)
 }

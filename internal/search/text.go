@@ -1,7 +1,9 @@
 package search
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -11,6 +13,7 @@ import (
 const (
 	maxTermRunes      = 40
 	maxDigitTermRunes = 10
+	maxLetterMarks    = 30
 )
 
 const (
@@ -30,12 +33,104 @@ func normalize(s string) string {
 	return norm.NFC.String(s)
 }
 
-func fold(r rune) rune {
-	r = unicode.ToLower(r)
-	if r == 'ё' {
-		return 'е'
+const (
+	firstAccented = 0xc0
+	lastAccented  = 0x2fff
+	ownLetters    = "йЙїЇўЎ"
+	finalSigma    = 'ς'
+	sigma         = 'σ'
+)
+
+var accentBases = sync.OnceValue(func() map[rune]rune {
+	res := make(map[rune]rune)
+	for r := rune(firstAccented); r <= lastAccented; r++ {
+		if !unicode.IsLetter(r) || strings.ContainsRune(ownLetters, r) {
+			continue
+		}
+		parts := []rune(norm.NFD.String(string(r)))
+		if len(parts) >= 2 && allAccents(parts[1:]) {
+			res[r] = unicode.ToLower(parts[0])
+		}
 	}
-	return r
+	return res
+})
+
+func allAccents(runes []rune) bool {
+	for _, r := range runes {
+		if !isAccent(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isMark(r rune) bool {
+	return unicode.Is(unicode.Mn, r)
+}
+
+func isAccent(r rune) bool {
+	return isMark(r) && unicode.Is(unicode.Inherited, r)
+}
+
+func fold(r rune) rune {
+	if base, ok := accentBases()[r]; ok {
+		return base
+	}
+	if r == finalSigma {
+		return sigma
+	}
+	return unicode.ToLower(r)
+}
+
+func marksOf(r rune) []rune {
+	if _, ok := accentBases()[r]; !ok {
+		return nil
+	}
+	return []rune(norm.NFD.String(string(r)))[1:]
+}
+
+func marksOfWord(word string) [][]rune {
+	var res [][]rune
+	for _, r := range word {
+		switch {
+		case !ignorable(r):
+			res = append(res, marksOf(r))
+		case isAccent(r) && len(res) > 0 && len(res[len(res)-1]) < maxLetterMarks:
+			res[len(res)-1] = append(res[len(res)-1], r)
+		}
+	}
+	if !slices.ContainsFunc(res, func(letter []rune) bool { return len(letter) > 0 }) {
+		return nil
+	}
+	return res
+}
+
+func marksAt(text string, at int) [][]rune {
+	return marksOfWord(text[at:wordEndAt(text, at)])
+}
+
+func carries(want, have [][]rune, typo bool) bool {
+	if typo {
+		return hasMarks(slices.Concat(want...), slices.Concat(have...))
+	}
+	for i, letter := range want {
+		if len(letter) > 0 && (i >= len(have) || !hasMarks(letter, have[i])) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasMarks(want, have []rune) bool {
+	have = slices.Clone(have)
+	for _, m := range want {
+		k := slices.Index(have, m)
+		if k < 0 {
+			return false
+		}
+		have = slices.Delete(have, k, k+1)
+	}
+	return true
 }
 
 func ignorable(r rune) bool {
@@ -43,7 +138,7 @@ func ignorable(r rune) bool {
 	case softHyphen, zeroWidthSpace, zeroWidthNonJoiner, zeroWidthJoiner, byteOrderMark:
 		return true
 	}
-	return unicode.Is(unicode.Mn, r)
+	return isMark(r)
 }
 
 func wordRune(r rune) bool {
@@ -203,16 +298,16 @@ func skipGap(text string, at int) int {
 	return -1
 }
 
-func phraseAt(text string, terms []string, at int) bool {
+func phraseAt(text string, terms []queryTerm, at int) bool {
 	pos := at
-	for i, term := range terms {
+	for i, wanted := range terms {
 		if i > 0 {
 			if pos = skipGap(text, pos); pos < 0 {
 				return false
 			}
 		}
-		end := matchAt(text, term, pos)
-		if end < 0 {
+		end := matchAt(text, wanted.text, pos)
+		if end < 0 || !wanted.carriedAt(text, pos) {
 			return false
 		}
 		pos = end

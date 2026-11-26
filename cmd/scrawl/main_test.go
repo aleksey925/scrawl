@@ -692,8 +692,10 @@ func TestWatchKeepsTheIndexInStep(t *testing.T) {
 
 	// act & assert
 	require.NoError(t, os.WriteFile(page, []byte("# Page\n\nkumquat\n"), 0o600))
-	assert.Eventually(t, func() bool { return len(index.Search("kumquat", 5)) == 1 },
-		5*time.Second, 20*time.Millisecond, "an edited file never reached the index")
+	assert.Eventually(t, func() bool {
+		found, err := index.Find(t.Context(), search.Query{Text: "kumquat", Mode: search.ModeExact}, 5)
+		return err == nil && len(found.Results) == 1
+	}, 5*time.Second, 20*time.Millisecond, "an edited file never reached the index")
 
 	require.NoError(t, os.Remove(page))
 	assert.Eventually(t, func() bool { return index.Len() == 0 },

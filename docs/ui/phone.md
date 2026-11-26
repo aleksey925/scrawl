@@ -124,45 +124,46 @@ How the app works on a phone.
 - The search and Find in note are light cards over the keyboard, as the capsule
   holds no field: a field in a bar of buttons squeezed both, and the keyboard
   covered the bar. The search fills the screen and covers the tab bar, with the
-  recent notes or the results above and the card at the bottom: Fuzzy or Exact
-  and Titles only at its top, the hint of the mode under them, and the field
-  with Aa, ab, .\* and ✕ last, nearest the thumb, as the options are tapped
-  less often than the field. A field at the top of a tall phone is out of the
-  thumb's reach. The field has the focus as soon as the search opens, so the
-  keyboard comes up with it; the dialog's focus trap is told to keep it there,
-  as on its own it moved the focus to Fuzzy, the first control of the card. The
-  card stands 8px over the keyboard, or over the home indicator when no
-  keyboard is up. The count of matches is a small line over the card, shown
-  only once there is a query. The recent notes head the screen, each its title
-  over its path, with Clear in their header, which empties the list at once; a
-  desktop's search has no Clear. With the reading copy the Search tab stays,
-  and the search shows only the recent notes, with the field disabled and the
-  line "Search needs the network", so the notes read last are still a tap away.
+  recent notes or the results above and the card at the bottom: Titles only at
+  its top, the hint of the options under it, and the field with Aa, ab, .\*, ≈
+  and ✕ last, nearest the thumb, as the options are tapped less often than the
+  field. A field at the top of a tall phone is out of the thumb's reach. The
+  field has the focus as soon as the search opens, so the keyboard comes up
+  with it; the dialog's focus trap is told to keep it there, as on its own it
+  moved the focus to Titles only, the first control of the card. The card
+  stands 8px over the keyboard, or over the home indicator when no keyboard is
+  up. The count of matches is a small line over the card, shown only once there
+  is a query. The recent notes head the screen, each its title over its path,
+  with Clear in their header, which empties the list at once; a desktop's
+  search has no Clear. With the reading copy the Search tab stays, and the
+  search shows only the recent notes, with the field disabled and the line
+  "Search needs the network", so the notes read last are still a tap away.
 - Find in note is a card 8px from the bottom and the sides of the screen: the
-  field, the count and ✕ in its first row, and Aa, ab and .\* with the steps up
-  and down in the second. The note's capsule is hidden while the card is open,
-  and the tab bar does not come in its place. The search card and the find card
-  are placed by the visible area of the screen, not by CSS alone: a phone's
-  keyboard covers the bottom of the page without making it shorter, and a card
-  fixed to the bottom sat under the keys. The keyboard counts as up when the
-  visible area is shorter than the page, the larger of the window's height and
-  the page's, wherever it is panned to. An app on the home screen of an iPhone
-  shrinks the window with the keyboard and pans the visible area to the bottom
-  of the page, so a check that the visible area ends above the bottom missed
-  the keyboard, and the card kept the room of the home indicator, about 40px
-  over the keys. With the keyboard up the card leaves no room for the home
-  indicator, which the keyboard covers. While the find card is open the note is
-  a screen of its own, the way the editor is: the bar on top, the note and the
-  card under it take the visible area, the page stops scrolling and the note
-  scrolls inside, by a finger or to a match, which stands in the middle of the
-  note above the card. A page that scrolled with the keyboard up moved the
-  visible area across it, and the card and the bar on top jumped on every
-  scroll, by up to 70px ([quirks](../quirks.md#phones-and-touch-screens)).
-  Opening and closing the card keep the line being read where it was, and a
-  wider screen keeps its find bar at the top and the page scrolling. The steps
-  up and down and Aa, ab and .\* leave the focus in the field, so the keyboard
-  stays up as in the find of Safari and of the apps of the phone; a tap on a
-  button took the focus and the keyboard went down.
+  field, the count and ✕ in its first row, and Aa, ab, .\* and ≈ with the steps
+  up and down in the second, Aa and ab disabled while ≈ is on. The note's
+  capsule is hidden while the card is open, and the tab bar does not come in
+  its place. The search card and the find card are placed by the visible area
+  of the screen, not by CSS alone: a phone's keyboard covers the bottom of the
+  page without making it shorter, and a card fixed to the bottom sat under the
+  keys. The keyboard counts as up when the visible area is shorter than the
+  page, the larger of the window's height and the page's, wherever it is panned
+  to. An app on the home screen of an iPhone shrinks the window with the
+  keyboard and pans the visible area to the bottom of the page, so a check that
+  the visible area ends above the bottom missed the keyboard, and the card kept
+  the room of the home indicator, about 40px over the keys. With the keyboard
+  up the card leaves no room for the home indicator, which the keyboard covers.
+  While the find card is open the note is a screen of its own, the way the
+  editor is: the bar on top, the note and the card under it take the visible
+  area, the page stops scrolling and the note scrolls inside, by a finger or to
+  a match, which stands in the middle of the note above the card. A page that
+  scrolled with the keyboard up moved the visible area across it, and the card
+  and the bar on top jumped on every scroll, by up to 70px
+  ([quirks](../quirks.md#phones-and-touch-screens)). Opening and closing the
+  card keep the line being read where it was, and a wider screen keeps its find
+  bar at the top and the page scrolling. The steps up and down and Aa, ab, .\*
+  and ≈ leave the focus in the field, so the keyboard stays up as in the find
+  of Safari and of the apps of the phone; a tap on a button took the focus and
+  the keyboard went down.
 - Profile is a page of its own at `/profile` on the gray ground of a sheet,
   since it holds the account, the spaces, the theme and the offline copy, a
   place and not a menu

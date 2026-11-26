@@ -1,6 +1,7 @@
 package search
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,7 +101,7 @@ func TestMatchAt(t *testing.T) {
 }
 
 func TestPhraseAt(t *testing.T) {
-	terms := []string{"резервное", "копирование"}
+	terms := []queryTerm{{text: "резервное"}, {text: "копирование"}}
 	tests := []struct {
 		name string
 		text string
@@ -119,6 +120,77 @@ func TestPhraseAt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, phraseAt(tt.text, terms, 0))
+		})
+	}
+}
+
+func TestMarksOfWord(t *testing.T) {
+	tests := []struct {
+		name string
+		word string
+		want [][]rune
+	}{
+		{"no accent", "cafe", nil},
+		{"composed letter", "café", [][]rune{nil, nil, nil, {'\u0301'}}},
+		{"combining accent after its letter", "за\u0301мок", [][]rune{nil, {'\u0301'}, nil, nil, nil}},
+		{"two accents on one letter", "ǘ", [][]rune{{'\u0308', '\u0301'}}},
+		{"own letter carries no accent", "йогурт", nil},
+		{"joiner is no accent", "ca\u200dfe", nil},
+		{"leading accent has no letter", "\u0301cafe", nil},
+		{"accents on a letter stop at a cap", "a" + strings.Repeat("\u0301", maxLetterMarks+5), [][]rune{slices.Repeat([]rune{'\u0301'}, maxLetterMarks)}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tt.want, marksOfWord(tt.word))
+		})
+	}
+}
+
+func TestCarries(t *testing.T) {
+	tests := []struct {
+		name string
+		want [][]rune
+		have [][]rune
+		typo bool
+		res  bool
+	}{
+		{"nothing wanted", nil, nil, false, true},
+		{"accent on its letter", [][]rune{nil, {'\u0301'}}, [][]rune{nil, {'\u0301'}}, false, true},
+		{"more accents on the letter", [][]rune{{'\u0301'}}, [][]rune{{'\u0308', '\u0301'}}, false, true},
+		{"word without accents", [][]rune{nil, {'\u0301'}}, nil, false, false},
+		{"accent on another letter", [][]rune{nil, {'\u0301'}}, [][]rune{{'\u0301'}, nil}, false, false},
+		{"accent on another letter with a typo", [][]rune{nil, {'\u0301'}}, [][]rune{{'\u0301'}, nil}, true, true},
+		{"another accent with a typo", [][]rune{{'\u0301'}}, [][]rune{{'\u0308'}}, true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tt.res, carries(tt.want, tt.have, tt.typo))
+		})
+	}
+}
+
+func TestHasMarks(t *testing.T) {
+	tests := []struct {
+		name string
+		want []rune
+		have []rune
+		res  bool
+	}{
+		{"nothing wanted", nil, nil, true},
+		{"one of two", []rune{'\u0301'}, []rune{'\u0308', '\u0301'}, true},
+		{"any order", []rune{'\u0301', '\u0308'}, []rune{'\u0308', '\u0301'}, true},
+		{"missing", []rune{'\u0301'}, nil, false},
+		{"twice wanted, once there", []rune{'\u0301', '\u0301'}, []rune{'\u0301'}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// act & assert
+			assert.Equal(t, tt.res, hasMarks(tt.want, tt.have))
 		})
 	}
 }

@@ -1,8 +1,7 @@
-export interface FindQuery {
+import type { FindOptions } from './findOptions';
+
+export interface FindQuery extends FindOptions {
   text: string;
-  matchCase: boolean;
-  word: boolean;
-  regex: boolean;
 }
 
 export interface FindMatch {
@@ -11,16 +10,25 @@ export interface FindMatch {
   end: number;
 }
 
-export function togglesOf(params: URLSearchParams): Omit<FindQuery, 'text'> {
-  return { matchCase: params.get('case') === '1', word: params.get('word') === '1', regex: params.get('regex') === '1' };
+export interface FindTerm {
+  text: string;
+  marks: string[][];
+  prefix: boolean;
+  quoted: boolean;
 }
 
-export interface FindPattern {
-  source: string;
-  flags: string;
-}
+export type FindPattern = { kind: 'regex'; source: string; flags: string; plain: boolean } | { kind: 'words'; terms: FindTerm[] };
 
 const maxMatches = 1000;
+const oneTypoChars = 4;
+const twoTypoChars = 8;
+const firstAccented = 0xc0;
+const lastAccented = 0x2fff;
+const ownLetters = 'йЙїЇўЎ';
+const finalSigma = 'ς';
+const sigma = 'σ';
+const accent = /^(?=\p{Mn})\p{Script=Inherited}$/u;
+const maxLetterMarks = 30;
 
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -28,7 +36,7 @@ function escapeRegExp(text: string): string {
 
 const leadingFlags = /^\(\?([ims]+)\)/;
 
-function fromRe2(pattern: string): FindPattern {
+function fromRe2(pattern: string): { source: string; flags: string } {
   const lead = leadingFlags.exec(pattern);
   const flags = (lead?.[1] ?? '').replace('m', '');
   const rest = lead === null ? pattern : pattern.slice(lead[0].length);
@@ -59,15 +67,145 @@ function fromRe2(pattern: string): FindPattern {
   return { source, flags };
 }
 
+let accentTable: Map<string, string> | undefined;
+
+function accentBases(): Map<string, string> {
+  if (accentTable !== undefined) {
+    return accentTable;
+  }
+  accentTable = new Map<string, string>();
+  for (let code = firstAccented; code <= lastAccented; code++) {
+    const char = String.fromCodePoint(code);
+    if (!/\p{L}/u.test(char) || ownLetters.includes(char)) {
+      continue;
+    }
+    const [first = '', ...marks] = [...char.normalize('NFD')];
+    if (marks.length > 0 && marks.every((part) => accent.test(part))) {
+      accentTable.set(char, first.toLowerCase());
+    }
+  }
+  return accentTable;
+}
+
+function fold(char: string): string {
+  return accentBases().get(char) ?? (char === finalSigma ? sigma : char.toLowerCase());
+}
+
+function marksOf(char: string): string[] {
+  return accentBases().has(char) ? [...char.normalize('NFD')].slice(1) : [];
+}
+
+function marksOfWord(word: string): string[][] {
+  const res: string[][] = [];
+  for (const char of word) {
+    if (!ignorableChar.test(char)) {
+      res.push(marksOf(char));
+    } else if (accent.test(char)) {
+      const letter = res.at(-1);
+      if (letter !== undefined && letter.length < maxLetterMarks) {
+        letter.push(char);
+      }
+    }
+  }
+  return res.some((letter) => letter.length > 0) ? res : [];
+}
+
+function hasMarks(want: readonly string[], have: readonly string[]): boolean {
+  const left = [...have];
+  return want.every((mark) => {
+    const at = left.indexOf(mark);
+    if (at >= 0) {
+      left.splice(at, 1);
+    }
+    return at >= 0;
+  });
+}
+
+function carries(want: readonly string[][], have: readonly string[][], typo: boolean): boolean {
+  if (typo) {
+    return hasMarks(want.flat(), have.flat());
+  }
+  return want.every((letter, at) => hasMarks(letter, have[at] ?? []));
+}
+
+const wordChars = /[\p{L}\p{N}\p{Mn}\u00ad\u200b-\u200d\ufeff]+/gu;
+const ignorableClass = '[\\p{Mn}\\u00ad\\u200b-\\u200d\\ufeff]';
+const ignorable = new RegExp(ignorableClass, 'gu');
+const ignorableChar = new RegExp(`^${ignorableClass}$`, 'u');
+
+function termOf(word: string): string {
+  return [...word.replace(ignorable, '')].map(fold).join('');
+}
+
+function keyOf(term: Omit<FindTerm, 'prefix'>): string {
+  return JSON.stringify([term.text, term.marks]);
+}
+
+function termsOf(text: string): FindTerm[] {
+  const typed = text
+    .split('"')
+    .flatMap((part, at) => [...part.matchAll(wordChars)].map((found) => ({ text: termOf(found[0]), marks: marksOfWord(found[0]), quoted: at % 2 === 1 })))
+    .filter((term) => term.text !== '');
+  const lastTerm = typed.at(-1);
+  const last = lastTerm !== undefined && /[\p{L}\p{N}]$/u.test(text.trim().replace(ignorable, '')) ? keyOf(lastTerm) : undefined;
+  const terms = new Map<string, FindTerm>();
+  for (const term of typed) {
+    const key = keyOf(term);
+    if (!terms.has(key)) {
+      terms.set(key, { ...term, prefix: key === last });
+    }
+  }
+  return [...terms.values()];
+}
+
 export function patternOf(query: FindQuery): FindPattern {
-  const typed = query.regex ? fromRe2(query.text) : { source: escapeRegExp(query.text), flags: '' };
-  let source = typed.source.normalize('NFC');
+  const text = query.text.normalize('NFC');
+  if (query.fuzzy) {
+    return { kind: 'words', terms: termsOf(text) };
+  }
+  const typed = query.regex ? fromRe2(text) : { source: escapeRegExp(text), flags: '' };
+  let source = typed.source;
   if (query.word) {
-    source = `(?<![\\p{L}\\p{N}_])(?:${source})(?![\\p{L}\\p{N}_])`;
+    source = `(?<![\\p{L}\\p{N}_]\\p{Mn}*)(?:${source})(?!\\p{Mn}*[\\p{L}\\p{N}_])`;
   }
   const flags = [...new Set(`gmu${query.matchCase ? '' : 'i'}${typed.flags}`)].join('');
   new RegExp(source, flags);
-  return { source, flags };
+  return { kind: 'regex', source, flags, plain: !query.regex };
+}
+
+function typosAllowed(term: string): number {
+  const length = [...term].length;
+  if (length < oneTypoChars) {
+    return 0;
+  }
+  return length < twoTypoChars ? 1 : 2;
+}
+
+function withinTypos(term: string, word: string): boolean {
+  const limit = typosAllowed(term);
+  const a = [...term];
+  const b = [...word];
+  if (limit === 0 || Math.abs(a.length - b.length) > limit) {
+    return false;
+  }
+  let before: number[] = [];
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      let cost = Math.min((prev[j] ?? 0) + 1, (cur[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        cost = Math.min(cost, (before[j - 2] ?? 0) + 1);
+      }
+      cur.push(cost);
+    }
+    if (Math.min(...cur) > limit) {
+      return false;
+    }
+    before = prev;
+    prev = cur;
+  }
+  return (prev[b.length] ?? 0) <= limit;
 }
 
 interface NfcText {
@@ -108,36 +246,85 @@ function nfcOf(text: string): NfcText {
   return { text: nfc, starts, ends };
 }
 
-export function findMatches(texts: readonly string[], pattern: FindPattern): FindMatch[] {
-  const re = new RegExp(pattern.source, pattern.flags);
+function cutsAccent(text: string, end: number): boolean {
+  const next = text.codePointAt(end);
+  return next !== undefined && accent.test(String.fromCodePoint(next)) && /\p{L}$/u.test(text.slice(Math.max(0, end - 2), end));
+}
+
+function regexMatches(texts: readonly string[], source: string, flags: string, plain: boolean): FindMatch[] {
+  const re = new RegExp(source, flags);
   const res: FindMatch[] = [];
-  texts.forEach((original, block) => {
-    const nfc = original.normalize('NFC') === original ? null : nfcOf(original);
-    const joined = nfc?.text ?? original;
+  texts.forEach((blockText, block) => {
     re.lastIndex = 0;
     while (res.length < maxMatches) {
-      const found = re.exec(joined);
+      const found = re.exec(blockText);
       if (found === null) {
         break;
       }
       if (found[0] === '') {
-        const code = joined.codePointAt(found.index);
+        const code = blockText.codePointAt(found.index);
         re.lastIndex = found.index + (code !== undefined && code > 0xffff ? 2 : 1);
-        if (re.lastIndex > joined.length) {
+        if (re.lastIndex > blockText.length) {
           break;
         }
         continue;
       }
       const end = found.index + found[0].length;
-      const match = { block, start: nfc?.starts[found.index] ?? found.index, end: nfc?.ends[end] ?? end };
-      const last = res.at(-1);
-      if (last !== undefined && last.block === block && match.start < last.end) {
-        last.end = Math.max(last.end, match.end);
-      } else if (match.start < match.end) {
-        res.push(match);
+      if (plain && cutsAccent(blockText, end)) {
+        continue;
       }
+      res.push({ block, start: found.index, end });
     }
   });
+  return res;
+}
+
+function wordMatches(texts: readonly string[], terms: readonly FindTerm[]): FindMatch[] {
+  const words = texts.flatMap((blockText, block) =>
+    [...blockText.matchAll(wordChars)].map((found) => ({
+      block,
+      start: found.index,
+      end: found.index + found[0].length,
+      term: termOf(found[0]),
+      marks: marksOfWord(found[0]),
+    })),
+  );
+  const wanted = new Set<number>();
+  for (const sought of terms) {
+    const exact = words.flatMap((entry, at) =>
+      (entry.term === sought.text || (sought.prefix && entry.term.startsWith(sought.text))) && carries(sought.marks, entry.marks, false)
+        ? [at]
+        : [],
+    );
+    const chosen =
+      exact.length > 0 || sought.quoted
+        ? exact
+        : words.flatMap((entry, at) => (withinTypos(sought.text, entry.term) && carries(sought.marks, entry.marks, true) ? [at] : []));
+    for (const at of chosen) {
+      wanted.add(at);
+    }
+  }
+  return words
+    .filter((_, at) => wanted.has(at))
+    .slice(0, maxMatches)
+    .map(({ block, start, end }) => ({ block, start, end }));
+}
+
+export function findMatches(texts: readonly string[], pattern: FindPattern): FindMatch[] {
+  const nfcs = texts.map((original) => (original.normalize('NFC') === original ? null : nfcOf(original)));
+  const joined = texts.map((original, block) => nfcs[block]?.text ?? original);
+  const found = pattern.kind === 'regex' ? regexMatches(joined, pattern.source, pattern.flags, pattern.plain) : wordMatches(joined, pattern.terms);
+  const res: FindMatch[] = [];
+  for (const raw of found) {
+    const nfc = nfcs[raw.block] ?? null;
+    const match = { block: raw.block, start: nfc?.starts[raw.start] ?? raw.start, end: nfc?.ends[raw.end] ?? raw.end };
+    const last = res.at(-1);
+    if (last !== undefined && last.block === match.block && match.start < last.end) {
+      last.end = Math.max(last.end, match.end);
+    } else if (match.start < match.end) {
+      res.push(match);
+    }
+  }
   return res;
 }
 

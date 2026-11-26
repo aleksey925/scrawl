@@ -2,7 +2,7 @@ package search
 
 import (
 	"cmp"
-	"html/template"
+	"fmt"
 	"maps"
 	"math"
 	"slices"
@@ -28,14 +28,6 @@ const (
 	postingBytes = 48
 )
 
-type Hit struct {
-	Path    string
-	Title   string
-	Snippet template.HTML
-	Score   float64
-	Line    int
-}
-
 type posting struct {
 	doc    uint32
 	counts [numFields]uint32
@@ -43,15 +35,16 @@ type posting struct {
 }
 
 type document struct {
-	id     uint32
-	path   string
-	title  string
-	plain  string
-	code   []span
-	lines  []lineMark
-	length int
-	terms  []string
-	mem    int64
+	id       uint32
+	path     string
+	title    string
+	plain    string
+	code     []span
+	headings []span
+	lines    []lineMark
+	length   int
+	terms    []string
+	mem      int64
 }
 
 type Index struct {
@@ -113,38 +106,9 @@ func (ix *Index) Size() int64 {
 	return ix.size
 }
 
-func (ix *Index) Search(query string, limit int) []Hit {
-	return ix.find(query, limit, false)
-}
-
-func (ix *Index) SearchPrefix(query string, limit int) []Hit {
-	ix.ensureVocab()
-	return ix.find(query, limit, true)
-}
-
-func (ix *Index) find(query string, limit int, prefix bool) []Hit {
-	q := parseQuery(query, prefix)
-	if len(q.terms) == 0 || limit <= 0 {
-		return nil
-	}
-
-	ix.mu.RLock()
-	defer ix.mu.RUnlock()
-
-	slots := make([]slot, len(q.terms))
-	for k, term := range q.terms {
-		s, ok := ix.slotFor(term)
-		if !ok {
-			return nil
-		}
-		slots[k] = s
-	}
-	return ix.rank(q, slots, limit)
-}
-
 func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	if !term.prefix {
-		list := ix.postings[term.text]
+		list := ix.eligible(term, term.text, ix.postings[term.text])
 		return slot{list: list}, len(list) > 0
 	}
 
@@ -152,7 +116,7 @@ func (ix *Index) slotFor(term queryTerm) (slot, bool) {
 	if len(expanded) == 0 {
 		return slot{}, false
 	}
-	res := ix.mergeTerms(term.text, expanded)
+	res := ix.mergeTerms(term, expanded)
 	return res, len(res.list) > 0
 }
 
@@ -168,15 +132,15 @@ func (ix *Index) prefixMatches(p string) []string {
 	return res
 }
 
-func (ix *Index) mergeTerms(exact string, terms []string) slot {
+func (ix *Index) mergeTerms(sought queryTerm, terms []string) slot {
 	lists := make([][]posting, 0, len(terms))
 	exactAt := -1
 	for _, term := range terms {
-		list := ix.postings[term]
+		list := ix.eligible(sought, term, ix.postings[term])
 		if len(list) == 0 {
 			continue
 		}
-		if term == exact {
+		if !sought.typo && term == sought.text {
 			exactAt = len(lists)
 		}
 		lists = append(lists, list)
@@ -209,6 +173,51 @@ func (ix *Index) mergeTerms(exact string, terms []string) slot {
 		res.list = append(res.list, merged)
 		res.exact = append(res.exact, isExact)
 	}
+}
+
+func (ix *Index) eligible(term queryTerm, word string, list []posting) []posting {
+	if term.marks == nil {
+		return list
+	}
+	res := make([]posting, 0, len(list))
+	for _, p := range list {
+		doc := ix.docs[p.doc]
+		kept := posting{doc: p.doc}
+		if p.counts[fieldTitle] > 0 {
+			kept.counts[fieldTitle] = titleCarried(doc.title, term, word)
+		}
+		for _, at := range p.offs {
+			if term.carriedAt(doc.plain, int(at)) {
+				kept.offs = append(kept.offs, at)
+				kept.counts[doc.fieldAt(at)]++
+			}
+		}
+		if len(kept.offs) > 0 || kept.counts[fieldTitle] > 0 {
+			res = append(res, kept)
+		}
+	}
+	return res
+}
+
+func titleCarried(title string, term queryTerm, word string) uint32 {
+	text, words := titleWords(title)
+	var res uint32
+	for _, tok := range words {
+		if tok.term == word && term.carriedAt(text, tok.off) {
+			res++
+		}
+	}
+	return res
+}
+
+func (d *document) fieldAt(off int32) field {
+	switch {
+	case d.inCode(off):
+		return fieldCode
+	case inSpans(d.headings, off):
+		return fieldHeading
+	}
+	return fieldBody
 }
 
 func minDoc(lists [][]posting, at []int) (uint32, bool) {
@@ -245,7 +254,7 @@ func (ix *Index) add(path string, res analyzed) {
 	ix.nextID++
 	doc := &document{
 		id: ix.nextID, path: path, title: res.title, plain: res.plain,
-		code: res.code, lines: res.lines, length: len(res.tokens),
+		code: res.code, headings: res.headings, lines: res.lines, length: len(res.tokens),
 	}
 
 	byTerm := make(map[string]*posting, len(res.tokens)/2+1)
@@ -262,7 +271,7 @@ func (ix *Index) add(path string, res analyzed) {
 		}
 	}
 
-	doc.mem = int64(len(path)+len(res.title)+len(res.plain)) + int64(len(res.lines)+len(res.code))*8
+	doc.mem = int64(len(path)+len(res.title)+len(res.plain)) + int64(len(res.lines)+len(res.code)+len(res.headings))*8
 	for _, term := range doc.terms {
 		p := byTerm[term]
 		doc.mem += int64(len(term)+postingBytes) + int64(len(p.offs))*4
@@ -339,10 +348,7 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 			break
 		}
 		collect(slots, cand.doc.id, match, boost)
-		if titlesOnly && !titleMatchesPhrases(cand.doc.title, q) {
-			continue
-		}
-		if !titlesOnly && !matchesPhrases(cand.doc.plain, q, match) {
+		if !matchesPhrases(cand.doc, q, match, titlesOnly) {
 			continue
 		}
 		top = append(top, topDoc{scored: cand, match: slices.Clone(match)})
@@ -353,18 +359,6 @@ func (ix *Index) top(q parsedQuery, slots []slot, limit int, titlesOnly bool) []
 type topDoc struct {
 	scored
 	match []*posting
-}
-
-func (ix *Index) rank(q parsedQuery, slots []slot, limit int) []Hit {
-	top := ix.top(q, slots, limit, false)
-	hits := make([]Hit, 0, len(top))
-	for _, cand := range top {
-		snippet, line := cand.doc.snippet(q.terms, cand.match)
-		hits = append(hits, Hit{
-			Path: cand.doc.path, Title: cand.doc.title, Snippet: snippet, Score: cand.score, Line: line,
-		})
-	}
-	return hits
 }
 
 func score(doc *document, idf []float64, match []*posting, boost []float64, avg float64) float64 {
@@ -467,73 +461,90 @@ func findPosting(list []posting, id uint32) (int, bool) {
 
 type queryTerm struct {
 	text   string
+	marks  [][]rune
 	prefix bool
 	typo   bool
+}
+
+func (t queryTerm) key() string {
+	return fmt.Sprint(t.text, t.marks)
+}
+
+func (t queryTerm) carriedAt(text string, at int) bool {
+	return t.marks == nil || carries(t.marks, marksAt(text, at), t.typo)
 }
 
 type parsedQuery struct {
 	terms   []queryTerm
 	index   map[string]int
-	phrases [][]string
+	phrases [][]queryTerm
 }
 
-func parseQuery(query string, prefix bool) parsedQuery {
+func parseQuery(query string) parsedQuery {
 	text := normalize(query)
 	res := parsedQuery{index: make(map[string]int)}
 
 	last, quoted := "", false
 	for i, part := range strings.Split(text, `"`) {
-		group := make([]string, 0, 4)
+		group := make([]queryTerm, 0, 4)
 		for _, t := range tokenize(part) {
-			group = append(group, t.term)
-			last, quoted = t.term, i%2 == 1
-			if _, seen := res.index[t.term]; !seen && len(res.terms) < maxQueryTerms {
-				res.index[t.term] = len(res.terms)
-				res.terms = append(res.terms, queryTerm{text: t.term})
+			term := queryTerm{text: t.term, marks: marksAt(part, t.off)}
+			group = append(group, term)
+			last, quoted = term.key(), i%2 == 1
+			if _, seen := res.index[last]; !seen && len(res.terms) < maxQueryTerms {
+				res.index[last] = len(res.terms)
+				res.terms = append(res.terms, term)
 			}
 		}
-		if i%2 == 1 && len(group) > 1 {
+		if i%2 == 1 && len(group) > 0 {
 			res.phrases = append(res.phrases, group)
 		}
 	}
 
-	if k, ok := res.index[last]; ok && prefix && !quoted && endsWithWord(text) {
+	if k, ok := res.index[last]; ok && !quoted && endsWithWord(text) {
 		res.terms[k].prefix = true
 	}
 	return res
 }
 
 func endsWithWord(query string) bool {
-	r, _ := utf8.DecodeLastRuneInString(query)
+	r, _ := utf8.DecodeLastRuneInString(strings.TrimRightFunc(query, ignorable))
 	return wordRune(r)
 }
 
-func matchesPhrases(plain string, q parsedQuery, match []*posting) bool {
+func matchesPhrases(doc *document, q parsedQuery, match []*posting, titlesOnly bool) bool {
+	if len(q.phrases) == 0 {
+		return true
+	}
+	text, words := titleWords(doc.title)
 	for _, phrase := range q.phrases {
-		k, ok := q.index[phrase[0]]
-		if !ok {
+		if phraseInTitle(text, words, phrase) {
 			continue
 		}
-		found := slices.ContainsFunc(match[k].offs, func(off int32) bool {
-			return phraseAt(plain, phrase, int(off))
-		})
-		if !found {
+		if titlesOnly || !phraseInBody(doc.plain, q, match, phrase) {
 			return false
 		}
 	}
 	return true
 }
 
-func titleMatchesPhrases(title string, q parsedQuery) bool {
-	text := normalize(title)
-	words := tokenize(text)
-	for _, phrase := range q.phrases {
-		found := slices.ContainsFunc(words, func(tok token) bool {
-			return tok.term == phrase[0] && phraseAt(text, phrase, tok.off)
-		})
-		if !found {
-			return false
-		}
+func phraseInBody(plain string, q parsedQuery, match []*posting, phrase []queryTerm) bool {
+	k, ok := q.index[phrase[0].key()]
+	if !ok {
+		return true
 	}
-	return true
+	return slices.ContainsFunc(match[k].offs, func(off int32) bool {
+		return phraseAt(plain, phrase, int(off))
+	})
+}
+
+func phraseInTitle(text string, words []token, phrase []queryTerm) bool {
+	return slices.ContainsFunc(words, func(tok token) bool {
+		return tok.term == phrase[0].text && phraseAt(text, phrase, tok.off)
+	})
+}
+
+func titleWords(title string) (string, []token) {
+	text := normalize(title)
+	return text, tokenize(text)
 }

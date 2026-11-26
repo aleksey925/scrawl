@@ -14,6 +14,7 @@ import { AsyncContent } from './AsyncContent';
 import classes from './DirectoryView.module.css';
 import { DirTable } from './DirTable';
 import { EmptyState } from './EmptyState';
+import { Hint } from './Hint';
 import { Page, PageTitle } from './Page';
 import { NewEntryMenu, usePointerMenu } from './pointerMenu';
 import { FieldMenuItem, PopupMenu } from './PopupMenu';
@@ -127,9 +128,11 @@ function FolderList({ path, dir }: { path: string; dir: DirListing }): JSX.Eleme
 function NewButton({ onNote, onFolder }: { onNote: () => void; onFolder: () => void }): JSX.Element {
   return (
     <Button.Group className={classes.new}>
-      <Button data-testid="dir-new" size="md" title="New note (N)" onClick={onNote}>
-        New
-      </Button>
+      <Hint label="New note (N)">
+        <Button data-testid="dir-new" size="md" onClick={onNote}>
+          New
+        </Button>
+      </Hint>
       <PopupMenu position="bottom-end" offset={4} withinPortal>
         <Menu.Target>
           <Button data-testid="dir-new-more" size="md" className={classes.more} aria-label="More to create">

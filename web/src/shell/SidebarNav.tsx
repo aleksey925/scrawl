@@ -9,6 +9,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 
 import type { NavNode } from '../api/types';
 import { errorText } from '../api/useApi';
+import { Hint } from '../components/Hint';
 import { NameField } from '../components/NameField';
 import { NewEntryMenu, usePointerMenu } from '../components/pointerMenu';
 import { RenameField } from '../components/RenameField';
@@ -579,19 +580,20 @@ export function SidebarNav({ foot, onHide }: SidebarNavProps): JSX.Element {
             </ActionIcon>
           )}
           {canWrite && actions !== undefined && (
-            <ActionIcon
-              data-testid="sidebar-new"
-              data-folder={here}
-              variant="subtle"
-              color="gray"
-              size={layout.controlHeight}
-              className={sidebarClasses.compose}
-              aria-label="New note"
-              title={`New note ${inFolder(here, spaceName).toLowerCase()} (N)`}
-              onClick={() => actions.newNote(here)}
-            >
-              <IconCompose size={layout.iconSize} />
-            </ActionIcon>
+            <Hint label={`New note ${inFolder(here, spaceName).toLowerCase()} (N)`}>
+              <ActionIcon
+                data-testid="sidebar-new"
+                data-folder={here}
+                variant="subtle"
+                color="gray"
+                size={layout.controlHeight}
+                className={sidebarClasses.compose}
+                aria-label="New note"
+                onClick={() => actions.newNote(here)}
+              >
+                <IconCompose size={layout.iconSize} />
+              </ActionIcon>
+            </Hint>
           )}
         </div>
       )}

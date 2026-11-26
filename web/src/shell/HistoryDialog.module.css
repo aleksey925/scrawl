@@ -174,29 +174,16 @@
   flex: none;
   padding: 0 6px;
   border-radius: var(--mantine-radius-xs);
+  background: var(--scrawl-bg-gray);
+  color: var(--scrawl-color-gray);
   font-size: 12px;
   line-height: 18px;
 }
 
 .foot {
-  display: flex;
   flex: none;
-  flex-direction: column;
-  gap: 12px;
   padding: 12px 16px;
   border-top: 1px solid var(--scrawl-border-light);
-}
-
-.action {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.reason {
-  color: var(--scrawl-text-tertiary);
-  font-size: 12px;
-  text-align: center;
 }
 
 .empty {
@@ -323,7 +310,88 @@
   min-width: 0;
 }
 
-.cardBody .reason {
-  margin-top: -4px;
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.actionRow {
+  display: flex;
+  gap: 8px;
+}
+
+.action {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--scrawl-button-height);
+  padding: 0 4px;
+  overflow: hidden;
+  border: 1px solid var(--scrawl-border);
+  border-radius: calc(var(--scrawl-button-height) / 2);
+  background: var(--scrawl-history-action-bg);
+  box-shadow: var(--scrawl-shadow-history-action);
+  color: var(--scrawl-accent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: var(--scrawl-press-out);
+}
+
+.action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .action:not(:disabled):hover {
+    background-image: linear-gradient(var(--scrawl-hover), var(--scrawl-hover));
+  }
+}
+
+.action:not(:disabled):active {
+  opacity: 0.7;
+  transition: var(--scrawl-press-in);
+}
+
+@media (pointer: coarse) {
+  .action {
+    height: var(--scrawl-touch-control);
+    border-radius: calc(var(--scrawl-touch-control) / 2);
+  }
+}
+
+.hint {
+  margin: 0;
+  color: var(--scrawl-text-tertiary);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.hint b {
+  color: var(--scrawl-text-secondary);
+  font-weight: 600;
+}
+
+.cardBody .actions {
+  gap: 8px;
+  margin: 2px 4px 0;
+}
+
+.cardBody .action {
+  height: var(--scrawl-touch-choice);
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--scrawl-touch-choice) / 2);
+  background: var(--scrawl-history-action-tint);
+  box-shadow: none;
+  font-size: 15px;
+}
+
+.cardBody .hint {
   font-size: 13px;
 }

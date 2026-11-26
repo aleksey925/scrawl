@@ -95,7 +95,7 @@ export function isDocPath(pathname: string): boolean {
 }
 
 export function searchUrl(query: string): string {
-  return `/search?q=${encodeURIComponent(query)}`;
+  return `/search?q=${encodeURIComponent(query)}&mode=fuzzy`;
 }
 
 export function historyUrl(path: string): string {

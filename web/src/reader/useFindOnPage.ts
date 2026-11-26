@@ -5,7 +5,9 @@ import { usePlatform } from '../platform';
 
 import { blocksOf, markMatches, matchAtLine, reveal, unmark } from './findDom';
 import { centerMatch } from './findScreen';
-import { FindTimeout, patternOf, togglesOf, type FindPattern, type FindQuery } from './findMatches';
+import { FindTimeout, patternOf, type FindPattern, type FindQuery } from './findMatches';
+import { noOptions, optionDisabled, togglesOf, withOption, type FindOption } from './findOptions';
+import { storedOptions, storeOptions } from './storedOptions';
 
 export const findParam = 'q';
 const findParams = [findParam, 'case', 'word', 'regex', 'line'] as const;
@@ -23,19 +25,24 @@ export interface FindOnPage {
   total: number;
   open: (text?: string) => void;
   setQuery: (query: FindQuery) => void;
+  toggle: (name: FindOption) => void;
   run: () => void;
   step: (delta: number) => void;
   close: () => void;
 }
 
-const emptyQuery: FindQuery = { text: '', matchCase: false, word: false, regex: false };
+const optionsKey = 'scrawl.find.options';
+
+function emptyQuery(): FindQuery {
+  return { text: '', ...storedOptions(optionsKey, noOptions) };
+}
 
 function queryOf(params: URLSearchParams): FindQuery | undefined {
   const text = params.get(findParam);
   if (text === null || text === '') {
     return undefined;
   }
-  return { text, ...togglesOf(params) };
+  return { text, ...togglesOf(params), fuzzy: false };
 }
 
 export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: string): FindOnPage {
@@ -69,7 +76,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
       if (fresh) {
         line.current = undefined;
         setOpened(false);
-        setQueryState(emptyQuery);
+        setQueryState(emptyQuery());
       }
       return;
     }
@@ -185,22 +192,35 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
   }, [rootRef, html, opened, armed, query, runFind, show]);
 
   const open = useCallback((text?: string) => {
+    if (!opened) {
+      setQueryState(emptyQuery());
+    }
     setOpened(true);
     setOpenings((count) => count + 1);
     setArmed(true);
     if (text !== undefined && text !== '') {
       setQueryState((prev) => ({ ...prev, text }));
     }
-  }, []);
+  }, [opened]);
 
   const setQuery = useCallback((next: FindQuery) => {
     setArmed(true);
     setQueryState(next);
   }, []);
 
+  const linked = fromUrl !== undefined;
+  const toggle = useCallback((name: FindOption): void => {
+    if (optionDisabled(query, name)) {
+      return;
+    }
+    const { text, ...options } = withOption(query, name);
+    storeOptions(optionsKey, linked ? { ...storedOptions(optionsKey, noOptions), [name]: options[name] } : options);
+    setQuery({ text, ...options });
+  }, [query, linked, setQuery]);
+
   const close = useCallback((): void => {
     setOpened(false);
-    setQueryState(emptyQuery);
+    setQueryState(emptyQuery());
     if (findParams.some((name) => searchParams.has(name))) {
       void navigate({ pathname: location.pathname, hash: location.hash }, { replace: true });
     }
@@ -215,6 +235,7 @@ export function useFindOnPage(rootRef: RefObject<HTMLDivElement | null>, html: s
     total,
     open,
     setQuery,
+    toggle,
     run: () => setArmed(true),
     step: (delta: number) => show(index + delta, true),
     close,

@@ -47,30 +47,9 @@
 }
 
 .toggle {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
   min-width: 26px;
   height: 24px;
   padding: 0 4px;
-  border: 0;
-  border-radius: var(--mantine-radius-md);
-  background: none;
-  color: var(--scrawl-icon-secondary);
-  font: 600 12px/1 var(--mantine-font-family-monospace);
-  cursor: pointer;
-}
-
-.toggle[data-on='true'] {
-  background: var(--scrawl-accent-tint);
-  color: var(--scrawl-accent);
-}
-
-@media (hover: hover) {
-  .toggle:not([data-on='true']):hover {
-    background: var(--scrawl-hover);
-  }
 }
 
 @media print {
@@ -155,7 +134,7 @@
     background: var(--scrawl-border-translucent);
   }
 
-  .toggle {
+  .bar .toggle {
     order: 6;
     min-width: 44px;
     height: 44px;

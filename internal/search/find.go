@@ -26,7 +26,8 @@ const (
 	maxMatchedLines   = 5000
 	checkEvery        = 1000
 
-	minTypoRunes = 4
+	oneTypoRunes = 4
+	twoTypoRunes = 8
 	maxTypoTerms = 50
 
 	lineWindowRunes = 200
@@ -108,7 +109,7 @@ func compileQuery(q Query) (*regexp.Regexp, error) {
 }
 
 func (ix *Index) fuzzy(q Query, limit int) Found {
-	parsed := parseQuery(q.Text, true)
+	parsed := parseQuery(q.Text)
 	if len(parsed.terms) == 0 {
 		return Found{}
 	}
@@ -119,17 +120,17 @@ func (ix *Index) fuzzy(q Query, limit int) Found {
 	slots := make([]slot, len(parsed.terms))
 	for k := range parsed.terms {
 		s, ok := ix.slotFor(parsed.terms[k])
+		if q.TitlesOnly {
+			s, ok = inTitles(s)
+		}
 		if !ok {
 			s, ok = ix.typoSlot(&parsed.terms[k])
+			if q.TitlesOnly {
+				s, ok = inTitles(s)
+			}
 		}
 		if !ok {
 			return Found{}
-		}
-		if q.TitlesOnly {
-			s = inTitles(s)
-			if len(s.list) == 0 {
-				return Found{}
-			}
 		}
 		slots[k] = s
 	}
@@ -143,12 +144,12 @@ func (ix *Index) fuzzy(q Query, limit int) Found {
 }
 
 func (ix *Index) typoSlot(term *queryTerm) (slot, bool) {
-	if utf8.RuneCountInString(term.text) < minTypoRunes {
+	if typosAllowed(term.text) == 0 {
 		return slot{}, false
 	}
 	found := make([]string, 0, 4)
 	for _, cand := range ix.vocab {
-		if oneEdit(term.text, cand) {
+		if withinTypos(term.text, cand) {
 			found = append(found, cand)
 			if len(found) == maxTypoTerms {
 				break
@@ -159,11 +160,11 @@ func (ix *Index) typoSlot(term *queryTerm) (slot, bool) {
 		return slot{}, false
 	}
 	term.typo, term.prefix = true, false
-	res := ix.mergeTerms(term.text, found)
+	res := ix.mergeTerms(*term, found)
 	return res, len(res.list) > 0
 }
 
-func inTitles(s slot) slot {
+func inTitles(s slot) (slot, bool) {
 	res := slot{}
 	for i, p := range s.list {
 		if p.counts[fieldTitle] == 0 {
@@ -174,33 +175,61 @@ func inTitles(s slot) slot {
 			res.exact = append(res.exact, s.exact[i])
 		}
 	}
-	return res
+	return res, len(res.list) > 0
 }
 
-func oneEdit(a, b string) bool {
-	if a == b || len(a)-len(b) > utf8.UTFMax || len(b)-len(a) > utf8.UTFMax {
+func typosAllowed(term string) int {
+	switch n := utf8.RuneCountInString(term); {
+	case n < oneTypoRunes:
+		return 0
+	case n < twoTypoRunes:
+		return 1
+	}
+	return 2
+}
+
+func withinTypos(term, word string) bool {
+	limit := typosAllowed(term)
+	if limit == 0 || max(len(term)-len(word), len(word)-len(term)) > limit*utf8.UTFMax {
 		return false
 	}
-	ra, rb := []rune(a), []rune(b)
-	if len(ra) > len(rb) {
-		ra, rb = rb, ra
-	}
-	if len(rb)-len(ra) > 1 {
+	a, b := []rune(term), []rune(word)
+	if max(len(a)-len(b), len(b)-len(a)) > limit {
 		return false
 	}
-	i := 0
-	for i < len(ra) && ra[i] == rb[i] {
-		i++
+	before, prev, cur := make([]int, len(b)+1), make([]int, len(b)+1), make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
 	}
-	if len(ra) == len(rb) {
-		return string(ra[i+1:]) == string(rb[i+1:])
+	for i := 1; i <= len(a); i++ {
+		if editRow(a, b, i, before, prev, cur) > limit {
+			return false
+		}
+		before, prev, cur = prev, cur, before
 	}
-	return string(ra[i:]) == string(rb[i+1:])
+	return prev[len(b)] <= limit
+}
+
+func editRow(a, b []rune, i int, before, prev, cur []int) int {
+	cur[0] = i
+	best := i
+	for j := 1; j <= len(b); j++ {
+		cost := 1
+		if a[i-1] == b[j-1] {
+			cost = 0
+		}
+		cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		if i > 1 && j > 1 && a[i-1] == b[j-2] && a[i-2] == b[j-1] {
+			cur[j] = min(cur[j], before[j-2]+1)
+		}
+		best = min(best, cur[j])
+	}
+	return best
 }
 
 func (d *document) fuzzyResult(terms []queryTerm, cand topDoc, titlesOnly bool) Result {
 	marks := d.matches(terms, cand.match)
-	snippet, _ := d.snippetOf(marks)
+	snippet := d.snippetOf(marks)
 	res := Result{
 		Path:       d.path,
 		Title:      d.title,
@@ -254,11 +283,11 @@ func findWordAt(text string, at int) string {
 }
 
 func titleSpans(title string, terms []queryTerm) []Span {
-	text := normalize(title)
+	text, words := titleWords(title)
 	marks := make([]mark, 0, 2)
-	for _, tok := range tokenize(text) {
+	for _, tok := range words {
 		for k, wanted := range terms {
-			if !termMatches(wanted, tok.term) {
+			if !termMatches(wanted, tok.term) || !wanted.carriedAt(text, tok.off) {
 				continue
 			}
 			end := wordEndAt(text, tok.off)
@@ -272,7 +301,7 @@ func titleSpans(title string, terms []queryTerm) []Span {
 func termMatches(term queryTerm, word string) bool {
 	switch {
 	case term.typo:
-		return oneEdit(term.text, word)
+		return withinTypos(term.text, word)
 	case term.prefix:
 		return strings.HasPrefix(word, term.text)
 	}
@@ -388,17 +417,17 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 			break
 		}
 		title := normalize(doc.title)
-		titleMarks := patternMarks(title, re, q.Word)
+		titleMarks := patternMarks(title, re, find)
 		result := Result{Path: doc.path, Title: doc.title, TitleSpans: spansOf(title, titleMarks), Find: find}
 		if q.TitlesOnly {
 			if len(titleMarks) > 0 {
 				result.MatchCount = hitCount(result.TitleSpans)
-				result.Snippet = doc.firstSnippet(ctx, re, q.Word)
+				result.Snippet = doc.firstSnippet(ctx, re, find)
 				res.Results = append(res.Results, result)
 			}
 			continue
 		}
-		stopped := doc.scanLines(ctx, re, q.Word, &result, &matched, &read)
+		stopped := doc.scanLines(ctx, re, find, &result, &matched, &read)
 		if result.MatchCount > 0 || len(titleMarks) > 0 {
 			res.Results = append(res.Results, result)
 		}
@@ -427,7 +456,7 @@ func (ix *Index) scan(ctx context.Context, q Query, re *regexp.Regexp, limit int
 	return res
 }
 
-func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, res *Result, matched, read *int) bool {
+func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, q FindQuery, res *Result, matched, read *int) bool {
 	var first []mark
 	firstStart := 0
 	for i := range d.lines {
@@ -436,7 +465,7 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 			return true
 		}
 		start, end := d.lineBounds(i)
-		marks := patternMarks(d.plain[start:end], re, word)
+		marks := patternMarks(d.plain[start:end], re, q)
 		if len(marks) == 0 {
 			continue
 		}
@@ -461,26 +490,29 @@ func (d *document) scanLines(ctx context.Context, re *regexp.Regexp, word bool, 
 	return *matched >= maxMatchedLines
 }
 
-func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, word bool) template.HTML {
+func (d *document) firstSnippet(ctx context.Context, re *regexp.Regexp, q FindQuery) template.HTML {
 	for i := range d.lines {
 		if (i+1)%checkEvery == 0 && ctx.Err() != nil {
 			break
 		}
 		start, end := d.lineBounds(i)
-		if marks := patternMarks(d.plain[start:end], re, word); len(marks) > 0 {
+		if marks := patternMarks(d.plain[start:end], re, q); len(marks) > 0 {
 			return d.snippetAt(shift(marks, -start))
 		}
 	}
 	return d.lead()
 }
 
-func patternMarks(text string, re *regexp.Regexp, word bool) []mark {
+func patternMarks(text string, re *regexp.Regexp, q FindQuery) []mark {
 	res := []mark{}
 	for _, loc := range re.FindAllStringIndex(text, -1) {
 		if loc[1] <= loc[0] {
 			continue
 		}
-		if word && !wordBounded(text, loc[0], loc[1]) {
+		if q.Word && !wordBounded(text, loc[0], loc[1]) {
+			continue
+		}
+		if !q.Regex && cutsAccent(text, loc[1]) {
 			continue
 		}
 		res = append(res, mark{start: off32(loc[0]), end: off32(loc[1])})
@@ -489,17 +521,15 @@ func patternMarks(text string, re *regexp.Regexp, word bool) []mark {
 }
 
 func wordBounded(text string, start, end int) bool {
-	if start > 0 {
-		if r, _ := utf8.DecodeLastRuneInString(text[:start]); isWordChar(r) {
-			return false
-		}
-	}
-	if end < len(text) {
-		if r, _ := utf8.DecodeRuneInString(text[end:]); isWordChar(r) {
-			return false
-		}
-	}
-	return true
+	before, _ := utf8.DecodeLastRuneInString(strings.TrimRightFunc(text[:start], isMark))
+	after, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(text[end:], isMark))
+	return !isWordChar(before) && !isWordChar(after)
+}
+
+func cutsAccent(text string, end int) bool {
+	last, _ := utf8.DecodeLastRuneInString(text[:end])
+	next, _ := utf8.DecodeRuneInString(text[end:])
+	return unicode.IsLetter(last) && isAccent(next)
 }
 
 func isWordChar(r rune) bool {

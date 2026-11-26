@@ -4,6 +4,7 @@ import type { JSX } from 'react';
 import { RouterProvider } from 'react-router';
 
 import { appPlatform, checkingPlatform, offlinePlatform } from './appPlatform';
+import { HintGroup } from './components/Hint';
 import { Toasts } from './components/Toasts';
 import { useConnection, type Connection } from './offline/connection';
 import { PlatformProvider, type Platform } from './platform';
@@ -28,12 +29,14 @@ export function App(): JSX.Element {
       colorSchemeManager={colorSchemeManager}
       defaultColorScheme="auto"
     >
-      <ModalsProvider>
-        <Toasts />
-        <PlatformProvider value={platform}>
-          <RouterProvider router={router} />
-        </PlatformProvider>
-      </ModalsProvider>
+      <HintGroup>
+        <ModalsProvider>
+          <Toasts />
+          <PlatformProvider value={platform}>
+            <RouterProvider router={router} />
+          </PlatformProvider>
+        </ModalsProvider>
+      </HintGroup>
     </MantineProvider>
   );
 }

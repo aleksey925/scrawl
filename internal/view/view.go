@@ -269,13 +269,6 @@ func ContentURL(p string) string {
 	return "/doc/" + EncodePath(p)
 }
 
-func SearchURL(p, query string) string {
-	if query == "" {
-		return ContentURL(p)
-	}
-	return ContentURL(p) + "?q=" + url.QueryEscape(query)
-}
-
 type Find struct {
 	Text              string
 	Case, Word, Regex bool

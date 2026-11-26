@@ -11,7 +11,6 @@ import (
 	"image/png"
 	"io"
 	"io/fs"
-	"maps"
 	"mime/multipart"
 	"net"
 	"net/http"
@@ -21,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -953,7 +951,7 @@ func TestAPIFileDeleteRecursive(t *testing.T) {
 	// arrange
 	fake := &fakeHistory{}
 	ts := newTestServer(t, testOpts{history: fake})
-	require.NotEmpty(t, ts.Spaces[0].Index.Search("nested", 5))
+	require.NotEmpty(t, indexed(t, ts.Spaces[0].Index, "nested"))
 
 	// act
 	resp, body := ts.json(t, request{method: http.MethodDelete, path: "/api/file/docs?recursive=true"})
@@ -962,7 +960,7 @@ func TestAPIFileDeleteRecursive(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.status, body)
 	assert.Equal(t, "docs", body["path"])
 	assert.False(t, ts.Spaces[0].Store.Exists("docs"))
-	assert.Empty(t, ts.Spaces[0].Index.Search("nested", 5))
+	assert.Empty(t, indexed(t, ts.Spaces[0].Index, "nested"))
 	assert.Equal(t, [][]string{{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}}, fake.reported)
 }
 
@@ -982,7 +980,7 @@ func TestAPITrashRestore(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.status, body)
 		assert.Equal(t, "docs", body["path"])
 		assert.True(t, ts.Spaces[0].Store.Exists("docs/sub/deep.md"))
-		assert.NotEmpty(t, ts.Spaces[0].Index.Search("nested", 5))
+		assert.NotEmpty(t, indexed(t, ts.Spaces[0].Index, "nested"))
 		files := []string{"docs/README.md", "docs/page.md", "docs/sub/deep.md"}
 		assert.Equal(t, [][]string{files, files}, fake.reported)
 	})
@@ -1005,7 +1003,7 @@ func TestAPITrashRestore(t *testing.T) {
 		data, _, err := ts.Spaces[0].Store.Read("guide.md")
 		require.NoError(t, err)
 		assert.Equal(t, original, data)
-		assert.NotEmpty(t, ts.Spaces[0].Index.Search("gadgets", 5))
+		assert.NotEmpty(t, indexed(t, ts.Spaces[0].Index, "gadgets"))
 	})
 
 	t.Run("an id the trash does not hold is not found", func(t *testing.T) {
@@ -1126,7 +1124,7 @@ func TestAPIFileSaveOntoAnExistingFile(t *testing.T) {
 func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 	// arrange
 	ts := newTestServer(t, testOpts{})
-	require.Empty(t, ts.Spaces[0].Index.Search("kumquat", 5))
+	require.Empty(t, indexed(t, ts.Spaces[0].Index, "kumquat"))
 
 	// act
 	resp, _ := ts.json(t, request{
@@ -1136,9 +1134,18 @@ func TestAPISaveRefreshesTheSearchIndex(t *testing.T) {
 
 	// assert
 	require.Equal(t, http.StatusOK, resp.status)
-	hits := ts.Spaces[0].Index.Search("kumquat", 5)
-	require.Len(t, hits, 1)
-	assert.Equal(t, "guide.md", hits[0].Path)
+	assert.Equal(t, []string{"guide.md"}, indexed(t, ts.Spaces[0].Index, "kumquat"))
+}
+
+func indexed(t *testing.T, ix *search.Index, word string) []string {
+	t.Helper()
+	found, err := ix.Find(context.Background(), search.Query{Text: word, Mode: search.ModeExact}, 5)
+	require.NoError(t, err)
+	res := make([]string, 0, len(found.Results))
+	for _, hit := range found.Results {
+		res = append(res, hit.Path)
+	}
+	return res
 }
 
 func TestAPIErrorStatuses(t *testing.T) {
@@ -1516,20 +1523,32 @@ func TestAPISearch(t *testing.T) {
 
 	// act
 	resp, body := ts.json(t, request{path: "/api/search?q=widgets&limit=5"})
+	typoResp, typo := ts.json(t, request{path: "/api/search?q=widgts"})
+	fuzzyResp, fuzzy := ts.json(t, request{path: "/api/search?q=widgts&mode=fuzzy"})
 
 	// assert
-	assert.Equal(t, http.StatusOK, resp.status)
+	assert.Equal(t, []int{http.StatusOK, http.StatusOK, http.StatusOK}, []int{resp.status, typoResp.status, fuzzyResp.status})
 	hits := body["hits"].([]any)
 	require.Len(t, hits, 1)
 	hit := hits[0].(map[string]any)
 	assert.Equal(t, "guide.md", hit["path"])
 	assert.Equal(t, "/doc/guide.md?q=widgets", hit["url"],
 		"the hit carries the query on, so the page it opens can jump to the match")
-	assert.Contains(t, hit["snippet"], "<mark>widgets</mark>")
+	assert.Equal(t, float64(1), hit["match_count"])
 	assert.NotNil(t, body["elapsed_ms"])
-	assert.Equal(t, []string{"path", "score", "snippet", "title", "url"}, slices.Sorted(maps.Keys(hit)),
-		"a request that names no mode is answered the way scripts know it")
-	assert.NotContains(t, body, "truncated")
+	assert.Empty(t, typo["hits"], "a request that names no mode looks for the text as typed")
+	fuzzyHits := fuzzy["hits"].([]any)
+	require.Len(t, fuzzyHits, 1)
+	fuzzyHit := fuzzyHits[0].(map[string]any)
+	assert.Equal(t, "/doc/guide.md?q=widgets&regex=1&word=1", fuzzyHit["url"])
+	assert.Equal(t, []any{map[string]any{
+		"line": float64(5),
+		"url":  "/doc/guide.md?line=5&q=widgets&regex=1&word=1",
+		"spans": []any{
+			map[string]any{"text": "widgets", "hit": true},
+			map[string]any{"text": " and gadgets", "hit": false},
+		},
+	}}, fuzzyHit["lines"])
 }
 
 func TestAPISearchModes(t *testing.T) {

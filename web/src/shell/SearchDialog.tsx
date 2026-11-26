@@ -2,16 +2,19 @@ import { Modal } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
   useCallback, useEffect, useMemo, useRef, useState,
-  type JSX, type KeyboardEvent as ReactKeyboardEvent, type ReactNode,
+  type JSX, type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
 import { Link, useNavigate } from 'react-router';
 
 import { api, searchTextOf } from '../api/client';
-import type { SearchMode, SearchResponse, SearchSettings } from '../api/types';
+import type { SearchResponse, SearchSettings } from '../api/types';
 import { errorText } from '../api/useApi';
-import { Segmented, type SegmentedOption } from '../components/Segmented';
+import { Hint } from '../components/Hint';
 import { IconFileText, IconSearch, IconX } from '../icons';
 import { documentUrl } from '../paths';
+import { noOptions, optionDisabled, optionKeys, withOption, type FindOption } from '../reader/findOptions';
+import { FindToggles } from '../reader/FindToggles';
+import { storedOptions, storeOptions } from '../reader/storedOptions';
 import { layout, layoutBreakpoints, useBelow } from '../theme';
 
 import { useRecentNotes, type RecentNote } from './recentNotes';
@@ -24,31 +27,8 @@ import { useFullScreenStyle } from './useVisibleArea';
 const debounceMs = 200;
 const resultLimit = 30;
 
-const modeOptions: SegmentedOption<SearchMode>[] = [
-  { value: 'fuzzy', label: 'Fuzzy' },
-  { value: 'exact', label: 'Exact' },
-];
-
-const defaultSettings: SearchSettings = { mode: 'fuzzy', matchCase: false, word: false, regex: false, titles: false };
-
-function togglesOn(settings: SearchSettings): boolean {
-  return settings.mode === 'exact' || settings.regex;
-}
-
-function withToggle(settings: SearchSettings, code: string): SearchSettings | undefined {
-  switch (code) {
-    case 'KeyC':
-      return togglesOn(settings) ? { ...settings, matchCase: !settings.matchCase } : settings;
-    case 'KeyW':
-      return togglesOn(settings) ? { ...settings, word: !settings.word } : settings;
-    case 'KeyR':
-      return { ...settings, regex: !settings.regex };
-    case 'KeyF':
-      return settings.regex ? settings : { ...settings, mode: settings.mode === 'fuzzy' ? 'exact' : 'fuzzy' };
-    default:
-      return undefined;
-  }
-}
+const settingsKey = 'scrawl.search.settings';
+const defaultSettings: SearchSettings = { ...noOptions, titles: false };
 
 interface Answer {
   query?: string;
@@ -69,7 +49,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   const screenStyle = useFullScreenStyle(phone);
   const { notes: recent, clear: clearRecent } = useRecentNotes();
   const [text, setText] = useState(initial);
-  const [settings, setSettings] = useState<SearchSettings>(defaultSettings);
+  const [settings, setSettings] = useState<SearchSettings>(() => storedOptions(settingsKey, defaultSettings));
   const [debounced] = useDebouncedValue(text, debounceMs);
   const [answer, setAnswer] = useState<Answer>({});
   const [active, setActive] = useState<string | undefined>(undefined);
@@ -126,12 +106,22 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
     bodyRef.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
+  const change = (next: SearchSettings): void => {
+    storeOptions(settingsKey, next);
+    setSettings(next);
+  };
+  const toggle = (name: FindOption): void => {
+    if (!optionDisabled(settings, name)) {
+      change(withOption(settings, name));
+    }
+  };
+
   const onKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>): void => {
     if (event.altKey) {
-      const next = withToggle(settings, event.nativeEvent.code);
-      if (next !== undefined) {
+      const name = optionKeys[event.nativeEvent.code];
+      if (name !== undefined) {
         event.preventDefault();
-        setSettings(next);
+        toggle(name);
       }
       return;
     }
@@ -156,8 +146,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
     }
   };
 
-  const toggles = togglesOn(settings);
-  const matches = hits.reduce((sum, row) => sum + (row.match_count ?? 0), 0);
+  const matches = hits.reduce((sum, row) => sum + row.match_count, 0);
 
   const icon = <IconSearch size={layout.iconSize} />;
   const input = (
@@ -184,43 +173,20 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   );
   const toggleButtons = (
     <div className={classes.toggles}>
-      <Toggle testId="search-case" label="Match case" on={settings.matchCase} disabled={!toggles}
-        onClick={() => setSettings({ ...settings, matchCase: !settings.matchCase })}>
-        Aa
-      </Toggle>
-      <Toggle testId="search-word" label="Whole word" on={settings.word} disabled={!toggles}
-        onClick={() => setSettings({ ...settings, word: !settings.word })}>
-        <u>ab</u>
-      </Toggle>
-      <Toggle testId="search-regex" label="Regular expression" on={settings.regex}
-        onClick={() => setSettings({ ...settings, regex: !settings.regex })}>
-        .*
-      </Toggle>
+      <FindToggles options={settings} testIdPrefix="search" className={classes.toggle} onToggle={toggle} />
     </div>
   );
-  const modeControls = (
-    <>
-      <Segmented
-        data-testid="search-mode"
-        data-mode={settings.mode}
-        className={phone ? classes.phoneMode : undefined}
-        size="xs"
-        value={settings.mode}
-        disabled={settings.regex}
-        onChange={(mode) => setSettings({ ...settings, mode })}
-        options={modeOptions}
-      />
-      <button
-        type="button"
-        data-testid="search-titles"
-        data-on={settings.titles ? 'true' : 'false'}
-        aria-pressed={settings.titles}
-        className={classes.chip}
-        onClick={() => setSettings({ ...settings, titles: !settings.titles })}
-      >
-        Titles only
-      </button>
-    </>
+  const titlesChip = (
+    <button
+      type="button"
+      data-testid="search-titles"
+      data-on={settings.titles ? 'true' : 'false'}
+      aria-pressed={settings.titles}
+      className={classes.chip}
+      onClick={() => change({ ...settings, titles: !settings.titles })}
+    >
+      Titles only
+    </button>
   );
   const hint = (
     <span data-testid="search-hint" className={classes.hint}>
@@ -230,7 +196,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
   const stats = answer.response !== undefined && !empty && (
     <span data-testid="search-stats" className={classes.stats}>
       {matches} {matches === 1 ? 'match' : 'matches'} in {hits.length} {hits.length === 1 ? 'note' : 'notes'},{' '}
-      {answer.response.elapsed_ms} ms{answer.response.truncated === true ? ', stopped early' : ''}
+      {answer.response.elapsed_ms} ms{answer.response.truncated ? ', stopped early' : ''}
     </span>
   );
   const body = (
@@ -286,7 +252,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
             </div>
           )}
           <div data-testid="search-card" role="search" className={classes.card} data-print="hide">
-            {!offline && <div className={classes.cardOptions}>{modeControls}</div>}
+            {!offline && <div className={classes.cardOptions}>{titlesChip}</div>}
             {offline ? (
               <span data-testid="search-offline" className={classes.hint}>
                 Search needs the network
@@ -298,16 +264,17 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
               {icon}
               {input}
               {!offline && toggleButtons}
-              <button
-                type="button"
-                data-testid="search-close"
-                className={classes.close}
-                aria-label="Cancel search"
-                title="Cancel search"
-                onClick={onClose}
-              >
-                <IconX size={layout.iconSize} />
-              </button>
+              <Hint label="Cancel search">
+                <button
+                  type="button"
+                  data-testid="search-close"
+                  className={classes.close}
+                  aria-label="Cancel search"
+                  onClick={onClose}
+                >
+                  <IconX size={layout.iconSize} />
+                </button>
+              </Hint>
             </div>
           </div>
         </div>
@@ -321,7 +288,7 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
             </div>
           </div>
           <div className={classes.options}>
-            {modeControls}
+            {titlesChip}
             {hint}
           </div>
           {body}
@@ -333,40 +300,13 @@ export function SearchDialog({ initial, offline, onClose }: SearchDialogProps): 
               <kbd>↵</kbd>Open
             </span>
             <span>
-              <kbd>{keysLabel(altKey, 'F')}</kbd>Fuzzy or exact
+              <kbd>{keysLabel(altKey, 'F')}</kbd>Fuzzy
             </span>
             {stats}
           </div>
         </div>
       )}
     </Modal>
-  );
-}
-
-interface ToggleProps {
-  testId: string;
-  label: string;
-  on: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}
-
-function Toggle({ testId, label, on, disabled = false, onClick, children }: ToggleProps): JSX.Element {
-  return (
-    <button
-      type="button"
-      data-testid={testId}
-      data-on={on ? 'true' : 'false'}
-      className={classes.toggle}
-      aria-label={label}
-      aria-pressed={on}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-    </button>
   );
 }
 

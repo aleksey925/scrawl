@@ -46,10 +46,10 @@ test.describe.serial('history', () => {
         await expect(versions.first().getByTestId('version-kind')).toHaveText('Edit');
         await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('Create');
         await expect(versions.nth(1).getByTestId('version-kind'))
-            .toHaveCSS('background-color', rgb(lightTheme.blocks.green.bg));
+            .toHaveCSS('background-color', rgb(lightTheme.blocks.gray.bg));
         await expect(versions.first()).toHaveAttribute('data-selected', 'true');
-        await expect(page.getByTestId('version-restore')).toBeDisabled();
-        await expect(page.getByTestId('history-restore-reason')).toHaveText('Same as the current note');
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Takes out only this change. Later changes stay.');
         await shot(page, 'history-versions');
 
         await versions.nth(1).click();
@@ -83,8 +83,9 @@ test.describe.serial('history', () => {
         await saveInEditor(page, `# Список ${stamp}\n\nКупить хлеб.\n`);
         await page.goto(HISTORY.url.history(docPath));
         await expect(page.getByTestId('version')).toHaveCount(2);
-        await expect(page.getByTestId('history-undo-reason')).toHaveText('Takes out only this change. Later changes stay.');
-        await expect(page.getByTestId('version-restore')).toBeDisabled();
+        await expect(page.getByTestId('version-undo')).toHaveText('Undo This Change');
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Takes out only this change. Later changes stay.');
 
         // act
         await page.getByTestId('version-undo').click();
@@ -159,9 +160,10 @@ test.describe.serial('history', () => {
         await versions.nth(1).click();
 
         // assert
-        await expect(page.getByTestId('version-undo')).toBeDisabled();
-        await expect(page.getByTestId('history-undo-reason')).toHaveText('This version created the note');
-        await expect(page.getByTestId('version-restore')).toBeEnabled();
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveText('Restore This Version');
+        await expect(page.getByTestId('history-actions-hint'))
+            .toHaveText('Brings the whole note back to this version. This version created the note.');
     });
 
     test.describe('in a 12-hour locale', () => {
@@ -198,8 +200,9 @@ test.describe.serial('history', () => {
             await page.getByTestId('history-list').waitFor();
             return versions.count();
         }).toBe(2);
-        await expect(page.getByTestId('version-undo')).toBeDisabled();
-        await expect(page.getByTestId('history-undo-reason')).toHaveText('The note is deleted now');
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('The note is deleted now. This version was a deletion.');
         writeFixture(docPath, `back ${stamp}\n`, HISTORY);
         await expect.poll(async () => {
             await page.reload();
@@ -212,8 +215,9 @@ test.describe.serial('history', () => {
 
         // assert
         await expect(versions.nth(1).getByTestId('version-kind')).toHaveText('On disk');
-        await expect(page.getByTestId('version-undo')).toBeDisabled();
-        await expect(page.getByTestId('history-undo-reason')).toHaveText('This version was a deletion');
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('This version was a deletion.');
     });
 
     test('a rename alone has nothing to undo', async ({page}) => {
@@ -232,8 +236,9 @@ test.describe.serial('history', () => {
         const versions = page.getByTestId('version');
         await expect(versions).toHaveCount(2);
         await expect(versions.first().getByTestId('version-kind')).toHaveText('Rename');
-        await expect(page.getByTestId('version-undo')).toBeDisabled();
-        await expect(page.getByTestId('history-undo-reason')).toHaveText('This version changed no text');
+        await expect(page.getByTestId('version-undo')).toHaveCount(0);
+        await expect(page.getByTestId('version-restore')).toHaveCount(0);
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('This version changed no text.');
     });
 
     test('a page left open while the document changed is refused its undo', async ({page}) => {
@@ -444,12 +449,22 @@ test.describe.serial('history', () => {
 
         await versions.nth(1).click();
         await expect(page.getByTestId('rendered-diff')).toContainText('Waits second');
+        for (const id of ['version-undo', 'version-restore']) {
+            expect(await page.getByTestId(id).evaluate((el) => el.scrollWidth <= el.clientWidth), `${id} fits its label`).toBe(true);
+        }
+        const left = await page.getByTestId('version-undo').boundingBox();
+        const right = await page.getByTestId('version-restore').boundingBox();
+        expect(right.y, 'the two share a row').toBeCloseTo(left.y, 0);
+        expect(Math.round(left.height)).toBe(32);
+        await expect(page.getByTestId('version-restore')).toHaveCSS('background-color', rgb(lightTheme.palette.historyActionBg));
+        await expect(page.getByTestId('version-restore')).toHaveCSS('border-color', rgb(lightTheme.palette.border));
         await page.route(listRead, held);
         await page.getByTestId('version-restore').click();
         await page.getByTestId('modal-confirm').click();
         await expect(page.locator('[data-testid=toast][data-kind="ok"]')).toContainText(text.toast.restored);
         await expect(page.getByTestId('version-restore')).toBeDisabled();
-        await expect(page.getByTestId('history-restore-reason')).toHaveText('Brings the whole note back to this version.');
+        await expect(page.getByTestId('version-undo')).toBeDisabled();
+        await expect(page.getByTestId('history-actions-hint')).toHaveText('Undo removes only this change. Restore returns the whole note to this version.');
         await expect(versions).toHaveCount(4);
     });
 

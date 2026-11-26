@@ -5,6 +5,8 @@ import controls from '../controls.module.css';
 import type { Icon } from '../icons';
 import { layout } from '../theme';
 
+import { Hint } from './Hint';
+
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
@@ -30,13 +32,15 @@ export function Segmented<T extends string>({ options, compact = false, ...rest 
           OptionIcon === undefined && testId === undefined && mark === undefined ? (
             label
           ) : (
-            <span data-testid={testId} className={controls.segmentOption} title={compact ? label : undefined}>
-              {OptionIcon !== undefined && <OptionIcon size={layout.iconSizeSmall} />}
-              <span data-segment-text className={compact ? controls.segmentTextCompact : undefined}>
-                {label}
-                {mark}
+            <Hint label={label} disabled={!compact}>
+              <span data-testid={testId} className={controls.segmentOption}>
+                {OptionIcon !== undefined && <OptionIcon size={layout.iconSizeSmall} />}
+                <span data-segment-text className={compact ? controls.segmentTextCompact : undefined}>
+                  {label}
+                  {mark}
+                </span>
               </span>
-            </span>
+            </Hint>
           ),
       }))}
     />

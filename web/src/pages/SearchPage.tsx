@@ -11,7 +11,7 @@ import { Page, PageTitle } from '../components/Page';
 import { standaloneChrome, usePageChrome } from '../shell/PageChrome';
 import { hintOf, SearchResults } from '../shell/SearchResults';
 
-const nothing: SearchResponse = { hits: [], elapsed_ms: 0 };
+const nothing: SearchResponse = { hits: [], elapsed_ms: 0, truncated: false };
 const pageLimit = 50;
 const noneExpanded: ReadonlySet<string> = new Set();
 
@@ -38,7 +38,7 @@ export function Component(): JSX.Element {
         <Text data-testid="search-count" data-total={found.hits.length} size="sm" c="dimmed" mb="md">
           {countOf(found.hits.length, 'result')} in {found.elapsed_ms} ms ·{' '}
           {hintOf(settings)}
-          {found.truncated === true ? ', stopped early' : ''}
+          {found.truncated ? ', stopped early' : ''}
         </Text>
       )}
       {empty ? (

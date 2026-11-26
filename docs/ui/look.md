@@ -41,8 +41,9 @@ Colors, controls and type: how a note and the chrome are drawn.
   row. A phone draws that row across its row of the list's group
   ([phone](phone.md)). The keyboard's focus on a grid of the editor lifts the
   same way too. The accent is spent the way Notion spends it, read off its own
-  pages: the one main button and a toggle that is on, and on a phone the
-  current tab of the bar
+  pages: the one main button and a toggle that is on, the small actions of the
+  history, accent text tinted on a phone and framed on a desktop, as neither is
+  the main one ([pages](pages.md)), and on a phone the current tab of the bar
   ([ADR 28](../adr/0028-the-phone-controls-float-at-the-bottom.md)); the search
   field has no ring, the back link and Cancel are plain text, and a main button
   that cannot be pressed yet fades in its color. The focus of the keyboard is
@@ -123,6 +124,16 @@ Colors, controls and type: how a note and the chrome are drawn.
   there is one, in its gray. Its colors are the theme's `tooltip`,
   `tooltipText` and `tooltipTextSecondary`, dark in both themes, as Notion and
   macOS draw a tooltip dark on a light page too.
+- An icon button names itself in a hint, `Hint` in
+  `web/src/components/Hint.tsx`, never in a `title`, whose tooltip comes late
+  ([quirks](../quirks.md#browsers)). The hint opens 400ms after the pointer
+  stops on the button and closes 100ms after it leaves, and while one is open,
+  the hint of the next button opens at once, as in macOS. All hints share one
+  `HintGroup` at the root of the app and of a site. It has the colors of
+  `StatusTip` in a smaller size: 4px by 8px of padding, the small radius and
+  the xs text. A touch never opens it, as iOS has no tooltips: a button a phone
+  shows must say what it does by its icon or its label. A date in a `title`
+  stays in the browser's tooltip, as it is text to read, not a control.
 - A dialog ends in one row of buttons, `DialogActions`, which the confirms take
   as their `groupProps`: on a desktop at the right, as wide as their words and
   32px tall, as the prototype has them, and on a phone sharing the row in equal
